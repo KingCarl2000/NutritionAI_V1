@@ -1,0 +1,12 @@
+# Kế thừa hạ tầng cơ bản
+-r base.txt
+
+# Framework quản lý LLM & Prompts
+langchain
+langchain-community
+
+# API clients
+
+# Xử lý văn bản & RAG (Retrieval-Augmented Generation)
+tiktoken
+pypdf

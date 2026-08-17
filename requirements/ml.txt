@@ -1,0 +1,15 @@
+# Kế thừa hạ tầng cơ bản
+-r base.txt
+
+# Xử lý dữ liệu cốt lõi
+pandas
+numpy
+
+# Học máy truyền thống
+scikit-learn
+
+# MLOps, Tracking & Cloud Infrastructure
+mlflow
+dagshub
+skops
+awscli

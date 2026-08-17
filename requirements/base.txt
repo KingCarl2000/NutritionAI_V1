@@ -1,0 +1,17 @@
+# Chế độ cài đặt cho thư mục hiện tại (project src)
+-e .
+
+# Web Framework & Server
+fastapi
+uvicorn
+python-multipart
+
+# Quản lý môi trường & Chứng chỉ
+python-dotenv
+pyaml
+certifi
+
+# Kết nối Database (PostgreSQL + pgvector)
+sqlalchemy
+psycopg2-binary
+pgvector
