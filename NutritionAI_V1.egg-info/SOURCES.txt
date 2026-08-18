@@ -1,0 +1,17 @@
+README.md
+setup.py
+NutritionAI_V1.egg-info/PKG-INFO
+NutritionAI_V1.egg-info/SOURCES.txt
+NutritionAI_V1.egg-info/dependency_links.txt
+NutritionAI_V1.egg-info/requires.txt
+NutritionAI_V1.egg-info/top_level.txt
+utils/__init__.py
+utils/cloud/__init__.py
+utils/cloud/s3_syncer.py
+utils/main_utils/__init__.py
+utils/main_utils/utils.py
+utils/ml_utils/__init__.py
+utils/ml_utils/metric/__init__.py
+utils/ml_utils/metric/classification_metric.py
+utils/ml_utils/model/__init__.py
+utils/ml_utils/model/estimator.py

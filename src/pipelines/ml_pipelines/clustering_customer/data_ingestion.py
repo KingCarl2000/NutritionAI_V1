@@ -1,5 +1,5 @@
-from nutrition_core.exception.exception import NetworkSecurityException
-from nutrition_core.logging.logger import logging
+from src.nutrition_core.exception.exception import NetworkSecurityException
+from src.nutrition_core.logging.logger import logging
 
 
 ## configuration of the Data Ingestion Config

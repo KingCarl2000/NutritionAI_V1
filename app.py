@@ -9,8 +9,8 @@ load_dotenv()
 mongo_db_url = os.getenv("MONGODB_URL_KEY")
 print(mongo_db_url)
 import pymongo
-from nutrition_core.exception.exception import NetworkSecurityException
-from nutrition_core.logging.logger import logging
+from src.nutrition_core.exception.exception import NetworkSecurityException
+from src.nutrition_core.logging.logger import logging
 from networksecurity.pipelines.ml_pipelines.calorie_prediction.training_pipeline import TrainingPipeline
 
 from fastapi.middleware.cors import CORSMiddleware

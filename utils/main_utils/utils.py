@@ -1,6 +1,6 @@
 import yaml
-from nutrition_core.exception.exception import NetworkSecurityException
-from nutrition_core.logging.logger import logging
+from src.nutrition_core.exception.exception import NetworkSecurityException
+from src.nutrition_core.logging.logger import logging
 import os,sys
 import numpy as np
 #import dill

@@ -1,8 +1,8 @@
 import os
 import sys
 
-from nutrition_core.exception.exception import NetworkSecurityException 
-from nutrition_core.logging.logger import logging
+from src.nutrition_core.exception.exception import NetworkSecurityException 
+from src.nutrition_core.logging.logger import logging
 
 from networksecurity.entity.artifact_entity import DataTransformationArtifact,ModelTrainerArtifact
 from networksecurity.entity.config_entity import ModelTrainerConfig

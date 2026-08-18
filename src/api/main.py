@@ -1,12 +1,12 @@
-from pipelines.ml_pipelines.calorie_prediction.data_ingestion import DataIngestion
-from pipelines.ml_pipelines.calorie_prediction.data_validation import DataValidation
-from pipelines.ml_pipelines.calorie_prediction.data_transformation import DataTransformation
-from nutrition_core.exception.exception import NetworkSecurityException
-from nutrition_core.logging.logger import logging
+from src.pipelines.ml_pipelines.calorie_prediction.data_ingestion import DataIngestion
+from src.pipelines.ml_pipelines.calorie_prediction.data_validation import DataValidation
+from src.pipelines.ml_pipelines.calorie_prediction.data_transformation import DataTransformation
+from src.nutrition_core.exception.exception import NetworkSecurityException
+from src.nutrition_core.logging.logger import logging
 from networksecurity.entity.config_entity import DataIngestionConfig,DataValidationConfig,DataTransformationConfig
 from networksecurity.entity.config_entity import TrainingPipelineConfig
 
-from pipelines.ml_pipelines.calorie_prediction.model_trainer import ModelTrainer
+from src.pipelines.ml_pipelines.calorie_prediction.model_trainer import ModelTrainer
 from networksecurity.entity.config_entity import ModelTrainerConfig
  
 

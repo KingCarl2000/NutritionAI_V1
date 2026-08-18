@@ -1,0 +1,44 @@
+Metadata-Version: 2.4
+Name: NutritionAI_V1
+Version: 0.0.1
+Author: Carl
+Author-email: ngvcuong282@gmail.com
+Requires-Dist: fastapi
+Requires-Dist: uvicorn
+Requires-Dist: python-multipart
+Requires-Dist: python-dotenv
+Requires-Dist: pyaml
+Requires-Dist: certifi
+Requires-Dist: ipykernel
+Requires-Dist: sqlalchemy
+Requires-Dist: psycopg2-binary
+Requires-Dist: pgvector
+Provides-Extra: ml
+Requires-Dist: pandas; extra == "ml"
+Requires-Dist: numpy; extra == "ml"
+Requires-Dist: scikit-learn; extra == "ml"
+Requires-Dist: mlflow; extra == "ml"
+Requires-Dist: dagshub; extra == "ml"
+Requires-Dist: skops; extra == "ml"
+Requires-Dist: awscli; extra == "ml"
+Provides-Extra: llm
+Requires-Dist: langchain; extra == "llm"
+Requires-Dist: langchain-community; extra == "llm"
+Requires-Dist: tiktoken; extra == "llm"
+Requires-Dist: pypdf; extra == "llm"
+Provides-Extra: all
+Requires-Dist: pandas; extra == "all"
+Requires-Dist: numpy; extra == "all"
+Requires-Dist: scikit-learn; extra == "all"
+Requires-Dist: mlflow; extra == "all"
+Requires-Dist: dagshub; extra == "all"
+Requires-Dist: skops; extra == "all"
+Requires-Dist: awscli; extra == "all"
+Requires-Dist: langchain; extra == "all"
+Requires-Dist: langchain-community; extra == "all"
+Requires-Dist: tiktoken; extra == "all"
+Requires-Dist: pypdf; extra == "all"
+Dynamic: author
+Dynamic: author-email
+Dynamic: provides-extra
+Dynamic: requires-dist

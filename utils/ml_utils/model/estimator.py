@@ -3,8 +3,8 @@ from networksecurity.constant.training_pipeline import SAVED_MODEL_DIR,MODEL_FIL
 import os
 import sys
 
-from nutrition_core.exception.exception import NetworkSecurityException
-from nutrition_core.logging.logger import logging
+from src.nutrition_core.exception.exception import NetworkSecurityException
+from src.nutrition_core.logging.logger import logging
 
 class NetworkModel:
     def __init__(self,preprocessor,model):

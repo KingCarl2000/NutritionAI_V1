@@ -1,5 +1,5 @@
 import sys
-from nutrition_core.logging import logger
+from src.nutrition_core.logging import logger
 from types import ModuleType
 
 class NetworkSecurityException(Exception):

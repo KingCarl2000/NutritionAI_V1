@@ -1,8 +1,8 @@
 import os
 import sys
 
-from nutrition_core.exception.exception import NetworkSecurityException
-from nutrition_core.logging.logger import logging
+from src.nutrition_core.exception.exception import NetworkSecurityException
+from src.nutrition_core.logging.logger import logging
 
 from networksecurity.pipelines.ml_pipelines.calorie_prediction.data_ingestion import DataIngestion
 from networksecurity.pipelines.ml_pipelines.calorie_prediction.data_validation import DataValidation
