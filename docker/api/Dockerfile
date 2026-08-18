@@ -1,3 +1,5 @@
+# Chứa Python, FastAPI, và các thư viện nhẹ
+
 FROM python:3.10-slim-bookworm
 WORKDIR /app
 COPY . /app

@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  postgresml:
+    image: ghcr.io/postgresml/postgresml:latest
+    container_name: nutrition_postgresml
+    ports:
+      - "5432:5432"  # Port cho PostgreSQL
+      - "8000:8000"  # Port cho giao diện PostgresML Dashboard
+    volumes:
+      - pgml_data:/var/lib/postgresql
+    environment:
+      - POSTGRES_PASSWORD=your_secure_password
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+volumes:
+  pgml_data:
+    description: "Volume lưu trữ dữ liệu bền vững cho PostgresML"
