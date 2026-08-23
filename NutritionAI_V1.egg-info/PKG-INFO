@@ -7,12 +7,13 @@ Requires-Dist: fastapi
 Requires-Dist: uvicorn
 Requires-Dist: python-multipart
 Requires-Dist: python-dotenv
-Requires-Dist: pyaml
+Requires-Dist: PyYAML
 Requires-Dist: certifi
 Requires-Dist: ipykernel
 Requires-Dist: sqlalchemy
-Requires-Dist: psycopg2-binary
 Requires-Dist: pgvector
+Requires-Dist: psycopg
+Requires-Dist: psycopg_pool
 Provides-Extra: ml
 Requires-Dist: pandas; extra == "ml"
 Requires-Dist: numpy; extra == "ml"
@@ -21,6 +22,7 @@ Requires-Dist: mlflow; extra == "ml"
 Requires-Dist: dagshub; extra == "ml"
 Requires-Dist: skops; extra == "ml"
 Requires-Dist: awscli; extra == "ml"
+Requires-Dist: apache-airflow; extra == "ml"
 Provides-Extra: llm
 Requires-Dist: langchain; extra == "llm"
 Requires-Dist: langchain-community; extra == "llm"
@@ -34,6 +36,7 @@ Requires-Dist: mlflow; extra == "all"
 Requires-Dist: dagshub; extra == "all"
 Requires-Dist: skops; extra == "all"
 Requires-Dist: awscli; extra == "all"
+Requires-Dist: apache-airflow; extra == "all"
 Requires-Dist: langchain; extra == "all"
 Requires-Dist: langchain-community; extra == "all"
 Requires-Dist: tiktoken; extra == "all"

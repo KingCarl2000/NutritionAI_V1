@@ -1,18 +1,20 @@
-# Chế độ cài đặt cho thư mục hiện tại (project src)
+# Chế độ cài đặt cho thư mục hiện tại (cần có setup.py hoặc pyproject.toml)
 -e .
 
-# Web Framework & Server
+# Web Framework & Server (API/Template responses)
 fastapi
 uvicorn
 python-multipart
 
 # Quản lý môi trường & Chứng chỉ
 python-dotenv
-pyaml
+PyYAML 
 certifi
 ipykernel
 
 # Kết nối Database (PostgreSQL + pgvector)
 sqlalchemy
-psycopg2-binary
 pgvector
+psycopg
+psycopg_pool
+

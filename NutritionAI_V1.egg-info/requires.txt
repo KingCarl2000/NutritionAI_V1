@@ -2,12 +2,13 @@ fastapi
 uvicorn
 python-multipart
 python-dotenv
-pyaml
+PyYAML
 certifi
 ipykernel
 sqlalchemy
-psycopg2-binary
 pgvector
+psycopg
+psycopg_pool
 
 [all]
 pandas
@@ -17,6 +18,7 @@ mlflow
 dagshub
 skops
 awscli
+apache-airflow
 langchain
 langchain-community
 tiktoken
@@ -36,3 +38,4 @@ mlflow
 dagshub
 skops
 awscli
+apache-airflow
