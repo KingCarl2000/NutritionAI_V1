@@ -1,40 +1,60 @@
-import logging
-from typing import Any, cast  # <-- FIXED: Imported 'Any' from typing
 import psycopg
-from psycopg import rows, sql  # <-- FIXED: Imported 'rows' directly from psycopg to prevent attribute access issues
-from src.postgres.core.connection import get_connection
-from src.postgres.core.db_config import config
+import logging
+from typing import Iterator, List, Dict, Any
 
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def stream_training_data(query: str):
-    """
-    Generator yield các batch dữ liệu sử dụng Server-side Cursors.
-    Giải quyết bài toán OOM (Out Of Memory) khi train các Deep Learning Models (PyTorch/TensorFlow).
-    """
-    # Khởi tạo kết nối. Server-side cursors yêu cầu chạy trong một transaction.
-    with get_connection() as conn:
+class DatasetCursorExtrator:
+    def __init__(self, conn_info: str):
+        """
+        Khởi tạo kết nối với psycopg3.
+        conn_info: Chuỗi kết nối PostgreSQL (vd: "dbname=nutrition_db user=postgres password=secret")
+        """
+        self.conn_info = conn_info
+
+    def fetch_data_in_chunks(self, query: str, chunk_size: int = 10000) -> Iterator[List[Dict[str, Any]]]:
+        """
+        Trích xuất dữ liệu theo từng phần (chunks) sử dụng Server-side Cursors.
         
-        # Đặt tên cho cursor (ví dụ: 'ml_training_cursor') để ép psycopg3 
-        # tạo ra một Server-side Cursor thay vì Client-side Cursor mặc định.
-        with conn.cursor(name="ml_training_cursor", row_factory=rows.dict_row) as cur:
-            logger.info(f"Đã khởi tạo Server-side Cursor. Đang chuẩn bị query: {query[:50]}...")
+        Args:
+            query (str): Câu lệnh SELECT cần thực thi.
+            chunk_size (int): Số lượng bản ghi tải về trong mỗi chunk.
             
-            # FIX: Cast the dynamic 'str' query to a LiteralString-compatible type via Any for sql.SQL()
-            # WARNING: Ensure the 'query' variable does not contain unsanitized user input!
-            cur.execute(sql.SQL(cast(Any, query)))
+        Yields:
+            Iterator[List[Dict]]: Một batch dữ liệu dạng danh sách các dictionary.
+        """
+        logger.info(f"Bắt đầu stream dữ liệu với chunk_size = {chunk_size}")
+        
+        # Bắt buộc phải nằm trong một transaction block (autocommit = False) để dùng server-side cursor
+        with psycopg.connect(self.conn_info, autocommit=False) as conn:
+            # Bật row_factory để trả về dữ liệu dạng dictionary thay vì tuple (tiện lợi cho Pandas/ML)
+            conn.row_factory = psycopg.rows.dict_row
             
-            while True:
-                # fetchmany() sẽ chỉ kéo đúng số dòng bằng config.training_chunk_size (vd: 10000 dòng)
-                # qua mạng (network) về RAM của Python, dữ liệu còn lại vẫn nằm trên PostgreSQL Server.
-                chunk = cur.fetchmany(config.training_chunk_size)
+            # Khởi tạo Server-side Cursor bằng cách đặt tên cho tham số 'name'
+            with conn.cursor(name="ml_training_cursor") as cursor:
+                # Tính năng itersize trong psycopg3 giúp tự động nạp ngầm từng batch từ server
+                cursor.itersize = chunk_size 
+                cursor.execute(query)
                 
-                if not chunk:
-                    logger.info("Đã stream toàn bộ dữ liệu huấn luyện.")
-                    break
+                while True:
+                    # Lấy về một lượng bản ghi vừa đủ với bộ nhớ
+                    records = cursor.fetchmany(chunk_size)
+                    if not records:
+                        break
                     
-                logger.info(f"Đã tải thành công lô dữ liệu (batch): {len(chunk)} dòng.")
-                
-                # Sử dụng 'yield' để tạo thành Python Generator, 
-                # giúp luồng huấn luyện DL tiêu thụ data tuần tự.
-                yield chunk
+                    yield records
+                    
+        logger.info("Hoàn tất quá trình trích xuất dữ liệu.")
+
+# --- Ví dụ sử dụng ---
+if __name__ == "__main__":
+    db_url = "postgresql://postgres:password@localhost:5432/nutrition_db"
+    extractor = DatasetCursorExtrator(db_url)
+    
+    query = "SELECT user_id, log_date, weight, calories_burned FROM fitness_logs;"
+    
+    # Dữ liệu sẽ được stream qua RAM thay vì load toàn bộ cùng lúc
+    for batch in extractor.fetch_data_in_chunks(query, chunk_size=5000):
+        # Tại đây: Chuyển batch thành Pandas DataFrame hoặc đưa trực tiếp vào PyTorch/TensorFlow DataLoader
+        print(f"Đã xử lý batch gồm {len(batch)} bản ghi.")

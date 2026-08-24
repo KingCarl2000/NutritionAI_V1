@@ -1,36 +1,157 @@
-import psycopg
-from psycopg import sql
+import psycopg2
+from psycopg2 import sql
 import logging
-from typing import List
 
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def load_csv_to_postgres(conn: psycopg.Connection, table_name: str, csv_file_path: str, columns: List[str]):
-    """
-    Sử dụng giao thức COPY của psycopg3 để nạp hàng triệu dòng dữ liệu từ file CSV.
-    Quá trình này cực kỳ tối ưu vì bỏ qua các overhead của lệnh INSERT thông thường.
-    """
-    # Sử dụng psycopg.sql để tạo các Identifier an toàn cho tên bảng và cột
-    safe_table = sql.Identifier(table_name)
-    safe_columns = sql.SQL(', ').join(map(sql.Identifier, columns))
+class PostgresBulkLoader:
+    def __init__(self, connection_params):
+        """Khởi tạo kết nối đến database."""
+        self.conn = psycopg2.connect(**connection_params)
+        
+    def execute_bulk_load(self, table_name, file_path_on_server, temp_maintenance_work_mem='2GB', format='csv', delimiter=',', header=True):
+        """
+        Thực hiện quá trình ETL nạp dữ liệu lớn tối ưu hiệu năng. Có thể cấu hình cho nhiều loại file.
+        
+        Args:
+            table_name (str): Tên bảng cần nạp dữ liệu.
+            file_path_on_server (str): Đường dẫn tuyệt đối đến file nằm trên SERVER chạy PostgreSQL.
+            temp_maintenance_work_mem (str): Dung lượng RAM cấp thêm tạm thời cho maintenance.
+            format (str): Định dạng file, ví dụ: 'csv' hoặc 'text'. Mặc định 'csv'.
+            delimiter (str): Ký tự phân cách cột. Mặc định là ',' cho csv. Nếu là tsv có thể dùng '\t'.
+            header (bool): Bỏ qua dòng tiêu đề hay không. Mặc định là True (có bỏ qua).
+        """
+        # 1. Tắt chế độ tự động commit (Disable Autocommit)
+        # gom tất cả vào một transaction duy nhất để đảm bảo an toàn và tối ưu ghi đĩa.
+        self.conn.autocommit = False
+        cursor = self.conn.cursor()
+
+        try:
+            logger.info(f"Bắt đầu quá trình Bulk Load cho bảng '{table_name}' từ file '{file_path_on_server}'...")
+            
+            # 5. Tăng các tham số bộ nhớ đệm của Server (Session level)
+            logger.info(f"Tăng maintenance_work_mem lên {temp_maintenance_work_mem}")
+            cursor.execute(sql.SQL("SET maintenance_work_mem = {};").format(sql.Literal(temp_maintenance_work_mem)))
+            
+            # 3 & 4. Tạm thời gỡ bỏ các chỉ mục (Indexes) và khóa ngoại (Foreign Keys)
+            logger.info("Tạm thời gỡ bỏ các ràng buộc khóa ngoại và chỉ mục (Cần implement chi tiết DDL)...")
+            self._drop_indexes_and_fks(cursor, table_name)
+
+            # 2. Sử dụng lệnh COPY
+            # Dùng đường dẫn file TRỰC TIẾP TRÊN SERVER để tiến trình Postgres tự đọc
+            logger.info(f"Thực thi lệnh COPY trực tiếp từ server file...")
+            
+            # Xây dựng câu lệnh COPY động dựa trên tham số
+            copy_query = sql.SQL("COPY {} FROM {} WITH (FORMAT {}, DELIMITER {}, HEADER {});").format(
+                sql.Identifier(table_name),
+                sql.Literal(file_path_on_server),
+                sql.SQL(format),
+                sql.Literal(delimiter),
+                sql.SQL(str(header).upper())
+            )
+            
+            cursor.execute(copy_query)
+            logger.info(f"Đã COPY thành công. Số dòng bị ảnh hưởng: {cursor.rowcount}")
+
+            # 3 & 4. Xây dựng lại chỉ mục và khóa ngoại sau khi nạp (Rebuild)
+            logger.info("Tái thiết lập các ràng buộc khóa ngoại và xây dựng lại chỉ mục...")
+            self._recreate_indexes_and_fks(cursor, table_name)
+
+            # Commit giao dịch
+            self.conn.commit()
+            logger.info("Transaction COMMIT thành công.")
+
+        except Exception as e:
+            # Rollback nếu có bất kỳ lỗi nào xảy ra trong quá trình COPY
+            self.conn.rollback()
+            logger.error(f"Lỗi trong quá trình nạp dữ liệu. Đã ROLLBACK toàn bộ transaction. Lỗi: {e}")
+            raise e
+        finally:
+            cursor.close()
+
+        # 7. Chạy ANALYZE sau khi hoàn tất nạp dữ liệu
+        self._run_analyze(table_name)
+
+    def _drop_indexes_and_fks(self, cursor, table_name):
+        """
+        Hàm helper: Xóa bỏ chỉ mục và khóa ngoại.
+        (Cần thay thế bằng các câu lệnh ALTER TABLE ... DROP CONSTRAINT và DROP INDEX thực tế của bạn).
+        """
+        # TODO: Cập nhật logic xóa index/FK động theo table_name nếu cần
+        pass
+
+    def _recreate_indexes_and_fks(self, cursor, table_name):
+        """
+        Hàm helper: Tạo lại chỉ mục và khóa ngoại.
+        (Cần thay thế bằng các câu lệnh ALTER TABLE ... ADD CONSTRAINT và CREATE INDEX thực tế của bạn).
+        """
+        # TODO: Cập nhật logic tạo lại index/FK động theo table_name nếu cần
+        pass
+
+    def _run_analyze(self, table_name):
+        """Chạy ANALYZE cập nhật số liệu thống kê cho planner."""
+        logger.info(f"Tiến hành ANALYZE cho bảng {table_name}...")
+        
+        # Bật lại autocommit vì ANALYZE không chạy được trong transaction (BEGIN ... COMMIT)
+        self.conn.autocommit = True
+        cursor = self.conn.cursor()
+        try:
+            analyze_query = sql.SQL("ANALYZE {};").format(sql.Identifier(table_name))
+            cursor.execute(analyze_query)
+            logger.info("ANALYZE hoàn tất. Thống kê của planner đã được cập nhật.")
+        except Exception as e:
+            logger.error(f"Lỗi khi chạy ANALYZE: {e}")
+        finally:
+            cursor.close()
+            self.conn.autocommit = False
+
+    def close(self):
+        """Đóng kết nối cơ sở dữ liệu."""
+        if self.conn:
+            self.conn.close()
+            logger.info("Đã ngắt kết nối CSDL.")
+
+"""
+# --- Cách sử dụng mẫu ---
+if __name__ == "__main__":
+    db_params = {
+        "dbname": "nutrition_db",
+        "user": "postgres",
+        "password": "yourpassword",
+        "host": "localhost",
+        "port": "5432"
+    }
     
-    # Xây dựng câu truy vấn an toàn (trả về kiểu sql.Composed hợp lệ)
-    copy_query = sql.SQL("COPY {table} ({fields}) FROM STDIN WITH (FORMAT csv, HEADER true)").format(
-        table=safe_table,
-        fields=safe_columns
-    )
+    loader = PostgresBulkLoader(db_params)
     
+    # --- Ví dụ 1: Load file CSV cho pipeline 1 ---
     try:
-        with conn.cursor() as cur:
-            # cur.copy() mở luồng COPY tốc độ cao vào PostgreSQL
-            with cur.copy(copy_query) as copy:
-                with open(csv_file_path, 'r', encoding='utf-8') as f:
-                    # Đọc dòng đầu tiên (Header) để bỏ qua nếu cần, 
-                    # nhưng 'HEADER true' trong câu lệnh COPY đã xử lý việc này
-                    while data := f.read(8192): # Đọc từng chunk 8KB từ file
-                        copy.write(data)
-                        
-        logger.info(f"Đã nạp xong dữ liệu từ {csv_file_path} vào bảng {table_name} thông qua COPY.")
+        logger.info("=== Bắt đầu load data cho Pipeline 1 (CSV) ===")
+        loader.execute_bulk_load(
+            table_name="nutrition_data_raw", 
+            file_path_on_server=r"D:\NutritionAI_V1\Data\raw\health_data.csv",
+            format='csv',
+            delimiter=',',
+            header=True
+        )
     except Exception as e:
-        logger.error(f"Lỗi khi thực thi COPY: {e}")
-        raise
+         logger.error(f"Failed to load health_data.csv: {e}")
+
+    # --- Ví dụ 2: Load file TSV cho pipeline 2 ---
+    try:
+        logger.info("=== Bắt đầu load data cho Pipeline 2 (TSV) ===")
+        loader.execute_bulk_load(
+            table_name="mfp_diaries_raw", 
+            file_path_on_server=r"D:\NutritionAI_V1\Data\raw\mfp-diaries.tsv",
+            format='csv', # Postgres COPY dùng format csv chung cho tsv, phân biệt bằng delimiter
+            delimiter='\t',
+            header=True # Giả định file tsv có header, điều chỉnh nếu cần
+        )
+    except Exception as e:
+         logger.error(f"Failed to load mfp-diaries.tsv: {e}")
+         
+    finally:
+        loader.close()
+
+"""
