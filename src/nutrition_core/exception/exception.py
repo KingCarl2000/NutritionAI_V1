@@ -67,15 +67,39 @@ class ModelEvaluationError(MLPipelineException):
 # ==========================================
 
 class LLMPipelineException(NutritionBaseException):
-    """Lỗi chung cho các luồng xử lý NLP và mô hình ngôn ngữ lớn (LLM)."""
+    ""Lỗi chung cho các luồng xử lý NLP và mô hình ngôn ngữ lớn (LLM).""
     pass
 
 class LLMInferenceError(LLMPipelineException):
-    """Lỗi phát sinh trong quá trình suy luận của LLM (ví dụ: vượt quá giới hạn VRAM khi chạy các mô hình local như Qwen 3.5)."""
+    ""Lỗi phát sinh trong quá trình suy luận của LLM (ví dụ: vượt quá giới hạn VRAM khi chạy các mô hình local như Qwen 3.5).""
     pass
 
 class PromptProcessingError(LLMPipelineException):
-    """Lỗi khi xử lý chuỗi đầu vào hoặc kết xuất metadata cho template response."""
+    ""Lỗi khi xử lý chuỗi đầu vào hoặc kết xuất metadata cho template response.""
     pass
 
 """
+
+# ==========================================
+# DATABASE & POSTGRES EXCEPTIONS
+# ==========================================
+
+class DatabaseException(NutritionBaseException):
+    """Lỗi chung cho các thao tác tương tác với Database (PostgreSQL)."""
+    pass
+
+class DatabaseConnectionError(DatabaseException):
+    """Lỗi phát sinh khi không thể kết nối tới DB, sai thông tin cấu hình, hoặc DB timeout."""
+    pass
+
+class QueryExecutionError(DatabaseException):
+    """Lỗi phát sinh khi thực thi câu lệnh SQL (ví dụ: sai cú pháp, bảng không tồn tại)."""
+    pass
+
+class BulkLoadError(DatabaseException):
+    """Lỗi phát sinh trong quá trình bulk_loader copy dữ liệu lớn vào DB (ví dụ: sai định dạng file CSV/TSV)."""
+    pass
+
+class CDCStreamError(DatabaseException):
+    """Lỗi phát sinh trong quá trình lắng nghe sự kiện thời gian thực (Logical Replication/CDC)."""
+    pass
