@@ -1,5 +1,6 @@
 import psycopg
 import logging
+from psycopg import sql
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -23,18 +24,22 @@ class CDCStreamManager:
             # Lệnh DDL tạo Publication không thể chạy trong transaction block có chứa nhiều lệnh
             with psycopg.connect(self.primary_conn_info, autocommit=True) as conn:
                 with conn.cursor() as cursor:
-                    # Xóa publication cũ nếu tồn tại (để demo/setup lại)
-                    cursor.execute(f"DROP PUBLICATION IF EXISTS {pub_name};")
-                    
-                    # TẠO PUBLICATION:
-                    # 1. Column Lists: Chỉ lấy user_id, log_date, weight, calories_burned
-                    # 2. Row Filters: WHERE (...) chỉ lấy các bản ghi có lượng calo hợp lệ
-                    sql = f"""
-                        CREATE PUBLICATION {pub_name} FOR TABLE {table_name} 
-                        (user_id, log_date, weight, calories_burned)
-                        WHERE (calories_burned IS NOT NULL AND calories_burned > 0);
-                    """
-                    cursor.execute(sql)
+                # Xóa publication cũ nếu tồn tại
+                    drop_query = sql.SQL("DROP PUBLICATION IF EXISTS {};").format(
+                        sql.Identifier(pub_name)
+                )
+                cursor.execute(drop_query)
+                
+                # TẠO PUBLICATION
+                create_query = sql.SQL("""
+                    CREATE PUBLICATION {} FOR TABLE {} 
+                    (user_id, log_date, weight, calories_burned)
+                    WHERE (calories_burned IS NOT NULL AND calories_burned > 0);
+                """).format(
+                    sql.Identifier(pub_name),
+                    sql.Identifier(table_name)
+                )
+                cursor.execute(create_query)
                     
             logger.info(f"Đã tạo thành công Logical Publication: {pub_name}")
             logger.info("Sẵn sàng stream WAL qua pgoutput tới các hệ thống như RisingWave/TimescaleDB.")
@@ -43,6 +48,7 @@ class CDCStreamManager:
             logger.error(f"Lỗi khi thiết lập CDC Publication: {e}")
             raise e
 
+"""
 # --- Ví dụ sử dụng ---
 if __name__ == "__main__":
     db_url_primary = "postgresql://postgres:password@primary_host:5432/nutrition_db"
@@ -51,3 +57,4 @@ if __name__ == "__main__":
         pub_name="fitness_features_pub",
         table_name="fitness_logs"
     )
+"""

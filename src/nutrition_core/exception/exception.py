@@ -28,7 +28,6 @@ class NutritionBaseException(Exception):
             self.file_name, self.lineno, str(self.error_message)
         )
 
-
 # ==========================================
 # DATA PIPELINE EXCEPTIONS
 # ==========================================

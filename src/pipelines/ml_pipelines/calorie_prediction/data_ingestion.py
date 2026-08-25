@@ -1,10 +1,10 @@
-from src.nutrition_core.exception.exception import NetworkSecurityException
+from src.nutrition_core.exception.exception import NutritionBaseException
 from src.nutrition_core.logging.logger import logging
 
 
 ## configuration of the Data Ingestion Config
 
-from networksecurity.entity.config_entity import DataIngestionConfig
+from src.entity.config_entity import DataIngestionConfig
 from networksecurity.entity.artifact_entity import DataIngestionArtifact
 import os
 import sys
@@ -26,7 +26,7 @@ class DataIngestion:
         try:
             self.data_ingestion_config=data_ingestion_config
         except Exception as e:
-            raise NetworkSecurityException(e,sys)
+            raise NutritionBaseException(str(e), sys)
         
     def export_collection_as_dataframe(self):
         """
@@ -45,8 +45,8 @@ class DataIngestion:
             df.replace({"na":np.nan},inplace=True)
             return df
         except Exception as e:
-            raise NetworkSecurityException (e,sys)
-        
+            raise NutritionBaseException(str(e), sys)
+
     def export_data_into_feature_store(self,dataframe: pd.DataFrame):
         try:
             feature_store_file_path=self.data_ingestion_config.feature_store_file_path
@@ -57,8 +57,8 @@ class DataIngestion:
             return dataframe
             
         except Exception as e:
-            raise NetworkSecurityException(e,sys)
-        
+            raise NutritionBaseException(str(e), sys)
+
     def split_data_as_train_test(self,dataframe: pd.DataFrame):
         try:
             train_set, test_set = train_test_split(
@@ -87,7 +87,7 @@ class DataIngestion:
 
             
         except Exception as e:
-            raise NetworkSecurityException(e,sys)
+            raise NutritionBaseException(str(e), sys)
         
         
     def initiate_data_ingestion(self):
@@ -100,4 +100,4 @@ class DataIngestion:
             return dataingestionartifact
 
         except Exception as e:
-            raise NetworkSecurityException(e,sys)
+            raise NutritionBaseException(str(e), sys)

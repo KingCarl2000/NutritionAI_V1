@@ -1,4 +1,5 @@
 import psycopg
+from psycopg import sql
 import logging
 from typing import Iterator, Tuple
 
@@ -23,7 +24,9 @@ class FeatureStoreEngine:
         with psycopg.connect(self.conn_info) as conn:
             with conn.cursor() as cursor:
                 # Sử dụng COPY FROM STDIN để stream file từ máy khách lên server
-                copy_query = f"COPY {table_name} FROM STDIN WITH (FORMAT CSV, HEADER true)"
+                copy_query = sql.SQL(
+                    "COPY {} FROM STDIN WITH (FORMAT CSV, HEADER true)"
+                ).format(sql.Identifier(table_name))
                 
                 with cursor.copy(copy_query) as copy_op:
                     with open(file_path, 'rb') as f:
@@ -45,7 +48,10 @@ class FeatureStoreEngine:
         
         with psycopg.connect(self.conn_info) as conn:
             with conn.cursor() as cursor:
-                copy_query = f"COPY {table_name} ({col_names}) FROM STDIN"
+                copy_query = sql.SQL("COPY {} ({}) FROM STDIN").format(
+                    sql.Identifier(table_name),
+                    sql.SQL(", ").join(sql.Identifier(column) for column in columns),
+                )
                 
                 with cursor.copy(copy_query) as copy_op:
                     # Ghi từng dòng dữ liệu vào stream
