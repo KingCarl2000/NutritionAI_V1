@@ -58,9 +58,9 @@ def main():
             
             loader.execute_bulk_load(
                 table_name=target_table,
-                file_path=file_path,
+                file_path_on_server=file_path,
                 delimiter=dataset_config.get("delimiter", ","),
-                has_header=dataset_config.get("header", True)
+                header=dataset_config.get("header", True)
             )
             logger.info(f"✅ Nạp dữ liệu thành công cho bảng '{schema_name}.{table_name}'")
         except Exception as e:

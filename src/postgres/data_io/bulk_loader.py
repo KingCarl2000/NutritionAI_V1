@@ -11,7 +11,7 @@ class PostgresBulkLoader:
         self.conn = psycopg2.connect(**connection_params)
         
     def execute_bulk_load(self, table_name, file_path_on_server, temp_maintenance_work_mem='2GB', format='csv', delimiter=',', header=True):
-        """
+        r"""
         Thực hiện quá trình ETL nạp dữ liệu lớn tối ưu hiệu năng. Có thể cấu hình cho nhiều loại file.
         
         Args:
@@ -42,9 +42,16 @@ class PostgresBulkLoader:
             # Dùng đường dẫn file TRỰC TIẾP TRÊN SERVER để tiến trình Postgres tự đọc
             logger.info(f"Thực thi lệnh COPY trực tiếp từ server file...")
             
+            # Xử lý trường hợp table_name chứa schema (VD: "raw.apple_data_raw")
+            if "." in table_name:
+                schema_part, table_part = table_name.split(".", 1)
+                table_identifier = sql.SQL('.').join([sql.Identifier(schema_part), sql.Identifier(table_part)])
+            else:
+                table_identifier = sql.Identifier(table_name)
+
             # Xây dựng câu lệnh COPY động dựa trên tham số
             copy_query = sql.SQL("COPY {} FROM {} WITH (FORMAT {}, DELIMITER {}, HEADER {});").format(
-                sql.Identifier(table_name),
+                table_identifier,
                 sql.Literal(file_path_on_server),
                 sql.SQL(format),
                 sql.Literal(delimiter),
@@ -92,12 +99,20 @@ class PostgresBulkLoader:
     def _run_analyze(self, table_name):
         """Chạy ANALYZE cập nhật số liệu thống kê cho planner."""
         logger.info(f"Tiến hành ANALYZE cho bảng {table_name}...")
-        
+
+        # Xử lý trường hợp table_name chứa schema
+        if "." in table_name:
+            schema_part, table_part = table_name.split(".", 1)
+            table_identifier = sql.SQL('.').join([sql.Identifier(schema_part), sql.Identifier(table_part)])
+        else:
+            table_identifier = sql.Identifier(table_name)
+
         # Bật lại autocommit vì ANALYZE không chạy được trong transaction (BEGIN ... COMMIT)
         self.conn.autocommit = True
         cursor = self.conn.cursor()
+
         try:
-            analyze_query = sql.SQL("ANALYZE {};").format(sql.Identifier(table_name))
+            analyze_query = sql.SQL("ANALYZE {};").format(table_identifier)
             cursor.execute(analyze_query)
             logger.info("ANALYZE hoàn tất. Thống kê của planner đã được cập nhật.")
         except Exception as e:
@@ -105,10 +120,4 @@ class PostgresBulkLoader:
         finally:
             cursor.close()
             self.conn.autocommit = False
-
-    def close(self):
-        """Đóng kết nối cơ sở dữ liệu."""
-        if self.conn:
-            self.conn.close()
-            logger.info("Đã ngắt kết nối CSDL.")
 

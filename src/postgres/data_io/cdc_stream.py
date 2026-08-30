@@ -48,13 +48,3 @@ class CDCStreamManager:
             logger.error(f"Lỗi khi thiết lập CDC Publication: {e}")
             raise e
 
-"""
-# --- Ví dụ sử dụng ---
-if __name__ == "__main__":
-    db_url_primary = "postgresql://postgres:password@primary_host:5432/nutrition_db"
-    cdc_manager = CDCStreamManager(db_url_primary)
-    cdc_manager.setup_logical_publication(
-        pub_name="fitness_features_pub",
-        table_name="fitness_logs"
-    )
-"""
