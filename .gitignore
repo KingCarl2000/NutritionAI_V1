@@ -1,7 +1,6 @@
 venv
 .env
 logs
-Artifacts
 mlruns
 __pycache__/
 final_model/

@@ -114,7 +114,7 @@ SELECT
 FROM 
     pg_stats 
 WHERE 
-    tablename = 'raw.apple_data_raw' AND schemaname = 'raw'
+    tablename = 'apple_data_raw' AND schemaname = 'raw'
 ORDER BY 
     attname;
 
@@ -197,7 +197,7 @@ SELECT
     data_type AS "Kiểu Dữ Liệu", 
     is_nullable AS "Cho Phép Null"
 FROM information_schema.columns 
-WHERE table_name = 'raw.apple_data_raw'
+WHERE table_schema = 'raw' AND table_name = 'apple_data_raw'
 ORDER BY ordinal_position;
 
 -- Bước 4: Xuất ước lượng kích thước vật lý và số lượng dòng [Mục 52.11 / 9.28.7]
@@ -207,7 +207,7 @@ SELECT
     pg_size_pretty(pg_relation_size('raw.apple_data_raw'::regclass)) AS "Dung lượng bảng thô",
     pg_size_pretty(pg_total_relation_size('raw.apple_data_raw'::regclass)) AS "Tổng dung lượng (gồm Chỉ mục)"
 FROM pg_class 
-WHERE relname = 'raw.apple_data_raw';
+WHERE oid = 'raw.apple_data_raw'::regclass;
 
 -- Bước 5: Xuất phác thảo phân phối của các cột số [Mục 53.29]
 SELECT '3. THỐNG KÊ PHÂN PHỐI DỮ LIỆU TỪ PG_STATS' AS "---";
@@ -218,7 +218,7 @@ SELECT
     avg_width AS "Độ rộng Byte trung bình",
     correlation AS "Hệ số tương quan vật lý/logic"
 FROM pg_stats 
-WHERE tablename = 'raw.apple_data_raw'
+WHERE tablename = 'apple_data_raw' AND schemaname = 'raw'
 ORDER BY attname;
 
 -- Bước 6: Đóng file báo cáo và quay lại console hiển thị
