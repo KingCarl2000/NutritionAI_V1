@@ -1,28 +1,31 @@
 import os
 import sys
+from pathlib import Path
+from typing import Dict, Any
 
-# Đảm bảo import được các module từ thư mục src
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+# Xác định đường dẫn gốc project (NutritionAI_V1) và đưa vào sys.path để Python nhận diện package 'src'
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
+from src.nutrition_core.logging.logger import logger
+from src.postgres.core.db_config import config
 from src.postgres.data_io.bulk_loader import PostgresBulkLoader
-from src.postgres.core.db_config import config  # Import cấu hình DB đã thiết lập
-from src.nutrition_core.exception import exception # Import xử lý ngoại lệ
-from src.nutrition_core.logging.logger import logger           # Import module logger
 
-
-
-# Dictionary cấu hình các dataset cần nạp
-# Key: Tên bảng trong Database
-# Value: Đường dẫn tuyệt đối đến file CSV trên Server
-DATASETS_TO_LOAD = {
-    "nutrition_data_raw": r"D:\NutritionAI_V1\Data\raw\health_data.csv",
-    # Bạn có thể thêm các dataset khác trong tương lai ở đây:
-    # "user_profiles_raw": r"D:\NutritionAI_V1\Data\raw\user_profiles.csv",
-    # "food_ingredients_raw": r"D:\NutritionAI_V1\Data\raw\ingredients.csv"
+# Định nghĩa danh sách các dataset sẽ load
+DATASETS_TO_LOAD: Dict[str, Dict[str, Any]] = {
+    "raw.apple_data_raw": {
+        "file_path": str(PROJECT_ROOT / "Data" / "raw" / "health_data.csv"),
+        "format": "csv",
+        "delimiter": ",",
+        "header": True
+    }
 }
 
 def main():
-    # 1. Lấy thông số kết nối từ db_config.py
+    logger.info("Khởi động tiến trình Bulk Load dữ liệu...")
+
+    # Lấy thông số kết nối từ db_config.py
     db_params = {
         "dbname": config.dbname,
         "user": config.user,
@@ -30,34 +33,39 @@ def main():
         "host": config.host,
         "port": str(config.port)
     }
+    
+    # Khởi tạo loader kết nối DB với đúng tham số connection_params
+    loader = PostgresBulkLoader(connection_params=db_params)
+    
+    for full_table_name, dataset_config in DATASETS_TO_LOAD.items():
+        if "." in full_table_name:
+            schema_name, table_name = full_table_name.split(".", 1)
+        else:
+            schema_name = "public"
+            table_name = full_table_name
 
-    # 2. Khởi tạo Bulk Loader
-    loader = PostgresBulkLoader(db_params)
+        file_path = dataset_config["file_path"]
+        
+        logger.info(f"=== Bắt đầu Bulk Load: Bảng '{schema_name}.{table_name}' | File '{file_path}' ===")
+        
+        try:
+            if not os.path.exists(file_path):
+                raise FileNotFoundError(f"Không tìm thấy tệp dữ liệu tại đường dẫn: {file_path}")
 
-    # 3. Chạy vòng lặp qua dictionary để nạp toàn bộ file
-    try:
-        for table_name, file_path in DATASETS_TO_LOAD.items():
-            logger.info(f"=== Bắt đầu tiến trình Bulk Load cho bảng '{table_name}' từ file '{file_path}' ===")
+            # Gọi execute_bulk_load với định dạng bảng đầy đủ "schema.table" 
+            # để tránh lỗi không nhận tham số schema_name riêng biệt
+            target_table = f"{schema_name}.{table_name}"
             
             loader.execute_bulk_load(
-                table_name=table_name,
-                file_path_on_server=file_path,
-                format='csv',
-                delimiter=',',
-                header=True,
-                temp_maintenance_work_mem=config.maintenance_work_mem # Sử dụng cấu hình tối ưu từ db_config
+                table_name=target_table,
+                file_path=file_path,
+                delimiter=dataset_config.get("delimiter", ","),
+                has_header=dataset_config.get("header", True)
             )
-            
-            logger.info(f"=== Hoàn tất nạp dữ liệu cho bảng '{table_name}'! ===")
-            
-    except Exception as e:
-        # Bắt và xử lý lỗi bằng class CustomException của dự án
-        error_msg = f"Tiến trình nạp dữ liệu bị gián đoạn: {e}"
-        logger.error(error_msg)
-        raise exception.NutritionBaseException(error_msg, sys)
-    finally:
-        loader.close()
-        logger.info("Đã đóng kết nối Database.")
+            logger.info(f"✅ Nạp dữ liệu thành công cho bảng '{schema_name}.{table_name}'")
+        except Exception as e:
+            logger.error(f"❌ Lỗi khi nạp dữ liệu bảng '{schema_name}.{table_name}': {e}")
+            raise e
 
 if __name__ == "__main__":
     main()

@@ -3,6 +3,7 @@ import os
 import sys
 from datetime import datetime
 from pathlib import Path
+from logging import StreamHandler
 
 # 1. Xác định đường dẫn gốc của Project một cách tuyệt đối (NutritionAI_V1)
 # logger.py nằm ở: src/nutrition_core/logging/logger.py (sâu 3 cấp so với root)
@@ -23,15 +24,35 @@ LOG_FILE_PATH = os.path.join(logs_path, LOG_FILE)
 # 2. Cấu hình định dạng Log
 log_format = "[ %(asctime)s ] %(lineno)d %(name)s - %(levelname)s - %(message)s"
 
-# 3. Gắn cả 2 handlers: Ghi ra file VÀ In ra màn hình console
+# Lớp bọc StreamHandler để ép encoding là utf-8, tránh lỗi UnicodeEncodeError trên Windows (cp1252)
+class Utf8StreamHandler(StreamHandler):
+    def __init__(self, stream=None):
+        if stream is None:
+            stream = sys.stdout
+        super().__init__(stream)
+        
+    def emit(self, record):
+        try:
+            msg = self.format(record)
+            stream = self.stream
+            if hasattr(stream, "buffer"):
+                stream.buffer.write((msg + self.terminator).encode("utf-8", errors="replace"))
+                stream.buffer.flush()
+            else:
+                stream.write(msg + self.terminator)
+                stream.flush()
+        except Exception:
+            self.handleError(record)
+
+# 3. Gắn cả 2 handlers: Ghi ra file VÀ In ra màn hình console bằng UTF-8 handler
 logging.basicConfig(
     level=logging.INFO,
     format=log_format,
     handlers=[
-        logging.FileHandler(LOG_FILE_PATH),  # Ghi vào file
-        logging.StreamHandler(sys.stdout)    # In ra Terminal
+        logging.FileHandler(LOG_FILE_PATH, encoding="utf-8"),  # Ghi vào file với UTF-8
+        Utf8StreamHandler(sys.stdout)                         # In ra Terminal an toàn với ký tự đặc biệt/emoji
     ]
 )
 
-# Export một đối tượng logger chung để các file khác có thể import
+# 4. Export đối tượng logger chung để các file khác có thể import
 logger = logging.getLogger("NutritionAI")

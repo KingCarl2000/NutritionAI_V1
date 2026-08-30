@@ -1,93 +1,96 @@
-columns:
-  type:
-    type: categorical
-    nullable: false
-    description: ''
-  sourceName:
-    type: categorical
-    nullable: false
-    description: ''
-  sourceVersion:
-    type: categorical
-    nullable: false
-    description: ''
-  unit:
-    type: categorical
-    nullable: true
-    description: ''
-  m_creationDate:
-    type: categorical
-    nullable: false
-    description: ''
-  m_creationTime:
-    type: categorical
-    nullable: false
-    description: ''
-  m_creationTime_am_pm:
-    type: categorical
-    nullable: false
-    description: ''
-  m_creationTimeZone:
-    type: integer
-    nullable: false
-    description: ''
-  m_startDate:
-    type: categorical
-    nullable: false
-    description: ''
-  m_startTime:
-    type: categorical
-    nullable: false
-    description: ''
-  m_startTime_am_pm:
-    type: categorical
-    nullable: false
-    description: ''
-  m_startTimeZone:
-    type: integer
-    nullable: false
-    description: ''
-  m_endDate:
-    type: categorical
-    nullable: false
-    description: ''
-  m_endTime:
-    type: categorical
-    nullable: false
-    description: ''
-  m_endTime_am_pm:
-    type: categorical
-    nullable: false
-    description: ''
-  m_endTimeZone:
-    type: integer
-    nullable: false
-    description: ''
-  value:
-    type: categorical
-    nullable: false
-    description: ''
-  device:
-    type: categorical
-    nullable: true
-    description: ''
-numerical_columns:
-- m_creationTimeZone
-- m_startTimeZone
-- m_endTimeZone
-categorical_columns:
-- type
-- sourceName
-- sourceVersion
-- unit
-- m_creationDate
-- m_creationTime
-- m_creationTime_am_pm
-- m_startDate
-- m_startTime
-- m_startTime_am_pm
-- m_endDate
-- m_endTime
-- m_endTime_am_pm
-- value
-- device
+apple_data_raw:
+  db_schema: raw
+  table_name: apple_data_raw
+  columns:
+    type:
+      type: categorical
+      nullable: false
+      description: ''
+    sourceName:
+      type: categorical
+      nullable: false
+      description: ''
+    sourceVersion:
+      type: categorical
+      nullable: false
+      description: ''
+    unit:
+      type: categorical
+      nullable: true
+      description: ''
+    m_creationDate:
+      type: categorical
+      nullable: false
+      description: ''
+    m_creationTime:
+      type: categorical
+      nullable: false
+      description: ''
+    m_creationTime_am_pm:
+      type: categorical
+      nullable: false
+      description: ''
+    m_creationTimeZone:
+      type: integer
+      nullable: false
+      description: ''
+    m_startDate:
+      type: categorical
+      nullable: false
+      description: ''
+    m_startTime:
+      type: categorical
+      nullable: false
+      description: ''
+    m_startTime_am_pm:
+      type: categorical
+      nullable: false
+      description: ''
+    m_startTimeZone:
+      type: integer
+      nullable: false
+      description: ''
+    m_endDate:
+      type: categorical
+      nullable: false
+      description: ''
+    m_endTime:
+      type: categorical
+      nullable: false
+      description: ''
+    m_endTime_am_pm:
+      type: categorical
+      nullable: false
+      description: ''
+    m_endTimeZone:
+      type: integer
+      nullable: false
+      description: ''
+    value:
+      type: categorical
+      nullable: false
+      description: ''
+    device:
+      type: categorical
+      nullable: true
+      description: ''
+  numerical_columns:
+  - m_creationTimeZone
+  - m_startTimeZone
+  - m_endTimeZone
+  categorical_columns:
+  - type
+  - sourceName
+  - sourceVersion
+  - unit
+  - m_creationDate
+  - m_creationTime
+  - m_creationTime_am_pm
+  - m_startDate
+  - m_startTime
+  - m_startTime_am_pm
+  - m_endDate
+  - m_endTime
+  - m_endTime_am_pm
+  - value
+  - device
