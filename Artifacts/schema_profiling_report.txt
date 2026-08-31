@@ -15,7 +15,7 @@
 
                                                      
 -----------------------------------------------------
-   Thời gian khởi tạo: 2026-08-31 14:46:51.878219+07
+   Thời gian khởi tạo: 2026-08-31 15:01:28.669056+07
 (1 row)
 
                                                      
@@ -31,7 +31,7 @@
     Column Name     |    Data Type     | Allows Null 
 --------------------+------------------+-------------
  user_id            | integer          | YES
- date               | text             | YES
+ date               | date             | YES
  steps              | integer          | YES
  calories_burned    | double precision | YES
  distance_km        | double precision | YES
@@ -51,7 +51,7 @@
 
  Số dòng ước tính | Dung lượng bảng thô | Tổng dung lượng (gồm Chỉ mục) 
 ------------------+---------------------+-------------------------------
-          1000000 | 113 MB              | 113 MB
+               -1 | 105 MB              | 105 MB
 (1 row)
 
                     ---                    
@@ -63,7 +63,6 @@
 --------------------+------------+----------------+---------------+---------------+--------------------------
  active_minutes     |          0 |           1440 | 0             | 1439          |                        4
  calories_burned    |          0 |        -0.2004 | 1500.12       | 3999.89       |                        8
- date               |          0 |           1000 | 2023-01-01    | 2025-09-26    |                       11
  distance_km        |          0 |           2001 | 0             | 20            |                        8
  heart_rate_avg     |          0 |            120 | 60            | 179           |                        4
  location           |          0 |              5 |               |               |                        5
@@ -73,5 +72,5 @@
  user_id            |          0 |            999 | 1             | 999           |                        4
  weather_conditions |          0 |              4 |               |               |                        4
  workout_type       |          0 |              7 |               |               |                        7
-(12 rows)
+(11 rows)
 

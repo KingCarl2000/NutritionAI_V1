@@ -1,3 +1,5 @@
+
+
 -- ============================================================================
 -- PHẦN 1: CÁC LỆNH HỆ THỐNG CỦA PSQL (INTERACTIVE TERMINAL)
 -- LƯU Ý: Các lệnh này chỉ chạy được trong giao diện dòng lệnh psql.
@@ -20,6 +22,9 @@ WHERE table_schema = 'raw'
     AND table_name = 'fitness_tracker_dataset'  
 ORDER BY ordinal_position;
 
+-- Ép kiểu cột 'date' từ text sang dạng DATE chuẩn
+ALTER TABLE raw.fitness_tracker_dataset
+ALTER COLUMN "date" TYPE DATE USING "date"::DATE;
 
 -- ============================================================================
 -- PHẦN 3: TRUY XUẤT CHUYÊN SÂU QUA SYSTEM CATALOGS (pg_attribute, pg_class)
@@ -53,6 +58,7 @@ FROM
     pg_constraint
 WHERE 
     conrelid = 'raw.fitness_tracker_dataset'::regclass;
+
 
 
 -- ============================================================================
