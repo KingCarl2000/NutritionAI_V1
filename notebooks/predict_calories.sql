@@ -16,8 +16,8 @@
 -- ============================================================================
 SELECT column_name, data_type, is_nullable, column_default, character_maximum_length, numeric_precision, numeric_scale 
 FROM information_schema.columns 
-WHERE table_schema = 'raw'            -- Bổ sung dòng này
-    AND table_name = 'fitness_tracker_dataset'  -- Bổ sung dòng này
+WHERE table_schema = 'raw'            
+    AND table_name = 'fitness_tracker_dataset'  
 ORDER BY ordinal_position;
 
 
@@ -35,8 +35,8 @@ FROM
     pg_attribute a
 WHERE 
     a.attrelid = 'raw.fitness_tracker_dataset'::regclass
-    AND a.attnum > 0              -- Loại bỏ các cột hệ thống ngầm định (xmin, xmax, ctid...)
-    AND NOT a.attisdropped        -- Loại bỏ các cột đã bị xóa logic khỏi bảng
+    AND a.attnum > 0              
+    AND NOT a.attisdropped        
 ORDER BY 
     a.attnum;
 
@@ -47,7 +47,7 @@ ORDER BY
 -- ============================================================================
 SELECT 
     conname AS constraint_name,
-    contype AS constraint_type,   -- 'p': Primary Key, 'f': Foreign Key, 'c': Check, 'u': Unique
+    contype AS constraint_type,   
     pg_get_constraintdef(oid) AS constraint_definition
 FROM 
     pg_constraint
@@ -90,7 +90,6 @@ SELECT
     pg_size_pretty(pg_total_relation_size('raw.fitness_tracker_dataset'::regclass)) AS total_size;
 
 -- 6.3 Ước lượng tổng kích thước đối với bảng phân vùng (Partitioned Tables)
--- (Dùng nếu fitness_tracker_dataset là bảng cha trong mô hình phân vùng)
 SELECT 
     pg_size_pretty(sum(pg_relation_size(relid))) AS total_partition_size 
 FROM 
@@ -105,9 +104,8 @@ DROP COLUMN IF EXISTS "m_endTime_am_pm",
 DROP COLUMN IF EXISTS "m_creationDate",
 DROP COLUMN IF EXISTS "m_creationTime",
 DROP COLUMN IF EXISTS "m_creationTimeZone";
-/*
+*/
 
--- STREAMING_CHUNK: Thêm phần phân tích thống kê phân phối dữ liệu (Statistical Profiling)
 -- ============================================================================
 -- PHẦN 8: PHÁC THẢO PHÂN PHỐI DỮ LIỆU (STATISTICAL PROFILING)
 -- Khám phá đặc trưng thống kê của dữ liệu mà không cần quét lại toàn bộ bảng
@@ -116,11 +114,13 @@ DROP COLUMN IF EXISTS "m_creationTimeZone";
 -- 8.1 Truy xuất thống kê chi tiết từ catalog pg_stats
 SELECT 
     attname AS column_name,
-    null_frac AS missing_ratio, -- Tỷ lệ dữ liệu NULL (hữu ích cho Data Imputation)
-    n_distinct,                 -- Độ phân biệt (>0: số lượng giá trị, <0: tỷ lệ %)
-    avg_width AS avg_byte_width,-- Dung lượng RAM trung bình (bytes) khi nạp vào Python
-    most_common_vals,           -- Mảng các giá trị phổ biến nhất (phát hiện Imbalance)
+    null_frac AS missing_ratio, -- Tỷ lệ dữ liệu NULL 
+    n_distinct,                 -- Độ phân biệt 
+    avg_width AS avg_byte_width,-- Dung lượng RAM trung bình (bytes) 
+    most_common_vals,           -- Mảng các giá trị phổ biến nhất 
     most_common_freqs,          -- Tần suất tương ứng của các giá trị phổ biến
+    histogram_bounds[1] AS estimated_min, -- Trích xuất Min từ mảng phân phối
+    histogram_bounds[array_length(histogram_bounds, 1)] AS estimated_max, -- Trích xuất Max từ mảng phân phối
     correlation                 -- Hệ số tương quan vật lý/logic trên đĩa
 FROM 
     pg_stats 
@@ -129,41 +129,24 @@ WHERE
 ORDER BY 
     attname;
 
-
-
 -- 8.2 Tinh chỉnh độ chi tiết của thống kê (Tùy chọn)
--- Giả sử bảng có cột 'calories' chứa dữ liệu phân phối phức tạp, ta nâng số phân đoạn lên 500
 -- ALTER TABLE raw.fitness_tracker_dataset ALTER COLUMN calories SET STATISTICS 500;
-
--- Cập nhật lại thống kê ngay lập tức sau khi thay đổi cấu hình
 -- ANALYZE raw.fitness_tracker_dataset;
 
 
--- STREAMING_CHUNK: Thêm phần lấy mẫu dữ liệu đại diện cho Machine Learning/EDA
 -- ============================================================================
 -- PHẦN 9: LẤY MẪU DỮ LIỆU ĐẠI DIỆN (DATA SAMPLING)
 -- Trích xuất nhanh dữ liệu để tải vào Pandas/Jupyter mà không làm tràn RAM
 -- ============================================================================
 
 -- 9.1 Lấy mẫu bằng hàm mở rộng hệ thống (Yêu cầu bật extension tsm_system_rows, tsm_system_time)
--- Lấy ngẫu nhiên đúng 100 dòng từ bảng (Rất nhanh do quét mức khối vật lý)
 SELECT * FROM raw.fitness_tracker_dataset TABLESAMPLE SYSTEM_ROWS(100);
 
--- Chỉ cho phép quét và lấy mẫu dữ liệu trong vòng tối đa 1 giây (1000ms)
--- SELECT * FROM raw.fitness_tracker_dataset TABLESAMPLE SYSTEM_TIME(1000);
-
 -- 9.2 Lấy mẫu ngẫu nhiên lặp lại (Reproducible Sampling cho Machine Learning)
--- Đặt seed cố định (0.5) để các lần chạy sau lấy ra tập mẫu y hệt nhau
 SELECT setseed(0.5); 
--- Lọc ngẫu nhiên khoảng 1% tổng số lượng dòng của bảng
 SELECT * FROM raw.fitness_tracker_dataset WHERE random() < 0.01;
 
--- 9.3 Lấy mẫu phần tử trong mảng (Nếu có cột dữ liệu dạng Array)
--- Giả sử có cột 'heart_rate_array', lấy ngẫu nhiên 3 phần tử nhịp tim từ mảng
--- SELECT user_id, array_sample(heart_rate_array, 3) AS heart_rate_sample FROM raw.fitness_tracker_dataset;
-
 -- 9.4 Lấy mẫu phân trang/giới hạn an toàn bằng LIMIT và OFFSET
--- LƯU Ý: Bắt buộc phải có ORDER BY để đảm bảo tính nhất quán giữa các lần truy vấn
 SELECT * FROM raw.fitness_tracker_dataset 
 ORDER BY 
     "user_id", 
@@ -171,29 +154,18 @@ ORDER BY
 LIMIT 100 OFFSET 1000;
 
 
--- STREAMING_CHUNK: Thêm lệnh xuất kết quả ra file ngoại tuyến (CSV/TXT)
 -- ============================================================================
 -- PHẦN 10: XUẤT KẾT QUẢ RA FILE (EXPORTING DATA)
 -- Chạy các lệnh này trong psql terminal để lưu kết quả EDA / Tập lấy mẫu
 -- ============================================================================
 
-/*
-CÁCH 1: LƯU TẬP DỮ LIỆU MẪU RA FILE CSV (Dùng lệnh \copy của psql)
-Lệnh này cực kỳ an toàn, chạy ở phía client (máy của bạn), không yêu cầu quyền superuser.
-File này sau đó có thể đọc ngay bằng pandas.read_csv() trong Jupyter.
-
-\copy (SELECT * FROM raw.fitness_tracker_dataset WHERE random() < 0.01 LIMIT 5000) TO 'fitness_tracker_sample.csv' WITH CSV HEADER;
-*/
-
-/*
-CÁCH 2: XUẤT TOÀN BỘ KẾT QUẢ IN RA MÀN HÌNH VÀO FILE TEXT (Dùng lệnh \o của psql)
-Hữu ích khi lưu lại các báo cáo profiling tĩnh làm Data Artifacts để đối chiếu sau này.
-*/
+-- Tắt phân trang (paging) để dữ liệu xuất ra không bị ngắt quãng bởi '--- More ---'
+\pset pager off
 
 -- Bước 1: Chuyển hướng đầu ra vào file báo cáo
 \o 'D:/NutritionAI_V1/Artifacts/schema_profiling_report.txt'
 
--- Bước 2: Tạo tiêu đề báo cáo bằng các câu lệnh SELECT đơn giản
+-- Bước 2: Tạo tiêu đề báo cáo
 SELECT '===================================================' AS " ";
 SELECT '  BÁO CÁO KHÁM PHÁ SIÊU DỮ LIỆU (METADATA PROFILING) ' AS " ";
 SELECT '  Bảng dữ liệu nguồn: raw.fitness_tracker_dataset' AS " ";
@@ -225,13 +197,13 @@ SELECT
     attname AS "Column Name",
     null_frac AS "Null Ratio",
     n_distinct AS "Distinct Count",
-    avg_width AS "avg_byte_width",
-    correlation AS "correlation"
-FROM pg_stats 
+    (histogram_bounds::text::text[])[1] AS "Estimated Min",
+    (histogram_bounds::text::text[])[array_length(histogram_bounds::text::text[], 1)] AS "Estimated Max",
+    avg_width AS "Average Byte Width (RAM)"
+FROM pg_stats
 WHERE tablename = 'fitness_tracker_dataset' AND schemaname = 'raw'
 ORDER BY attname;
 
--- Bước 6: Đóng file báo cáo và quay lại console hiển thị
+-- Bước 6: Đóng file báo cáo, quay lại console hiển thị và bật lại phân trang
 \o
-
-
+\pset pager on

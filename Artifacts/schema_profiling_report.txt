@@ -15,7 +15,7 @@
 
                                                      
 -----------------------------------------------------
-   Thời gian khởi tạo: 2026-08-31 13:09:49.082016+07
+   Thời gian khởi tạo: 2026-08-31 14:46:51.878219+07
 (1 row)
 
                                                      
@@ -59,19 +59,19 @@
  3. THỐNG KÊ PHÂN PHỐI DỮ LIỆU TỪ PG_STATS
 (1 row)
 
-    Column Name     | Null Ratio | Distinct Count | avg_byte_width |  correlation  
---------------------+------------+----------------+----------------+---------------
- active_minutes     |          0 |           1440 |              4 |   0.013207671
- calories_burned    |          0 |        -0.2004 |              8 |   0.005048673
- date               |          0 |           1000 |             11 |             1
- distance_km        |          0 |           2001 |              8 | 0.00028668187
- heart_rate_avg     |          0 |            120 |              4 |   0.014632527
- location           |          0 |              5 |              5 |    0.19764428
- mood               |          0 |              4 |              7 |    0.24608122
- sleep_hours        |          0 |            121 |              8 |   0.013079051
- steps              |          0 |          29451 |              4 |    0.00134353
- user_id            |          0 |            999 |              4 |  0.0029057823
- weather_conditions |          0 |              4 |              4 |     0.2478785
- workout_type       |          0 |              7 |              7 |    0.15302092
+    Column Name     | Null Ratio | Distinct Count | Estimated Min | Estimated Max | Average Byte Width (RAM) 
+--------------------+------------+----------------+---------------+---------------+--------------------------
+ active_minutes     |          0 |           1440 | 0             | 1439          |                        4
+ calories_burned    |          0 |        -0.2004 | 1500.12       | 3999.89       |                        8
+ date               |          0 |           1000 | 2023-01-01    | 2025-09-26    |                       11
+ distance_km        |          0 |           2001 | 0             | 20            |                        8
+ heart_rate_avg     |          0 |            120 | 60            | 179           |                        4
+ location           |          0 |              5 |               |               |                        5
+ mood               |          0 |              4 |               |               |                        7
+ sleep_hours        |          0 |            121 | 0             | 12            |                        8
+ steps              |          0 |          29451 | 1             | 29999         |                        4
+ user_id            |          0 |            999 | 1             | 999           |                        4
+ weather_conditions |          0 |              4 |               |               |                        4
+ workout_type       |          0 |              7 |               |               |                        7
 (12 rows)
 
