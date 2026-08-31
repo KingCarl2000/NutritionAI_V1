@@ -8,14 +8,14 @@
    BÁO CÁO KHÁM PHÁ SIÊU DỮ LIỆU (METADATA PROFILING) 
 (1 row)
 
-                                          
-------------------------------------------
-   Bảng dữ liệu nguồn: raw.apple_data_raw
+                                                   
+---------------------------------------------------
+   Bảng dữ liệu nguồn: raw.fitness_tracker_dataset
 (1 row)
 
                                                      
 -----------------------------------------------------
-   Thời gian khởi tạo: 2026-08-30 19:18:13.224351+07
+   Thời gian khởi tạo: 2026-08-31 13:09:49.082016+07
 (1 row)
 
                                                      
@@ -28,27 +28,21 @@
  1. CẤU TRÚC SCHEMA BẢNG
 (1 row)
 
-       Tên Cột        | Kiểu Dữ Liệu | Cho Phép Null 
-----------------------+--------------+---------------
- type                 | text         | YES
- sourceName           | text         | YES
- sourceVersion        | text         | YES
- unit                 | text         | YES
- m_creationDate       | text         | YES
- m_creationTime       | text         | YES
- m_creationTime_am_pm | text         | YES
- m_creationTimeZone   | integer      | YES
- m_startDate          | text         | YES
- m_startTime          | text         | YES
- m_startTime_am_pm    | text         | YES
- m_startTimeZone      | integer      | YES
- m_endDate            | text         | YES
- m_endTime            | text         | YES
- m_endTime_am_pm      | text         | YES
- m_endTimeZone        | integer      | YES
- value                | text         | YES
- device               | text         | YES
-(18 rows)
+    Column Name     |    Data Type     | Allows Null 
+--------------------+------------------+-------------
+ user_id            | integer          | YES
+ date               | text             | YES
+ steps              | integer          | YES
+ calories_burned    | double precision | YES
+ distance_km        | double precision | YES
+ active_minutes     | integer          | YES
+ sleep_hours        | double precision | YES
+ heart_rate_avg     | integer          | YES
+ workout_type       | text             | YES
+ weather_conditions | text             | YES
+ location           | text             | YES
+ mood               | text             | YES
+(12 rows)
 
               ---               
 --------------------------------
@@ -57,7 +51,7 @@
 
  Số dòng ước tính | Dung lượng bảng thô | Tổng dung lượng (gồm Chỉ mục) 
 ------------------+---------------------+-------------------------------
-          2144407 | 415 MB              | 415 MB
+          1000000 | 113 MB              | 113 MB
 (1 row)
 
                     ---                    
@@ -65,25 +59,19 @@
  3. THỐNG KÊ PHÂN PHỐI DỮ LIỆU TỪ PG_STATS
 (1 row)
 
-       Tên cột        | Tỷ lệ khuyết thiếu | Độ phân biệt (Distinct) | Độ rộng Byte trung bình | Hệ số tương quan vật lý/logic 
-----------------------+--------------------+-------------------------+-------------------------+-------------------------------
- device               |          0.8355333 |                    1043 |                     158 |                   0.039458297
- m_creationDate       |                  0 |                     830 |                      11 |                    0.22246937
- m_creationTime       |                  0 |                    6650 |                      12 |                   -0.07878736
- m_creationTimeZone   |                  0 |                       1 |                       4 |                             1
- m_creationTime_am_pm |                  0 |                       2 |                       3 |                    0.57441276
- m_endDate            |                  0 |                     877 |                      11 |                    0.21482189
- m_endTime            |                  0 |                   21587 |                      12 |                   0.014250741
- m_endTimeZone        |                  0 |                       1 |                       4 |                             1
- m_endTime_am_pm      |                  0 |                       2 |                       3 |                    0.59495646
- m_startDate          |                  0 |                     876 |                      11 |                     0.2148154
- m_startTime          |                  0 |                   21557 |                      12 |                   0.013368541
- m_startTimeZone      |                  0 |                       1 |                       4 |                             1
- m_startTime_am_pm    |                  0 |                       2 |                       3 |                    0.59392416
- sourceName           |                  0 |                       2 |                       7 |                     0.4927249
- sourceVersion        |                  0 |                      82 |                      11 |                  0.0031659468
- type                 |                  0 |                      13 |                      11 |                    0.61247516
- unit                 |        0.010233333 |                       8 |                       8 |                     0.6520434
- value                |                  0 |                    2712 |                       3 |                  -0.026480041
-(18 rows)
+    Column Name     | Null Ratio | Distinct Count | avg_byte_width |  correlation  
+--------------------+------------+----------------+----------------+---------------
+ active_minutes     |          0 |           1440 |              4 |   0.013207671
+ calories_burned    |          0 |        -0.2004 |              8 |   0.005048673
+ date               |          0 |           1000 |             11 |             1
+ distance_km        |          0 |           2001 |              8 | 0.00028668187
+ heart_rate_avg     |          0 |            120 |              4 |   0.014632527
+ location           |          0 |              5 |              5 |    0.19764428
+ mood               |          0 |              4 |              7 |    0.24608122
+ sleep_hours        |          0 |            121 |              8 |   0.013079051
+ steps              |          0 |          29451 |              4 |    0.00134353
+ user_id            |          0 |            999 |              4 |  0.0029057823
+ weather_conditions |          0 |              4 |              4 |     0.2478785
+ workout_type       |          0 |              7 |              7 |    0.15302092
+(12 rows)
 

@@ -5,8 +5,8 @@ import os
 # 1. Dictionary cấu hình danh sách các dataset
 # Dễ dàng thêm, sửa, xoá các dataset trong tương lai tại đây
 DATASETS_CONFIG = {
-    "apple_data_raw": {
-        "data_path": r"D:\NutritionAI_V1\Data\raw\health_data.csv",
+    "fitness_tracker_dataset": {
+        "data_path": r"D:\NutritionAI_V1\Data\raw\fitness_tracker_dataset.csv",
         "schema_path": r"D:\NutritionAI_V1\src\api\data_schema\schema.yaml",
         "db_schema": "raw"
     },

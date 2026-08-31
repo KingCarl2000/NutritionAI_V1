@@ -1,96 +1,66 @@
-apple_data_raw:
+fitness_tracker_dataset:
   db_schema: raw
-  table_name: apple_data_raw
+  table_name: fitness_tracker_dataset
   columns:
-    type:
+    user_id:
+      type: integer
+      nullable: false
+      description: ''
+    date:
       type: categorical
       nullable: false
       description: ''
-    sourceName:
-      type: categorical
+    steps:
+      type: integer
       nullable: false
       description: ''
-    sourceVersion:
-      type: categorical
+    calories_burned:
+      type: float
       nullable: false
       description: ''
-    unit:
+    distance_km:
+      type: float
+      nullable: false
+      description: ''
+    active_minutes:
+      type: integer
+      nullable: false
+      description: ''
+    sleep_hours:
+      type: float
+      nullable: false
+      description: ''
+    heart_rate_avg:
+      type: integer
+      nullable: false
+      description: ''
+    workout_type:
       type: categorical
       nullable: true
       description: ''
-    m_creationDate:
+    weather_conditions:
       type: categorical
       nullable: false
       description: ''
-    m_creationTime:
+    location:
       type: categorical
       nullable: false
       description: ''
-    m_creationTime_am_pm:
+    mood:
       type: categorical
       nullable: false
-      description: ''
-    m_creationTimeZone:
-      type: integer
-      nullable: false
-      description: ''
-    m_startDate:
-      type: categorical
-      nullable: false
-      description: ''
-    m_startTime:
-      type: categorical
-      nullable: false
-      description: ''
-    m_startTime_am_pm:
-      type: categorical
-      nullable: false
-      description: ''
-    m_startTimeZone:
-      type: integer
-      nullable: false
-      description: ''
-    m_endDate:
-      type: categorical
-      nullable: false
-      description: ''
-    m_endTime:
-      type: categorical
-      nullable: false
-      description: ''
-    m_endTime_am_pm:
-      type: categorical
-      nullable: false
-      description: ''
-    m_endTimeZone:
-      type: integer
-      nullable: false
-      description: ''
-    value:
-      type: categorical
-      nullable: false
-      description: ''
-    device:
-      type: categorical
-      nullable: true
       description: ''
   numerical_columns:
-  - m_creationTimeZone
-  - m_startTimeZone
-  - m_endTimeZone
+  - user_id
+  - steps
+  - calories_burned
+  - distance_km
+  - active_minutes
+  - sleep_hours
+  - heart_rate_avg
   categorical_columns:
-  - type
-  - sourceName
-  - sourceVersion
-  - unit
-  - m_creationDate
-  - m_creationTime
-  - m_creationTime_am_pm
-  - m_startDate
-  - m_startTime
-  - m_startTime_am_pm
-  - m_endDate
-  - m_endTime
-  - m_endTime_am_pm
-  - value
-  - device
+  - date
+  - workout_type
+  - weather_conditions
+  - location
+  - mood

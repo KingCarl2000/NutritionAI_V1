@@ -14,8 +14,8 @@ from src.postgres.data_io.bulk_loader import PostgresBulkLoader
 
 # Định nghĩa danh sách các dataset sẽ load
 DATASETS_TO_LOAD: Dict[str, Dict[str, Any]] = {
-    "raw.apple_data_raw": {
-        "file_path": str(PROJECT_ROOT / "Data" / "raw" / "health_data.csv"),
+    "raw.fitness_tracker_dataset": {
+        "file_path": str(PROJECT_ROOT / "Data" / "raw" / "fitness_tracker_dataset.csv"),
         "format": "csv",
         "delimiter": ",",
         "header": True
