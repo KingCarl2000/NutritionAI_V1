@@ -18,4 +18,9 @@ pgvector
 psycopg
 psycopg_pool
 
+# visualization
+seaborn
 
+
+# datasets
+datasets

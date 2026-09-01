@@ -1,0 +1,82 @@
+                                                     
+-----------------------------------------------------
+ ===================================================
+(1 row)
+
+                                                       
+-------------------------------------------------------
+   BÁO CÁO KHÁM PHÁ SIÊU DỮ LIỆU (METADATA PROFILING) 
+(1 row)
+
+                                                  
+--------------------------------------------------
+   Bảng dữ liệu nguồn: raw."dailyActivity_merged"
+(1 row)
+
+                                                     
+-----------------------------------------------------
+   Thời gian khởi tạo: 2026-09-01 16:11:38.837984+07
+(1 row)
+
+                                                     
+-----------------------------------------------------
+ ===================================================
+(1 row)
+
+           ---           
+-------------------------
+ 1. CẤU TRÚC SCHEMA BẢNG
+(1 row)
+
+       Column Name        |    Data Type     | Allows Null 
+--------------------------+------------------+-------------
+ Id                       | bigint           | YES
+ ActivityDate             | date             | YES
+ TotalSteps               | bigint           | YES
+ TotalDistance            | double precision | YES
+ TrackerDistance          | double precision | YES
+ LoggedActivitiesDistance | double precision | YES
+ VeryActiveDistance       | double precision | YES
+ ModeratelyActiveDistance | double precision | YES
+ LightActiveDistance      | double precision | YES
+ SedentaryActiveDistance  | double precision | YES
+ VeryActiveMinutes        | bigint           | YES
+ FairlyActiveMinutes      | bigint           | YES
+ LightlyActiveMinutes     | bigint           | YES
+ SedentaryMinutes         | bigint           | YES
+ Calories                 | bigint           | YES
+(15 rows)
+
+              ---               
+--------------------------------
+ 2. ƯỚC LƯỢNG KÍCH THƯỚC VẬT LÝ
+(1 row)
+
+ Số dòng ước tính | Dung lượng bảng thô | Tổng dung lượng (gồm Chỉ mục) 
+------------------+---------------------+-------------------------------
+               -1 | 128 kB              | 128 kB
+(1 row)
+
+                    ---                    
+-------------------------------------------
+ 3. THỐNG KÊ PHÂN PHỐI DỮ LIỆU TỪ PG_STATS
+(1 row)
+
+       Column Name        | Null Ratio | Distinct Count |    Estimated Min    |   Estimated Max   | Average Byte Width (RAM) 
+--------------------------+------------+----------------+---------------------+-------------------+--------------------------
+ Calories                 |          0 |     -0.8380744 | 50                  | 4562              |                        8
+ FairlyActiveMinutes      |          0 |     -0.1356674 | 23                  | 660               |                        8
+ Id                       |          0 |             35 |                     |                   |                        8
+ LightActiveDistance      |          0 |    -0.64551425 | 0.0199999995529652  | 12.5100002288818  |                        8
+ LightlyActiveMinutes     |          0 |    -0.54923415 | 3                   | 720               |                        8
+ LoggedActivitiesDistance |          0 |             20 | 0.055842999368906   | 6.72705698013306  |                        8
+ ModeratelyActiveDistance |          0 |    -0.30634573 | 0.0199999995529652  | 6.40000009536743  |                        8
+ SedentaryActiveDistance  |          0 |              8 | 0.0500000007450581  | 0.100000001490116 |                        8
+ SedentaryMinutes         |          0 |     -0.6892779 | 32                  | 1432              |                        8
+ TotalDistance            |          0 |     -0.7308534 | 0.0299999993294477  | 27.5300006866455  |                        8
+ TotalSteps               |          0 |     -0.8512035 | 4                   | 28497             |                        8
+ TrackerDistance          |          0 |    -0.73522973 | 0.0299999993294477  | 27.5300006866455  |                        8
+ VeryActiveDistance       |          0 |    -0.37199125 | 0.00999999977648258 | 21.9200000762939  |                        8
+ VeryActiveMinutes        |          0 |    -0.18599562 | 22                  | 202               |                        8
+(14 rows)
+

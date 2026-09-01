@@ -1,8 +1,241 @@
-fitness_tracker_dataset:
+dailyActivity_merged:
   db_schema: raw
-  table_name: fitness_tracker_dataset
+  table_name: dailyActivity_merged
   columns:
-    user_id:
+    Id:
+      type: integer
+      nullable: false
+      description: ''
+    ActivityDate:
+      type: categorical
+      nullable: false
+      description: ''
+    TotalSteps:
+      type: integer
+      nullable: false
+      description: ''
+    TotalDistance:
+      type: float
+      nullable: false
+      description: ''
+    TrackerDistance:
+      type: float
+      nullable: false
+      description: ''
+    LoggedActivitiesDistance:
+      type: float
+      nullable: false
+      description: ''
+    VeryActiveDistance:
+      type: float
+      nullable: false
+      description: ''
+    ModeratelyActiveDistance:
+      type: float
+      nullable: false
+      description: ''
+    LightActiveDistance:
+      type: float
+      nullable: false
+      description: ''
+    SedentaryActiveDistance:
+      type: float
+      nullable: false
+      description: ''
+    VeryActiveMinutes:
+      type: integer
+      nullable: false
+      description: ''
+    FairlyActiveMinutes:
+      type: integer
+      nullable: false
+      description: ''
+    LightlyActiveMinutes:
+      type: integer
+      nullable: false
+      description: ''
+    SedentaryMinutes:
+      type: integer
+      nullable: false
+      description: ''
+    Calories:
+      type: integer
+      nullable: false
+      description: ''
+  numerical_columns:
+  - Id
+  - TotalSteps
+  - TotalDistance
+  - TrackerDistance
+  - LoggedActivitiesDistance
+  - VeryActiveDistance
+  - ModeratelyActiveDistance
+  - LightActiveDistance
+  - SedentaryActiveDistance
+  - VeryActiveMinutes
+  - FairlyActiveMinutes
+  - LightlyActiveMinutes
+  - SedentaryMinutes
+  - Calories
+  categorical_columns:
+  - ActivityDate
+heartrate_seconds_merged:
+  db_schema: raw
+  table_name: heartrate_seconds_merged
+  columns:
+    Id:
+      type: integer
+      nullable: false
+      description: ''
+    Time:
+      type: categorical
+      nullable: false
+      description: ''
+    Value:
+      type: integer
+      nullable: false
+      description: ''
+  numerical_columns:
+  - Id
+  - Value
+  categorical_columns:
+  - Time
+hourlyCalories_merged:
+  db_schema: raw
+  table_name: hourlyCalories_merged
+  columns:
+    Id:
+      type: integer
+      nullable: false
+      description: ''
+    ActivityHour:
+      type: categorical
+      nullable: false
+      description: ''
+    Calories:
+      type: integer
+      nullable: false
+      description: ''
+  numerical_columns:
+  - Id
+  - Calories
+  categorical_columns:
+  - ActivityHour
+hourlyIntensities_merged:
+  db_schema: raw
+  table_name: hourlyIntensities_merged
+  columns:
+    Id:
+      type: integer
+      nullable: false
+      description: ''
+    ActivityHour:
+      type: categorical
+      nullable: false
+      description: ''
+    TotalIntensity:
+      type: integer
+      nullable: false
+      description: ''
+    AverageIntensity:
+      type: float
+      nullable: false
+      description: ''
+  numerical_columns:
+  - Id
+  - TotalIntensity
+  - AverageIntensity
+  categorical_columns:
+  - ActivityHour
+hourlySteps_merged:
+  db_schema: raw
+  table_name: hourlySteps_merged
+  columns:
+    Id:
+      type: integer
+      nullable: false
+      description: ''
+    ActivityHour:
+      type: categorical
+      nullable: false
+      description: ''
+    StepTotal:
+      type: integer
+      nullable: false
+      description: ''
+  numerical_columns:
+  - Id
+  - StepTotal
+  categorical_columns:
+  - ActivityHour
+minuteCaloriesNarrow_merged:
+  db_schema: raw
+  table_name: minuteCaloriesNarrow_merged
+  columns:
+    Id:
+      type: integer
+      nullable: false
+      description: ''
+    ActivityMinute:
+      type: categorical
+      nullable: false
+      description: ''
+    Calories:
+      type: float
+      nullable: false
+      description: ''
+  numerical_columns:
+  - Id
+  - Calories
+  categorical_columns:
+  - ActivityMinute
+minuteIntensitiesNarrow_merged:
+  db_schema: raw
+  table_name: minuteIntensitiesNarrow_merged
+  columns:
+    Id:
+      type: integer
+      nullable: false
+      description: ''
+    ActivityMinute:
+      type: categorical
+      nullable: false
+      description: ''
+    Intensity:
+      type: integer
+      nullable: false
+      description: ''
+  numerical_columns:
+  - Id
+  - Intensity
+  categorical_columns:
+  - ActivityMinute
+minuteMETsNarrow_merged:
+  db_schema: raw
+  table_name: minuteMETsNarrow_merged
+  columns:
+    Id:
+      type: integer
+      nullable: false
+      description: ''
+    ActivityMinute:
+      type: categorical
+      nullable: false
+      description: ''
+    METs:
+      type: integer
+      nullable: false
+      description: ''
+  numerical_columns:
+  - Id
+  - METs
+  categorical_columns:
+  - ActivityMinute
+minuteSleep_merged:
+  db_schema: raw
+  table_name: minuteSleep_merged
+  columns:
+    Id:
       type: integer
       nullable: false
       description: ''
@@ -10,57 +243,85 @@ fitness_tracker_dataset:
       type: categorical
       nullable: false
       description: ''
-    steps:
+    value:
       type: integer
       nullable: false
       description: ''
-    calories_burned:
-      type: float
-      nullable: false
-      description: ''
-    distance_km:
-      type: float
-      nullable: false
-      description: ''
-    active_minutes:
+    logId:
       type: integer
-      nullable: false
-      description: ''
-    sleep_hours:
-      type: float
-      nullable: false
-      description: ''
-    heart_rate_avg:
-      type: integer
-      nullable: false
-      description: ''
-    workout_type:
-      type: categorical
-      nullable: true
-      description: ''
-    weather_conditions:
-      type: categorical
-      nullable: false
-      description: ''
-    location:
-      type: categorical
-      nullable: false
-      description: ''
-    mood:
-      type: categorical
       nullable: false
       description: ''
   numerical_columns:
-  - user_id
-  - steps
-  - calories_burned
-  - distance_km
-  - active_minutes
-  - sleep_hours
-  - heart_rate_avg
+  - Id
+  - value
+  - logId
   categorical_columns:
   - date
-  - workout_type
-  - weather_conditions
-  - location
-  - mood
+minuteStepsNarrow_merged:
+  db_schema: raw
+  table_name: minuteStepsNarrow_merged
+  columns:
+    Id:
+      type: integer
+      nullable: false
+      description: ''
+    ActivityMinute:
+      type: categorical
+      nullable: false
+      description: ''
+    Steps:
+      type: integer
+      nullable: false
+      description: ''
+  numerical_columns:
+  - Id
+  - Steps
+  categorical_columns:
+  - ActivityMinute
+weightLogInfo_merged:
+  db_schema: raw
+  table_name: weightLogInfo_merged
+  columns:
+    Id:
+      type: integer
+      nullable: false
+      description: ''
+    Date:
+      type: categorical
+      nullable: false
+      description: ''
+    WeightKg:
+      type: float
+      nullable: false
+      description: ''
+    WeightPounds:
+      type: float
+      nullable: false
+      description: ''
+    Fat:
+      type: float
+      nullable: true
+      description: ''
+    BMI:
+      type: float
+      nullable: false
+      description: ''
+    IsManualReport:
+      type: boolean
+      nullable: false
+      description: ''
+    LogId:
+      type: integer
+      nullable: false
+      description: ''
+  numerical_columns:
+  - Id
+  - WeightKg
+  - WeightPounds
+  - Fat
+  - BMI
+  - LogId
+  categorical_columns:
+  - Date
+  boolean_columns:
+  - IsManualReport

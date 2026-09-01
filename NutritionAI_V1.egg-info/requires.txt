@@ -9,11 +9,14 @@ sqlalchemy
 pgvector
 psycopg
 psycopg_pool
+seaborn
+datasets
 
 [all]
 pandas
 numpy
 scikit-learn
+xgboost
 mlflow
 dagshub
 skops
@@ -34,6 +37,7 @@ pypdf
 pandas
 numpy
 scikit-learn
+xgboost
 mlflow
 dagshub
 skops

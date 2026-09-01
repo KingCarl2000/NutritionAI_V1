@@ -14,10 +14,13 @@ Requires-Dist: sqlalchemy
 Requires-Dist: pgvector
 Requires-Dist: psycopg
 Requires-Dist: psycopg_pool
+Requires-Dist: seaborn
+Requires-Dist: datasets
 Provides-Extra: ml
 Requires-Dist: pandas; extra == "ml"
 Requires-Dist: numpy; extra == "ml"
 Requires-Dist: scikit-learn; extra == "ml"
+Requires-Dist: xgboost; extra == "ml"
 Requires-Dist: mlflow; extra == "ml"
 Requires-Dist: dagshub; extra == "ml"
 Requires-Dist: skops; extra == "ml"
@@ -32,6 +35,7 @@ Provides-Extra: all
 Requires-Dist: pandas; extra == "all"
 Requires-Dist: numpy; extra == "all"
 Requires-Dist: scikit-learn; extra == "all"
+Requires-Dist: xgboost; extra == "all"
 Requires-Dist: mlflow; extra == "all"
 Requires-Dist: dagshub; extra == "all"
 Requires-Dist: skops; extra == "all"

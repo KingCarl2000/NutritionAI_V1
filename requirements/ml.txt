@@ -7,6 +7,7 @@ numpy
 
 # Học máy truyền thống
 scikit-learn
+xgboost
 
 # MLOps, Tracking & Cloud Infrastructure
 mlflow
