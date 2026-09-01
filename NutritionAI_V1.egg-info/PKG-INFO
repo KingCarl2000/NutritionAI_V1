@@ -15,7 +15,8 @@ Requires-Dist: pgvector
 Requires-Dist: psycopg
 Requires-Dist: psycopg_pool
 Requires-Dist: seaborn
-Requires-Dist: datasets
+Requires-Dist: setuptools<70.0.0
+Requires-Dist: ydata_profiling
 Provides-Extra: ml
 Requires-Dist: pandas; extra == "ml"
 Requires-Dist: numpy; extra == "ml"
@@ -26,6 +27,7 @@ Requires-Dist: dagshub; extra == "ml"
 Requires-Dist: skops; extra == "ml"
 Requires-Dist: awscli; extra == "ml"
 Requires-Dist: apache-airflow; extra == "ml"
+Requires-Dist: datasets; extra == "ml"
 Provides-Extra: llm
 Requires-Dist: langchain; extra == "llm"
 Requires-Dist: langchain-community; extra == "llm"
@@ -41,6 +43,7 @@ Requires-Dist: dagshub; extra == "all"
 Requires-Dist: skops; extra == "all"
 Requires-Dist: awscli; extra == "all"
 Requires-Dist: apache-airflow; extra == "all"
+Requires-Dist: datasets; extra == "all"
 Requires-Dist: langchain; extra == "all"
 Requires-Dist: langchain-community; extra == "all"
 Requires-Dist: tiktoken; extra == "all"

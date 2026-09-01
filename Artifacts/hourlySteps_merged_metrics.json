@@ -1,0 +1,67 @@
+{
+    "1_table_level_metrics": {
+        "total_rows": 10000,
+        "total_columns": 3,
+        "duplicate_rows_count": 0,
+        "duplicate_rows_ratio": 0.0,
+        "missing_cells_ratio": 0.0
+    },
+    "2_numerical_metrics": {
+        "Id": {
+            "missing_null_ratio": 0.0,
+            "zero_ratio": 0.0,
+            "min": 1503960366.0,
+            "max": 4057192912.0,
+            "mean": 2475034706.456,
+            "median_50": 2026352035.0,
+            "std_dev": 869668681.5145698,
+            "iqr_25_75": 1528363092.0,
+            "skewness": 0.7800036910399916,
+            "kurtosis": -0.8653675307009014
+        },
+        "StepTotal": {
+            "missing_null_ratio": 0.0,
+            "zero_ratio": 0.4607,
+            "min": 0.0,
+            "max": 6163.0,
+            "mean": 270.3211,
+            "median_50": 12.0,
+            "std_dev": 619.2777193506629,
+            "iqr_25_75": 261.25,
+            "skewness": 4.4353174636263715,
+            "kurtosis": 25.30555193543933
+        }
+    },
+    "3_categorical_and_datetime_metrics": {
+        "ActivityHour": {
+            "type": "datetime",
+            "missing_null_ratio": 0.0,
+            "distinct_unique_count": 755,
+            "mode": "2016-03-12 00:00:00",
+            "min_date": "2016-03-12 00:00:00",
+            "max_date": "2016-04-12 10:00:00"
+        }
+    },
+    "4_relationships": {
+        "pearson_correlation": {
+            "Id": {
+                "Id": 1.0,
+                "StepTotal": -0.069
+            },
+            "StepTotal": {
+                "Id": -0.069,
+                "StepTotal": 1.0
+            }
+        },
+        "spearman_correlation": {
+            "Id": {
+                "Id": 1.0,
+                "StepTotal": -0.0721
+            },
+            "StepTotal": {
+                "Id": -0.0721,
+                "StepTotal": 1.0
+            }
+        }
+    }
+}

@@ -15,3 +15,6 @@ dagshub
 skops
 awscli
 apache-airflow
+
+# hugging face
+datasets

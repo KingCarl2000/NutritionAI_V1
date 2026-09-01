@@ -1,0 +1,93 @@
+{
+    "1_table_level_metrics": {
+        "total_rows": 10000,
+        "total_columns": 4,
+        "duplicate_rows_count": 0,
+        "duplicate_rows_ratio": 0.0,
+        "missing_cells_ratio": 0.0
+    },
+    "2_numerical_metrics": {
+        "Id": {
+            "missing_null_ratio": 0.0,
+            "zero_ratio": 0.0,
+            "min": 1503960366.0,
+            "max": 1644430081.0,
+            "mean": 1509171792.4265,
+            "median_50": 1503960366.0,
+            "std_dev": 26551066.181730624,
+            "iqr_25_75": 0.0,
+            "skewness": 4.898970001131077,
+            "kurtosis": 22.004307893645024
+        },
+        "value": {
+            "missing_null_ratio": 0.0,
+            "zero_ratio": 0.0,
+            "min": 1.0,
+            "max": 3.0,
+            "mean": 1.0973,
+            "median_50": 1.0,
+            "std_dev": 0.3356247523610852,
+            "iqr_25_75": 0.0,
+            "skewness": 3.6486890410869313,
+            "kurtosis": 13.619350344453652
+        },
+        "logId": {
+            "missing_null_ratio": 0.0,
+            "zero_ratio": 0.0,
+            "min": 11114919637.0,
+            "max": 11370708329.0,
+            "mean": 11230286434.7594,
+            "median_50": 11227525796.0,
+            "std_dev": 74884600.36197358,
+            "iqr_25_75": 128042212.0,
+            "skewness": 0.24804868697894816,
+            "kurtosis": -1.0527143335836935
+        }
+    },
+    "3_categorical_and_datetime_metrics": {
+        "date": {
+            "type": "datetime",
+            "missing_null_ratio": 0.0,
+            "distinct_unique_count": 10000,
+            "mode": "2016-03-13 02:39:30",
+            "min_date": "2016-03-13 02:39:30",
+            "max_date": "2016-04-11 08:28:00"
+        }
+    },
+    "4_relationships": {
+        "pearson_correlation": {
+            "Id": {
+                "Id": 1.0,
+                "value": 0.1685,
+                "logId": 0.0439
+            },
+            "value": {
+                "Id": 0.1685,
+                "value": 1.0,
+                "logId": 0.0341
+            },
+            "logId": {
+                "Id": 0.0439,
+                "value": 0.0341,
+                "logId": 1.0
+            }
+        },
+        "spearman_correlation": {
+            "Id": {
+                "Id": 1.0,
+                "value": 0.1722,
+                "logId": 0.068
+            },
+            "value": {
+                "Id": 0.1722,
+                "value": 1.0,
+                "logId": 0.0392
+            },
+            "logId": {
+                "Id": 0.068,
+                "value": 0.0392,
+                "logId": 1.0
+            }
+        }
+    }
+}

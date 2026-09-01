@@ -1,0 +1,67 @@
+{
+    "1_table_level_metrics": {
+        "total_rows": 10000,
+        "total_columns": 3,
+        "duplicate_rows_count": 0,
+        "duplicate_rows_ratio": 0.0,
+        "missing_cells_ratio": 0.0
+    },
+    "2_numerical_metrics": {
+        "Id": {
+            "missing_null_ratio": 0.0,
+            "zero_ratio": 0.0,
+            "min": 1503960366.0,
+            "max": 1503960366.0,
+            "mean": 1503960366.0,
+            "median_50": 1503960366.0,
+            "std_dev": 0.0,
+            "iqr_25_75": 0.0,
+            "skewness": 0.0,
+            "kurtosis": 0.0
+        },
+        "Calories": {
+            "missing_null_ratio": 0.0,
+            "zero_ratio": 0.0,
+            "min": 0.788999974727631,
+            "max": 8.44229984283447,
+            "mean": 1.3388461923539643,
+            "median_50": 0.946799993515015,
+            "std_dev": 1.1976359205610643,
+            "iqr_25_75": 0.15780001878738403,
+            "skewness": 3.0597092205515444,
+            "kurtosis": 9.592629702571417
+        }
+    },
+    "3_categorical_and_datetime_metrics": {
+        "ActivityMinute": {
+            "type": "datetime",
+            "missing_null_ratio": 0.0,
+            "distinct_unique_count": 10000,
+            "mode": "2016-03-25 08:00:00",
+            "min_date": "2016-03-25 08:00:00",
+            "max_date": "2016-04-01 06:39:00"
+        }
+    },
+    "4_relationships": {
+        "pearson_correlation": {
+            "Id": {
+                "Id": NaN,
+                "Calories": NaN
+            },
+            "Calories": {
+                "Id": NaN,
+                "Calories": 1.0
+            }
+        },
+        "spearman_correlation": {
+            "Id": {
+                "Id": NaN,
+                "Calories": NaN
+            },
+            "Calories": {
+                "Id": NaN,
+                "Calories": 1.0
+            }
+        }
+    }
+}

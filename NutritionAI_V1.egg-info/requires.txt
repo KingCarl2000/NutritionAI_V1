@@ -10,7 +10,8 @@ pgvector
 psycopg
 psycopg_pool
 seaborn
-datasets
+setuptools<70.0.0
+ydata_profiling
 
 [all]
 pandas
@@ -22,6 +23,7 @@ dagshub
 skops
 awscli
 apache-airflow
+datasets
 langchain
 langchain-community
 tiktoken
@@ -43,3 +45,4 @@ dagshub
 skops
 awscli
 apache-airflow
+datasets

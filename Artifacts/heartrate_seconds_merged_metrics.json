@@ -1,0 +1,67 @@
+{
+    "1_table_level_metrics": {
+        "total_rows": 10000,
+        "total_columns": 3,
+        "duplicate_rows_count": 0,
+        "duplicate_rows_ratio": 0.0,
+        "missing_cells_ratio": 0.0
+    },
+    "2_numerical_metrics": {
+        "Id": {
+            "missing_null_ratio": 0.0,
+            "zero_ratio": 0.0,
+            "min": 2022484408.0,
+            "max": 2022484408.0,
+            "mean": 2022484408.0,
+            "median_50": 2022484408.0,
+            "std_dev": 0.0,
+            "iqr_25_75": 0.0,
+            "skewness": 0.0,
+            "kurtosis": 0.0
+        },
+        "Value": {
+            "missing_null_ratio": 0.0,
+            "zero_ratio": 0.0,
+            "min": 53.0,
+            "max": 159.0,
+            "mean": 84.4877,
+            "median_50": 79.0,
+            "std_dev": 18.628718464380807,
+            "iqr_25_75": 23.0,
+            "skewness": 1.2813116201109302,
+            "kurtosis": 1.4168058129229606
+        }
+    },
+    "3_categorical_and_datetime_metrics": {
+        "Time": {
+            "type": "datetime",
+            "missing_null_ratio": 0.0,
+            "distinct_unique_count": 10000,
+            "mode": "2016-04-05 10:19:45",
+            "min_date": "2016-04-05 10:19:45",
+            "max_date": "2016-04-07 09:46:55"
+        }
+    },
+    "4_relationships": {
+        "pearson_correlation": {
+            "Id": {
+                "Id": NaN,
+                "Value": NaN
+            },
+            "Value": {
+                "Id": NaN,
+                "Value": 1.0
+            }
+        },
+        "spearman_correlation": {
+            "Id": {
+                "Id": NaN,
+                "Value": NaN
+            },
+            "Value": {
+                "Id": NaN,
+                "Value": 1.0
+            }
+        }
+    }
+}

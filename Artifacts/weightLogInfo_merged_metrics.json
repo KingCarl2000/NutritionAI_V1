@@ -1,0 +1,202 @@
+{
+    "1_table_level_metrics": {
+        "total_rows": 33,
+        "total_columns": 8,
+        "duplicate_rows_count": 0,
+        "duplicate_rows_ratio": 0.0,
+        "missing_cells_ratio": 0.11742424242424243
+    },
+    "2_numerical_metrics": {
+        "Id": {
+            "missing_null_ratio": 0.0,
+            "zero_ratio": 0.0,
+            "min": 1503960366.0,
+            "max": 8877689391.0,
+            "mean": 6477156250.242424,
+            "median_50": 6962181067.0,
+            "std_dev": 2308887759.296209,
+            "iqr_25_75": 4174767707.0,
+            "skewness": -0.8558505289702193,
+            "kurtosis": -0.40612104225355594
+        },
+        "WeightKg": {
+            "missing_null_ratio": 0.0,
+            "zero_ratio": 0.0,
+            "min": 53.2999992370605,
+            "max": 129.600006103516,
+            "mean": 73.44242477416995,
+            "median_50": 62.5,
+            "std_dev": 16.531126982856325,
+            "iqr_25_75": 24.100002288818295,
+            "skewness": 1.341600423494527,
+            "kurtosis": 2.445234009713458
+        },
+        "WeightPounds": {
+            "missing_null_ratio": 0.0,
+            "zero_ratio": 0.0,
+            "min": 117.506384062611,
+            "max": 285.719105247709,
+            "mean": 161.912831060652,
+            "median_50": 137.788913865625,
+            "std_dev": 36.444896511079904,
+            "iqr_25_75": 53.131410232565,
+            "skewness": 1.341600423494523,
+            "kurtosis": 2.4452340097134395
+        },
+        "Fat": {
+            "missing_null_ratio": 0.9393939393939394,
+            "zero_ratio": 0.0,
+            "min": 10.0,
+            "max": 22.0,
+            "mean": 16.0,
+            "median_50": 16.0,
+            "std_dev": 8.48528137423857,
+            "iqr_25_75": 6.0,
+            "skewness": null,
+            "kurtosis": null
+        },
+        "BMI": {
+            "missing_null_ratio": 0.0,
+            "zero_ratio": 0.0,
+            "min": 21.4500007629395,
+            "max": 46.1699981689453,
+            "mean": 25.730909174138844,
+            "median_50": 24.3899993896484,
+            "std_dev": 4.330386621393407,
+            "iqr_25_75": 1.6599998474120987,
+            "skewness": 3.7566920198316014,
+            "kurtosis": 16.30806463082762
+        },
+        "LogId": {
+            "missing_null_ratio": 0.0,
+            "zero_ratio": 0.0,
+            "min": 1459382399000.0,
+            "max": 1460505599000.0,
+            "mean": 1459959332000.0,
+            "median_50": 1459987199000.0,
+            "std_dev": 308807244.7664562,
+            "iqr_25_75": 407176000.0,
+            "skewness": -0.17011561607687417,
+            "kurtosis": -0.670544284906569
+        }
+    },
+    "3_categorical_and_datetime_metrics": {
+        "IsManualReport": {
+            "type": "categorical",
+            "missing_null_ratio": 0.0,
+            "distinct_unique_count": 2,
+            "mode": "True",
+            "frequency": 23
+        },
+        "Date": {
+            "type": "datetime",
+            "missing_null_ratio": 0.0,
+            "distinct_unique_count": 24,
+            "mode": "2016-04-05 23:59:59",
+            "min_date": "2016-03-30 23:59:59",
+            "max_date": "2016-04-12 23:59:59"
+        }
+    },
+    "4_relationships": {
+        "pearson_correlation": {
+            "Id": {
+                "Id": 1.0,
+                "WeightKg": 0.0535,
+                "WeightPounds": 0.0535,
+                "Fat": -1.0,
+                "BMI": -0.2186,
+                "LogId": 0.0708
+            },
+            "WeightKg": {
+                "Id": 0.0535,
+                "WeightKg": 1.0,
+                "WeightPounds": 1.0,
+                "Fat": -1.0,
+                "BMI": 0.7772,
+                "LogId": 0.0909
+            },
+            "WeightPounds": {
+                "Id": 0.0535,
+                "WeightKg": 1.0,
+                "WeightPounds": 1.0,
+                "Fat": -1.0,
+                "BMI": 0.7772,
+                "LogId": 0.0909
+            },
+            "Fat": {
+                "Id": -1.0,
+                "WeightKg": -1.0,
+                "WeightPounds": -1.0,
+                "Fat": 1.0,
+                "BMI": -1.0,
+                "LogId": 1.0
+            },
+            "BMI": {
+                "Id": -0.2186,
+                "WeightKg": 0.7772,
+                "WeightPounds": 0.7772,
+                "Fat": -1.0,
+                "BMI": 1.0,
+                "LogId": 0.0774
+            },
+            "LogId": {
+                "Id": 0.0708,
+                "WeightKg": 0.0909,
+                "WeightPounds": 0.0909,
+                "Fat": 1.0,
+                "BMI": 0.0774,
+                "LogId": 1.0
+            }
+        },
+        "spearman_correlation": {
+            "Id": {
+                "Id": 1.0,
+                "WeightKg": 0.3075,
+                "WeightPounds": 0.3075,
+                "Fat": -1.0,
+                "BMI": 0.3068,
+                "LogId": 0.1337
+            },
+            "WeightKg": {
+                "Id": 0.3075,
+                "WeightKg": 1.0,
+                "WeightPounds": 1.0,
+                "Fat": -1.0,
+                "BMI": 0.9351,
+                "LogId": 0.1436
+            },
+            "WeightPounds": {
+                "Id": 0.3075,
+                "WeightKg": 1.0,
+                "WeightPounds": 1.0,
+                "Fat": -1.0,
+                "BMI": 0.9351,
+                "LogId": 0.1436
+            },
+            "Fat": {
+                "Id": -1.0,
+                "WeightKg": -1.0,
+                "WeightPounds": -1.0,
+                "Fat": 1.0,
+                "BMI": -1.0,
+                "LogId": 1.0
+            },
+            "BMI": {
+                "Id": 0.3068,
+                "WeightKg": 0.9351,
+                "WeightPounds": 0.9351,
+                "Fat": -1.0,
+                "BMI": 1.0,
+                "LogId": 0.1888
+            },
+            "LogId": {
+                "Id": 0.1337,
+                "WeightKg": 0.1436,
+                "WeightPounds": 0.1436,
+                "Fat": 1.0,
+                "BMI": 0.1888,
+                "LogId": 1.0
+            }
+        }
+    }
+}
