@@ -42,45 +42,54 @@ def create_tables_from_yaml(yaml_path: Path):
 
     # 3. Sử dụng transaction để thực thi SQL
     try:
-        with engine.begin() as conn: # Tự động commit nếu không lỗi, rollback nếu có lỗi
-            for table_key, table_info in schemas.items():
-                schema_name = table_info.get("db_schema", "raw")
-                table_name = table_info.get("table_name", table_key)
-                columns = table_info.get("columns", {})
+        with engine.begin() as conn:
+            # Tự động commit nếu không lỗi, rollback nếu có lỗi
+            for dataset_name, tables_dict in schemas.items():
+                logger.info(f"📂 Đang xử lý nhóm dữ liệu: {dataset_name}")
                 
+                # Nếu cấu trúc có file đơn lẻ chưa nằm trong thư mục, fallback an toàn
+                if "columns" in tables_dict:
+                    tables_dict = {dataset_name: tables_dict}
+                
+                # Lặp qua từng bảng bên trong nhóm thư mục
+                for table_key, table_info in tables_dict.items():
+                    schema_name = table_info.get("db_schema", "raw")
+                    table_name = table_info.get("table_name", table_key)
+                    columns = table_info.get("columns", {})
+
                 # BẢO MẬT: Bọc identifier bằng ngoặc kép chống SQL Injection và lỗi format (VD: khoảng trắng, gạch ngang)
-                safe_schema = f'"{schema_name}"'
-                safe_table = f'"{table_name}"'
-                full_table_name = f"{safe_schema}.{safe_table}"
+                    safe_schema = f'"{schema_name}"'
+                    safe_table = f'"{table_name}"'
+                    full_table_name = f"{safe_schema}.{safe_table}"
                 
-                logger.info(f"Đang xử lý DDL cho bảng {full_table_name}...")
+                    logger.info(f"Đang xử lý DDL cho bảng {full_table_name}...")
                 
                 # B1: Đảm bảo Schema tồn tại
-                conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {safe_schema};"))
-                
+                    conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {safe_schema};"))
+                 
                 # B2: Xây dựng danh sách các cột an toàn
-                col_definitions = []
-                for col_name, col_attrs in columns.items():
-                    pg_type = get_pg_data_type(col_attrs.get("type"))
-                    safe_col_name = f'"{col_name}"'
+                    col_definitions = []
+                    for col_name, col_attrs in columns.items():
+                        pg_type = get_pg_data_type(col_attrs.get("type"))
+                        safe_col_name = f'"{col_name}"'
                     
-                    col_definitions.append(f"{safe_col_name} {pg_type}")
+                        col_definitions.append(f"{safe_col_name} {pg_type}")
                 
                 # B3: Xây dựng câu lệnh SQL DDL hoàn chỉnh
-                columns_ddl = ",\n    ".join(col_definitions)
+                    columns_ddl = ",\n    ".join(col_definitions)
                 
-                drop_sql = f"DROP TABLE IF EXISTS {full_table_name} CASCADE;"
-                create_sql = f"""
-                CREATE TABLE {full_table_name} (
-                    {columns_ddl}
-                );
-                """
+                    drop_sql = f"DROP TABLE IF EXISTS {full_table_name} CASCADE;"
+                    create_sql = f"""
+                    CREATE TABLE {full_table_name} (
+                        {columns_ddl}
+                    );
+                    """
                 
                 # B4: Thực thi SQL (Xoá bảng cũ và tạo bảng mới)
-                conn.execute(text(drop_sql))
-                conn.execute(text(create_sql))
+                    conn.execute(text(drop_sql))
+                    conn.execute(text(create_sql))
                 
-                logger.info(f"✅ Đã tạo bảng {full_table_name} thành công!")
+                    logger.info(f"✅ Đã tạo bảng {full_table_name} thành công!")
                 
     except Exception as e:
         logger.error(f"❌ Lỗi khi thực thi khởi tạo bảng: {e}")

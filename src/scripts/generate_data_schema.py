@@ -115,23 +115,48 @@ def generate_schemas():
         # Kiểm tra xem đường dẫn là THƯ MỤC hay FILE
         if os.path.isdir(data_path):
             print(f"Phát hiện đây là THƯ MỤC. Đang quét các file .csv...")
+            
+            # 1. Trích xuất tên thư mục cuối cùng từ đường dẫn
+            folder_name = os.path.basename(os.path.normpath(data_path))
+            
+            # 2. Khởi tạo block cho thư mục này nếu chưa có trong yaml
+            if folder_name not in current_yaml_data:
+                current_yaml_data[folder_name] = {}
+                
             csv_files = glob.glob(os.path.join(data_path, "*.csv"))
+            
             if not csv_files:
                 print("   Không có file .csv nào trong thư mục này.")
-            
-            for file_path in csv_files:
-                # Tên bảng lấy theo tên file csv
-                table_name = os.path.splitext(os.path.basename(file_path))[0]
-                current_yaml_data = process_single_csv(file_path, table_name, config, current_yaml_data)
                 
+            for file_path in csv_files:
+                table_name = os.path.splitext(os.path.basename(file_path))[0]
+                
+                # 3. Cập nhật schema VÀO TRONG key của thư mục đó
+                current_yaml_data[folder_name] = process_single_csv(
+                    file_path, 
+                    table_name, 
+                    config, 
+                    current_yaml_data[folder_name]
+                )
+
         elif os.path.isfile(data_path) and data_path.lower().endswith('.csv'):
             print(f"Phát hiện đây là FILE csv đơn lẻ.")
-            # Tên bảng lấy theo tên cấu hình (config_name)
-            current_yaml_data = process_single_csv(data_path, config_name, config, current_yaml_data)
             
+            # Với file đơn lẻ, nhóm dưới tên cấu hình (config_name) để phân biệt
+            if config_name not in current_yaml_data:
+                current_yaml_data[config_name] = {}
+                
+            current_yaml_data[config_name] = process_single_csv(
+                data_path, 
+                config_name, 
+                config, 
+                current_yaml_data[config_name]
+            )
+
         else:
             print(f"❌ Đường dẫn không hợp lệ (không phải thư mục cũng không phải file csv).")
 
+        
         # Cập nhật lại dữ liệu vào nhóm
         yaml_groups[schema_path] = current_yaml_data
 
