@@ -10,57 +10,57 @@
         "Id": {
             "missing_null_ratio": 0.0,
             "zero_ratio": 0.0,
-            "min": 2022484408.0,
-            "max": 2022484408.0,
-            "mean": 2022484408.0,
-            "median_50": 2022484408.0,
+            "min": 1503960366.0,
+            "max": 1503960366.0,
+            "mean": 1503960366.0,
+            "median_50": 1503960366.0,
             "std_dev": 0.0,
             "iqr_25_75": 0.0,
             "skewness": 0.0,
             "kurtosis": 0.0
         },
-        "Value": {
+        "Steps": {
             "missing_null_ratio": 0.0,
-            "zero_ratio": 0.0,
-            "min": 53.0,
-            "max": 159.0,
-            "mean": 84.4877,
-            "median_50": 79.0,
-            "std_dev": 18.628718464380807,
-            "iqr_25_75": 23.0,
-            "skewness": 1.2813116201109302,
-            "kurtosis": 1.4168058129229606
+            "zero_ratio": 0.7629,
+            "min": 0.0,
+            "max": 150.0,
+            "mean": 10.3867,
+            "median_50": 0.0,
+            "std_dev": 27.372243004158573,
+            "iqr_25_75": 0.0,
+            "skewness": 3.088397144449498,
+            "kurtosis": 8.72190887763579
         }
     },
     "3_categorical_and_datetime_metrics": {
-        "Time": {
+        "ActivityMinute": {
             "type": "datetime",
             "missing_null_ratio": 0.0,
             "distinct_unique_count": 10000,
-            "mode": "2016-04-05 10:19:45",
-            "min_date": "2016-04-05 10:19:45",
-            "max_date": "2016-04-07 09:46:55"
+            "mode": "2016-03-12 00:00:00",
+            "min_date": "2016-03-12 00:00:00",
+            "max_date": "2016-03-18 22:39:00"
         }
     },
     "4_relationships": {
         "pearson_correlation": {
             "Id": {
                 "Id": NaN,
-                "Value": NaN
+                "Steps": NaN
             },
-            "Value": {
+            "Steps": {
                 "Id": NaN,
-                "Value": 1.0
+                "Steps": 1.0
             }
         },
         "spearman_correlation": {
             "Id": {
                 "Id": NaN,
-                "Value": NaN
+                "Steps": NaN
             },
-            "Value": {
+            "Steps": {
                 "Id": NaN,
-                "Value": 1.0
+                "Steps": 1.0
             }
         }
     }

@@ -21,15 +21,15 @@
         },
         "Intensity": {
             "missing_null_ratio": 0.0,
-            "zero_ratio": 0.7908,
+            "zero_ratio": 0.7629,
             "min": 0.0,
             "max": 3.0,
-            "mean": 0.2816,
+            "mean": 0.3288,
             "median_50": 0.0,
-            "std_dev": 0.6393295818522894,
+            "std_dev": 0.6950819188321536,
             "iqr_25_75": 0.0,
-            "skewness": 2.7483970044277526,
-            "kurtosis": 7.934498396683832
+            "skewness": 2.5048617783691576,
+            "kurtosis": 6.244400832029214
         }
     },
     "3_categorical_and_datetime_metrics": {
@@ -37,9 +37,9 @@
             "type": "datetime",
             "missing_null_ratio": 0.0,
             "distinct_unique_count": 10000,
-            "mode": "2016-03-25 08:00:00",
-            "min_date": "2016-03-25 08:00:00",
-            "max_date": "2016-04-01 06:39:00"
+            "mode": "2016-03-12 00:00:00",
+            "min_date": "2016-03-12 00:00:00",
+            "max_date": "2016-03-18 22:39:00"
         }
     },
     "4_relationships": {

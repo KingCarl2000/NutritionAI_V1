@@ -1,0 +1,40 @@
+{
+    "dailyActivity_merged": {
+        "retained_features": [
+            "TotalDistance",
+            "VeryActiveMinutes",
+            "LightActiveDistance",
+            "FairlyActiveMinutes",
+            "ModeratelyActiveDistance",
+            "LoggedActivitiesDistance",
+            "SedentaryActiveDistance",
+            "SedentaryMinutes"
+        ],
+        "dropped_due_to_multicollinearity": [
+            "LightlyActiveMinutes",
+            "TrackerDistance",
+            "VeryActiveDistance",
+            "TotalSteps"
+        ],
+        "correlation_with_calories": {
+            "TotalDistance": 0.6087,
+            "VeryActiveMinutes": 0.5241,
+            "LightActiveDistance": 0.4344,
+            "FairlyActiveMinutes": 0.3378,
+            "ModeratelyActiveDistance": 0.2962,
+            "LoggedActivitiesDistance": 0.1485,
+            "SedentaryActiveDistance": 0.0941,
+            "SedentaryMinutes": 0.0538
+        }
+    },
+    "hourlyCalories_merged": {
+        "retained_features": [],
+        "dropped_due_to_multicollinearity": [],
+        "correlation_with_calories": {}
+    },
+    "minuteCaloriesNarrow_merged": {
+        "retained_features": [],
+        "dropped_due_to_multicollinearity": [],
+        "correlation_with_calories": {}
+    }
+}

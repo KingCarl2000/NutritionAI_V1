@@ -19,17 +19,17 @@
             "skewness": 0.0,
             "kurtosis": 0.0
         },
-        "METs": {
+        "Calories": {
             "missing_null_ratio": 0.0,
             "zero_ratio": 0.0,
-            "min": 10.0,
-            "max": 107.0,
-            "mean": 16.9689,
-            "median_50": 12.0,
-            "std_dev": 15.179162476479021,
-            "iqr_25_75": 2.0,
-            "skewness": 3.0597092339547256,
-            "kurtosis": 9.592629800699621
+            "min": 0.797299981117249,
+            "max": 7.89327001571655,
+            "mean": 1.4186477393507957,
+            "median_50": 0.956759989261627,
+            "std_dev": 1.2627528875860459,
+            "iqr_25_75": 0.159739971160888,
+            "skewness": 2.717153885858486,
+            "kurtosis": 7.25035284555379
         }
     },
     "3_categorical_and_datetime_metrics": {
@@ -37,30 +37,30 @@
             "type": "datetime",
             "missing_null_ratio": 0.0,
             "distinct_unique_count": 10000,
-            "mode": "2016-03-25 08:00:00",
-            "min_date": "2016-03-25 08:00:00",
-            "max_date": "2016-04-01 06:39:00"
+            "mode": "2016-03-12 00:00:00",
+            "min_date": "2016-03-12 00:00:00",
+            "max_date": "2016-03-18 22:39:00"
         }
     },
     "4_relationships": {
         "pearson_correlation": {
             "Id": {
                 "Id": NaN,
-                "METs": NaN
+                "Calories": NaN
             },
-            "METs": {
+            "Calories": {
                 "Id": NaN,
-                "METs": 1.0
+                "Calories": 1.0
             }
         },
         "spearman_correlation": {
             "Id": {
                 "Id": NaN,
-                "METs": NaN
+                "Calories": NaN
             },
-            "METs": {
+            "Calories": {
                 "Id": NaN,
-                "METs": 1.0
+                "Calories": 1.0
             }
         }
     }

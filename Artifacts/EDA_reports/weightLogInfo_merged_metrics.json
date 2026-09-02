@@ -1,10 +1,10 @@
 {
     "1_table_level_metrics": {
         "total_rows": 33,
-        "total_columns": 8,
+        "total_columns": 7,
         "duplicate_rows_count": 0,
         "duplicate_rows_ratio": 0.0,
-        "missing_cells_ratio": 0.11742424242424243
+        "missing_cells_ratio": 0.0
     },
     "2_numerical_metrics": {
         "Id": {
@@ -42,18 +42,6 @@
             "iqr_25_75": 53.131410232565,
             "skewness": 1.341600423494523,
             "kurtosis": 2.4452340097134395
-        },
-        "Fat": {
-            "missing_null_ratio": 0.9393939393939394,
-            "zero_ratio": 0.0,
-            "min": 10.0,
-            "max": 22.0,
-            "mean": 16.0,
-            "median_50": 16.0,
-            "std_dev": 8.48528137423857,
-            "iqr_25_75": 6.0,
-            "skewness": null,
-            "kurtosis": null
         },
         "BMI": {
             "missing_null_ratio": 0.0,
@@ -103,7 +91,6 @@
                 "Id": 1.0,
                 "WeightKg": 0.0535,
                 "WeightPounds": 0.0535,
-                "Fat": -1.0,
                 "BMI": -0.2186,
                 "LogId": 0.0708
             },
@@ -111,7 +98,6 @@
                 "Id": 0.0535,
                 "WeightKg": 1.0,
                 "WeightPounds": 1.0,
-                "Fat": -1.0,
                 "BMI": 0.7772,
                 "LogId": 0.0909
             },
@@ -119,23 +105,13 @@
                 "Id": 0.0535,
                 "WeightKg": 1.0,
                 "WeightPounds": 1.0,
-                "Fat": -1.0,
                 "BMI": 0.7772,
                 "LogId": 0.0909
-            },
-            "Fat": {
-                "Id": -1.0,
-                "WeightKg": -1.0,
-                "WeightPounds": -1.0,
-                "Fat": 1.0,
-                "BMI": -1.0,
-                "LogId": 1.0
             },
             "BMI": {
                 "Id": -0.2186,
                 "WeightKg": 0.7772,
                 "WeightPounds": 0.7772,
-                "Fat": -1.0,
                 "BMI": 1.0,
                 "LogId": 0.0774
             },
@@ -143,7 +119,6 @@
                 "Id": 0.0708,
                 "WeightKg": 0.0909,
                 "WeightPounds": 0.0909,
-                "Fat": 1.0,
                 "BMI": 0.0774,
                 "LogId": 1.0
             }
@@ -153,7 +128,6 @@
                 "Id": 1.0,
                 "WeightKg": 0.3075,
                 "WeightPounds": 0.3075,
-                "Fat": -1.0,
                 "BMI": 0.3068,
                 "LogId": 0.1337
             },
@@ -161,7 +135,6 @@
                 "Id": 0.3075,
                 "WeightKg": 1.0,
                 "WeightPounds": 1.0,
-                "Fat": -1.0,
                 "BMI": 0.9351,
                 "LogId": 0.1436
             },
@@ -169,23 +142,13 @@
                 "Id": 0.3075,
                 "WeightKg": 1.0,
                 "WeightPounds": 1.0,
-                "Fat": -1.0,
                 "BMI": 0.9351,
                 "LogId": 0.1436
-            },
-            "Fat": {
-                "Id": -1.0,
-                "WeightKg": -1.0,
-                "WeightPounds": -1.0,
-                "Fat": 1.0,
-                "BMI": -1.0,
-                "LogId": 1.0
             },
             "BMI": {
                 "Id": 0.3068,
                 "WeightKg": 0.9351,
                 "WeightPounds": 0.9351,
-                "Fat": -1.0,
                 "BMI": 1.0,
                 "LogId": 0.1888
             },
@@ -193,7 +156,6 @@
                 "Id": 0.1337,
                 "WeightKg": 0.1436,
                 "WeightPounds": 0.1436,
-                "Fat": 1.0,
                 "BMI": 0.1888,
                 "LogId": 1.0
             }

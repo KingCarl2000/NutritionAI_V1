@@ -10,57 +10,57 @@
         "Id": {
             "missing_null_ratio": 0.0,
             "zero_ratio": 0.0,
-            "min": 1503960366.0,
-            "max": 1503960366.0,
-            "mean": 1503960366.0,
-            "median_50": 1503960366.0,
+            "min": 2022484408.0,
+            "max": 2022484408.0,
+            "mean": 2022484408.0,
+            "median_50": 2022484408.0,
             "std_dev": 0.0,
             "iqr_25_75": 0.0,
             "skewness": 0.0,
             "kurtosis": 0.0
         },
-        "Calories": {
+        "Value": {
             "missing_null_ratio": 0.0,
             "zero_ratio": 0.0,
-            "min": 0.788999974727631,
-            "max": 8.44229984283447,
-            "mean": 1.3388461923539643,
-            "median_50": 0.946799993515015,
-            "std_dev": 1.1976359205610643,
-            "iqr_25_75": 0.15780001878738403,
-            "skewness": 3.0597092205515444,
-            "kurtosis": 9.592629702571417
+            "min": 49.0,
+            "max": 182.0,
+            "mean": 79.2218,
+            "median_50": 75.0,
+            "std_dev": 18.19629949444472,
+            "iqr_25_75": 19.0,
+            "skewness": 1.575405594853142,
+            "kurtosis": 3.4256604985406756
         }
     },
     "3_categorical_and_datetime_metrics": {
-        "ActivityMinute": {
+        "Time": {
             "type": "datetime",
             "missing_null_ratio": 0.0,
             "distinct_unique_count": 10000,
-            "mode": "2016-03-25 08:00:00",
-            "min_date": "2016-03-25 08:00:00",
-            "max_date": "2016-04-01 06:39:00"
+            "mode": "2016-04-01 07:54:00",
+            "min_date": "2016-04-01 07:54:00",
+            "max_date": "2016-04-03 13:08:20"
         }
     },
     "4_relationships": {
         "pearson_correlation": {
             "Id": {
                 "Id": NaN,
-                "Calories": NaN
+                "Value": NaN
             },
-            "Calories": {
+            "Value": {
                 "Id": NaN,
-                "Calories": 1.0
+                "Value": 1.0
             }
         },
         "spearman_correlation": {
             "Id": {
                 "Id": NaN,
-                "Calories": NaN
+                "Value": NaN
             },
-            "Calories": {
+            "Value": {
                 "Id": NaN,
-                "Calories": 1.0
+                "Value": 1.0
             }
         }
     }

@@ -16,7 +16,7 @@ from src.postgres.core.db_config import config
 
 # Cấu hình đường dẫn bằng Pathlib
 SCHEMA_PATH = PROJECT_ROOT / "src" / "api" / "data_schema" / "schema.yaml"
-ARTIFACTS_DIR = PROJECT_ROOT / "Artifacts"
+ARTIFACTS_DIR = PROJECT_ROOT / "Artifacts" / "EDA_reports"
 
 # Đảm bảo thư mục Artifacts luôn tồn tại
 ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -159,45 +159,44 @@ def generate_reports():
         print("Cảnh báo: File schema trống.")
         return
 
-    # Quét từng bảng và tạo báo cáo
-    for table_name, table_info in schema_data.items():
-        db_schema = table_info.get('db_schema', 'raw')
-        print(f"\n🔄 Đang tiến hành lấy mẫu và tạo báo cáo cho: {db_schema}.{table_name}...")
+    # Quét từng nhóm và các bảng bên trong để tạo báo cáo
+    for dataset_name, tables_dict in schema_data.items():
+        print(f"\n📂 Đang xử lý nhóm dữ liệu: {dataset_name}")
         
-        # Lấy mẫu 10,000 dòng để tránh lỗi tràn bộ nhớ (OOM)
-        query = f'SELECT * FROM {db_schema}."{table_name}" LIMIT 10000'
-        
-        try:
-            # Đọc dữ liệu vào DataFrame
-            df = pd.read_sql(query, engine)
+        # Fallback an toàn nếu file schema cũ chỉ có 1 cấp
+        if "columns" in tables_dict or "db_schema" in tables_dict:
+            tables_dict = {dataset_name: tables_dict}
             
-            # Bỏ qua nếu bảng trống
-            if df.empty:
-                print(f"⚠️ Bỏ qua {table_name}: Bảng không có dữ liệu.")
-                continue
-
-            # --- 1. XUẤT BÁO CÁO CẤU TRÚC JSON (MỚI) ---
-            print("  -> Đang tính toán các chỉ số pipeline tùy chỉnh (JSON)...")
-            custom_metrics = calculate_custom_metrics(df.copy())
-            json_output_file = ARTIFACTS_DIR / f"{table_name}_metrics.json"
+        for table_key, table_info in tables_dict.items():
+            db_schema = table_info.get('db_schema', 'raw')
+            table_name = table_info.get('table_name', table_key)
             
-            with open(json_output_file, 'w', encoding='utf-8') as f:
-                json.dump(custom_metrics, f, ensure_ascii=False, indent=4)
-            print(f"  ✅ Đã lưu file cấu trúc: {json_output_file.name}")
-
-            # --- 2. XUẤT BÁO CÁO TRỰC QUAN HTML (GIỮ NGUYÊN) ---
-            print("  -> Đang khởi tạo báo cáo trực quan ydata-profiling (HTML)...")
-            profile = ProfileReport(
-                df, 
-                title=f"EDA Dataset Schema - {table_name}",
-                explorative=True 
-            )
-            html_output_file = ARTIFACTS_DIR / f"{table_name}_dataset_schema.html"
-            profile.to_file(html_output_file)
-            print(f"  ✅ Đã lưu file trực quan: {html_output_file.name}")
+            print(f"\n🔄 Đang tiến hành lấy mẫu và tạo báo cáo cho: {db_schema}.{table_name}...")
+            query = f'SELECT * FROM "{db_schema}"."{table_name}" LIMIT 10000'
             
-        except Exception as e:
-            print(f"❌ LỖI: Không thể xử lý bảng {table_name}. Lỗi: {e}")
+            try:
+                df = pd.read_sql(query, engine)
+                if df.empty:
+                    print(f"⚠️ Bỏ qua {table_name}: Bảng không có dữ liệu.")
+                    continue
+                
+                # --- 1. XUẤT BÁO CÁO CẤU TRÚC JSON ---
+                print("  -> Đang tính toán các chỉ số pipeline tùy chỉnh (JSON)...")
+                custom_metrics = calculate_custom_metrics(df.copy())
+                json_output_file = ARTIFACTS_DIR / f"{table_name}_metrics.json"
+                with open(json_output_file, 'w', encoding='utf-8') as f:
+                    json.dump(custom_metrics, f, ensure_ascii=False, indent=4)
+                print(f"  ✅ Đã lưu file cấu trúc: {json_output_file.name}")
+                
+                # --- 2. XUẤT BÁO CÁO TRỰC QUAN HTML ---
+                print("  -> Đang khởi tạo báo cáo trực quan ydata-profiling (HTML)...")
+                profile = ProfileReport(df, title=f"EDA Dataset Schema - {table_name}", explorative=True)
+                html_output_file = ARTIFACTS_DIR / f"{table_name}_dataset_schema.html"
+                profile.to_file(html_output_file)
+                print(f"  ✅ Đã lưu file trực quan: {html_output_file.name}")
+                
+            except Exception as e:
+                print(f"❌ LỖI: Không thể xử lý bảng {table_name}. Lỗi: {e}")
 
 if __name__ == "__main__":
     print("\n" + "="*50)
