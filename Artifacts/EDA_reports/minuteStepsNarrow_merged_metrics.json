@@ -21,15 +21,15 @@
         },
         "Steps": {
             "missing_null_ratio": 0.0,
-            "zero_ratio": 0.7629,
+            "zero_ratio": 0.7908,
             "min": 0.0,
-            "max": 150.0,
-            "mean": 10.3867,
+            "max": 156.0,
+            "mean": 8.9803,
             "median_50": 0.0,
-            "std_dev": 27.372243004158573,
+            "std_dev": 25.760777815845696,
             "iqr_25_75": 0.0,
-            "skewness": 3.088397144449498,
-            "kurtosis": 8.72190887763579
+            "skewness": 3.425493947077826,
+            "kurtosis": 11.128148487271206
         }
     },
     "3_categorical_and_datetime_metrics": {
@@ -37,9 +37,9 @@
             "type": "datetime",
             "missing_null_ratio": 0.0,
             "distinct_unique_count": 10000,
-            "mode": "2016-03-12 00:00:00",
-            "min_date": "2016-03-12 00:00:00",
-            "max_date": "2016-03-18 22:39:00"
+            "mode": "2016-03-25 08:00:00",
+            "min_date": "2016-03-25 08:00:00",
+            "max_date": "2016-04-01 06:39:00"
         }
     },
     "4_relationships": {

@@ -22,14 +22,14 @@
         "Value": {
             "missing_null_ratio": 0.0,
             "zero_ratio": 0.0,
-            "min": 49.0,
-            "max": 182.0,
-            "mean": 79.2218,
-            "median_50": 75.0,
-            "std_dev": 18.19629949444472,
-            "iqr_25_75": 19.0,
-            "skewness": 1.575405594853142,
-            "kurtosis": 3.4256604985406756
+            "min": 53.0,
+            "max": 159.0,
+            "mean": 84.4877,
+            "median_50": 79.0,
+            "std_dev": 18.628718464380807,
+            "iqr_25_75": 23.0,
+            "skewness": 1.2813116201109302,
+            "kurtosis": 1.4168058129229606
         }
     },
     "3_categorical_and_datetime_metrics": {
@@ -37,9 +37,9 @@
             "type": "datetime",
             "missing_null_ratio": 0.0,
             "distinct_unique_count": 10000,
-            "mode": "2016-04-01 07:54:00",
-            "min_date": "2016-04-01 07:54:00",
-            "max_date": "2016-04-03 13:08:20"
+            "mode": "2016-04-05 10:19:45",
+            "min_date": "2016-04-05 10:19:45",
+            "max_date": "2016-04-07 09:46:55"
         }
     },
     "4_relationships": {
