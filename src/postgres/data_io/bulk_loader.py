@@ -10,14 +10,20 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class PostgresBulkLoader:
-    def __init__(self):
+    def __init__(self, connection):
         """
-        Khởi tạo class.
-        Không cần nhận connection_params nữa vì chúng ta sử dụng Connection Pool dùng chung.
+        Nhận connection trực tiếp từ ConnectionPool thay vì tự kết nối.
         """
-        pass
+        self.conn = connection
 
-    def execute_bulk_load(self, table_name, file_path_on_server, temp_maintenance_work_mem='2GB', format='csv', delimiter=',', header=True):
+    def execute_bulk_load(
+            self, 
+            table_name: str, 
+            file_path_on_server: str, 
+            temp_maintenance_work_mem='2GB', 
+            format: Literal["csv", "text", "binary"] = "csv",  # Forces format to be a safe LiteralString 
+            delimiter: str = ',', 
+            header: bool = True):
         r"""
         Thực hiện quá trình ETL nạp dữ liệu lớn tối ưu hiệu năng.
         """
@@ -46,14 +52,14 @@ class PostgresBulkLoader:
                     else:
                         table_identifier = sql.Identifier(table_name)
 
-                    # Resolve dynamic variables to hardcoded LiteralStrings
-                    format_sql = sql.SQL("CSV") if format.lower() == 'csv' else sql.SQL(format) # Add other safe formats if needed
+                    # Resolve dynamic variables safely
+                    format_sql = sql.SQL(format.upper()) 
                     header_sql = sql.SQL("TRUE") if header else sql.SQL("FALSE")
 
                     copy_query = sql.SQL("COPY {} FROM {} WITH (FORMAT {}, DELIMITER {}, HEADER {});").format(
                         table_identifier,
-                        sql.Literal(file_path_on_server),
-                        format_sql,
+                        sql.Literal(file_path_on_server), 
+                        format_sql,                     # Pylance is now happy with this!
                         sql.Literal(delimiter),
                         header_sql
                     )

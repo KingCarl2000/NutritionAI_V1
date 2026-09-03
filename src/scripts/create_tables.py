@@ -5,6 +5,28 @@ from src.postgres.core.connection import get_connection # Import pool connection
 
 # ... (Giữ nguyên hàm get_pg_data_type)
 
+# Insert this around line 7, right before def create_tables_from_yaml(...):
+
+def get_pg_data_type(yaml_type: str | None) -> str:
+    """Maps generic YAML data types to PostgreSQL data types."""
+    if not yaml_type:
+        return "TEXT"
+        
+    type_mapping = {
+        "string": "VARCHAR(255)",
+        "int": "INTEGER",
+        "integer": "INTEGER",
+        "float": "DOUBLE PRECISION",
+        "double": "DOUBLE PRECISION",
+        "boolean": "BOOLEAN",
+        "bool": "BOOLEAN",
+        "date": "DATE",
+        "datetime": "TIMESTAMP",
+        "text": "TEXT"
+    }
+    
+    return type_mapping.get(yaml_type.lower(), "TEXT") # Default to TEXT if unknown
+
 def create_tables_from_yaml(yaml_path: Path):
     """Đọc file schema.yaml và tạo các bảng tương ứng trong PostgreSQL an toàn."""
     if not yaml_path.exists():
@@ -41,7 +63,7 @@ def create_tables_from_yaml(yaml_path: Path):
                         logger.info(f"Đang xử lý DDL cho bảng {full_table_name}...")
 
                         # B1: Đảm bảo Schema tồn tại
-                        cursor.execute(f"CREATE SCHEMA IF NOT EXISTS {safe_schema};")
+                        cursor.execute(f"CREATE SCHEMA IF NOT EXISTS {safe_schema};")  # type: ignore
 
                         # B2: Xây dựng danh sách các cột an toàn
                         col_definitions = []
@@ -60,8 +82,8 @@ def create_tables_from_yaml(yaml_path: Path):
                         """
 
                         # B4: Thực thi SQL (Xoá bảng cũ và tạo bảng mới)
-                        cursor.execute(drop_sql)
-                        cursor.execute(create_sql)
+                        cursor.execute(drop_sql) # type: ignore
+                        cursor.execute(create_sql) # type: ignore
                         
                         logger.info(f"✅ Đã tạo bảng {full_table_name} thành công!")
             

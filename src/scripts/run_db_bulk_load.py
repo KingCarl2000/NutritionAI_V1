@@ -14,6 +14,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from src.nutrition_core.logging.logger import logger
 from src.postgres.core.db_config import config
 from src.postgres.data_io.bulk_loader import PostgresBulkLoader
+from src.postgres.core.connection import get_connection  # Import pool connection của bạn
 
 # ĐỊNH NGHĨA DANH SÁCH DATASET
 DATASETS_TO_LOAD: Dict[str, Dict[str, Any]] = {
@@ -49,80 +50,67 @@ def process_file_load(loader: PostgresBulkLoader, schema_name: str, table_name: 
 
 def main():
     logger.info("🚀 Khởi động tiến trình Bulk Load dữ liệu...")
-
-    # Lấy thông số kết nối
-    db_params = {
-        "dbname": config.dbname,
-        "user": config.user,
-        "password": config.password,
-        "host": config.host,
-        "port": str(config.port)
-    }
     
-    # Khởi tạo instance loader
-    loader = PostgresBulkLoader(connection_params=db_params)
-    
-    # Duyệt qua các cấu hình dataset
-    for config_key, dataset_config in DATASETS_TO_LOAD.items():
-        # Phân tách schema name (nếu key gốc có chứa dấu ".")
-        if "." in config_key:
-            schema_name, base_table = config_key.split(".", 1)
-        else:
-            schema_name = config_key # Nếu key chỉ là 'raw', schema_name = 'raw'
-            base_table = config_key
-
-        target_path = dataset_config["file_path"]
-        data_format = dataset_config.get("format", "file")
+    # Sử dụng Connection từ Pool bằng context manager (with)
+    # Đảm bảo connection tự động trả về pool sau khi xong việc
+    with get_connection() as conn:
+        # Khởi tạo loader và truyền connection trực tiếp
+        loader = PostgresBulkLoader(connection=conn)
         
-        logger.info(f"\n=== Bắt đầu xử lý cấu hình: '{config_key}' (Format: {data_format}) ===")
-
-        if not os.path.exists(target_path):
-            logger.error(f"❌ Không tìm thấy đường dẫn: {target_path}")
-            continue
-
-        # TRƯỜNG HỢP 1: Xử lý Folder
-        if data_format.lower() == "folder":
-            if not os.path.isdir(target_path):
-                logger.error(f"❌ Cấu hình là 'folder' nhưng đường dẫn lại là file: {target_path}")
-                continue
+        # Duyệt qua các cấu hình dataset
+        for config_key, dataset_config in DATASETS_TO_LOAD.items():
+            if "." in config_key:
+                schema_name, base_table = config_key.split(".", 1)
+            else:
+                schema_name = config_key  
+                base_table = config_key
                 
-            csv_files = glob.glob(os.path.join(target_path, "*.csv"))
-            if not csv_files:
-                logger.warning(f"⚠️ Không tìm thấy file .csv nào trong thư mục: {target_path}")
-                continue
-                
-            logger.info(f"📂 Đã tìm thấy {len(csv_files)} file CSV. Bắt đầu nạp hàng loạt...")
+            target_path = dataset_config["file_path"]
+            data_format = dataset_config.get("format", "file")
             
-            for file_path in csv_files:
-                # Tên file csv (không có đuôi) sẽ làm tên bảng
-                # VD: dailyActivity_merged.csv -> dailyActivity_merged
-                file_table_name = Path(file_path).stem 
-                
-                # Làm sạch tên bảng nếu có khoảng trắng hoặc ký tự lạ (tuỳ chọn)
-                # file_table_name = file_table_name.replace(" ", "_").replace("-", "_").lower()
-                
+            logger.info(f"\n=== Bắt đầu xử lý cấu hình: '{config_key}' (Format: {data_format}) ===")
+            
+            if not os.path.exists(target_path):
+                logger.error(f"❌ Không tìm thấy đường dẫn: {target_path}")
+                continue
+
+            # TRƯỜNG HỢP 1: Xử lý Folder
+            if data_format.lower() == "folder":
+                if not os.path.isdir(target_path):
+                    logger.error(f"❌ Cấu hình là 'folder' nhưng đường dẫn lại là file: {target_path}")
+                    continue
+                    
+                csv_files = glob.glob(os.path.join(target_path, "*.csv"))
+                if not csv_files:
+                    logger.warning(f"⚠️ Không tìm thấy file .csv nào trong thư mục: {target_path}")
+                    continue
+                    
+                logger.info(f"📂 Đã tìm thấy {len(csv_files)} file CSV. Bắt đầu nạp hàng loạt...")
+                for file_path in csv_files:
+                    file_table_name = Path(file_path).stem
+                    process_file_load(
+                        loader=loader,
+                        schema_name=schema_name,
+                        table_name=file_table_name,
+                        csv_file_path=file_path,
+                        dataset_config=dataset_config
+                    )
+                    
+            # TRƯỜNG HỢP 2: Xử lý 1 File duy nhất 
+            elif data_format.lower() == "file":
                 process_file_load(
-                    loader=loader, 
-                    schema_name=schema_name, 
-                    table_name=file_table_name, 
-                    csv_file_path=file_path, 
+                    loader=loader,
+                    schema_name=schema_name,
+                    table_name=base_table,
+                    csv_file_path=target_path,
                     dataset_config=dataset_config
                 )
-
-        # TRƯỜNG HỢP 2: Xử lý 1 File duy nhất (Như logic cũ)
-        elif data_format.lower() == "file":
-             process_file_load(
-                loader=loader, 
-                schema_name=schema_name, 
-                table_name=base_table, 
-                csv_file_path=target_path, 
-                dataset_config=dataset_config
-            )
-            
-        else:
-             logger.error(f"❌ Định dạng 'format' không hợp lệ: {data_format}. Dùng 'folder' hoặc 'file'.")
-
-    logger.info("\n🎉 Đã hoàn tất tiến trình Bulk Load!")
+            else:
+                logger.error(f"❌ Định dạng 'format' không hợp lệ: {data_format}. Dùng 'folder' hoặc 'file'.")
+                
+        # Vì autocommit=False trong connection pool, ta cần commit sau khi xong toàn bộ
+        conn.commit() 
+        logger.info("\n🎉 Đã hoàn tất tiến trình Bulk Load và Commit dữ liệu!")
 
 if __name__ == "__main__":
     main()

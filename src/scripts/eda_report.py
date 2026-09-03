@@ -6,13 +6,15 @@ import yaml
 import pandas as pd
 from sqlalchemy import create_engine
 from ydata_profiling import ProfileReport
+import warnings
+from psycopg.sql import Identifier, SQL
 
 # 1. Thiết lập đường dẫn Root để import các module trong src/
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.append(str(PROJECT_ROOT))
 
-# Import config đã được thiết lập sẵn trong dự án
-from src.postgres.core.db_config import config
+# Import get_connection từ connection pool thay vì config gốc
+from src.postgres.core.connection import get_connection
 
 # Cấu hình đường dẫn bằng Pathlib
 SCHEMA_PATH = PROJECT_ROOT / "src" / "api" / "data_schema" / "schema.yaml"
@@ -21,9 +23,9 @@ ARTIFACTS_DIR = PROJECT_ROOT / "Artifacts" / "EDA_reports"
 # Đảm bảo thư mục Artifacts luôn tồn tại
 ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
 
-# Khởi tạo kết nối cơ sở dữ liệu từ db_config
-db_url = f"postgresql+psycopg2://{config.user}:{config.password}@{config.host}:{config.port}/{config.dbname}"
-engine = create_engine(db_url)
+# Bỏ qua cảnh báo của Pandas khi dùng raw DBAPI connection thay vì SQLAlchemy
+warnings.filterwarnings('ignore', message='.*pandas only supports SQLAlchemy connectable.*')
+
 
 def safe_float(val):
     """Hàm hỗ trợ chuyển đổi an toàn các giá trị numpy sang python float/null"""
@@ -172,10 +174,21 @@ def generate_reports():
             table_name = table_info.get('table_name', table_key)
             
             print(f"\n🔄 Đang tiến hành lấy mẫu và tạo báo cáo cho: {db_schema}.{table_name}...")
-            query = f'SELECT * FROM "{db_schema}"."{table_name}" LIMIT 10000'
-            
+
             try:
-                df = pd.read_sql(query, engine)
+            # Lấy connection từ Pool và đọc trực tiếp bằng pandas từ cursor
+                with get_connection() as conn:
+                    with conn.cursor() as cursor:
+                        cursor.execute(
+                            SQL("SELECT * FROM {}.{} LIMIT 10000").format(
+                                Identifier(db_schema), Identifier(table_name)
+                            )
+                        )
+                    # Lấy tên cột từ mô tả cursor
+                        columns = [desc[0] for desc in cursor.description] if cursor.description else []
+                        rows = cursor.fetchall()
+                        df = pd.DataFrame(rows, columns=columns)
+            
                 if df.empty:
                     print(f"⚠️ Bỏ qua {table_name}: Bảng không có dữ liệu.")
                     continue
