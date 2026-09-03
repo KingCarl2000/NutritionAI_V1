@@ -1,6 +1,7 @@
 import psycopg
 from psycopg import sql
 import logging
+from typing import Literal
 
 # Import hàm get_connection từ module core của bạn
 from src.postgres.core.connection import get_connection
@@ -45,12 +46,16 @@ class PostgresBulkLoader:
                     else:
                         table_identifier = sql.Identifier(table_name)
 
+                    # Resolve dynamic variables to hardcoded LiteralStrings
+                    format_sql = sql.SQL("CSV") if format.lower() == 'csv' else sql.SQL(format) # Add other safe formats if needed
+                    header_sql = sql.SQL("TRUE") if header else sql.SQL("FALSE")
+
                     copy_query = sql.SQL("COPY {} FROM {} WITH (FORMAT {}, DELIMITER {}, HEADER {});").format(
                         table_identifier,
                         sql.Literal(file_path_on_server),
-                        sql.SQL(format),
+                        format_sql,
                         sql.Literal(delimiter),
-                        sql.SQL(str(header).upper())
+                        header_sql
                     )
                     
                     cursor.execute(copy_query)
