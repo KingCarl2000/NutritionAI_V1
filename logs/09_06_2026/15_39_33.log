@@ -1,0 +1,252 @@
+[ 2026-09-06 15:39:33,324 ] 91 NutritionAI - INFO - Bắt đầu Data Transformation Pipeline...
+[ 2026-09-06 15:39:33,325 ] 115 NutritionAI - INFO - Phase 1: Chuẩn hóa trục thời gian và Load Data...
+[ 2026-09-06 15:39:33,771 ] 132 NutritionAI - INFO - Đã chuẩn hóa bảng: dailyActivity_merged
+[ 2026-09-06 15:42:05,806 ] 132 NutritionAI - INFO - Đã chuẩn hóa bảng: heartrate_seconds_merged
+[ 2026-09-06 15:42:08,997 ] 132 NutritionAI - INFO - Đã chuẩn hóa bảng: hourlyCalories_merged
+[ 2026-09-06 15:42:12,240 ] 132 NutritionAI - INFO - Đã chuẩn hóa bảng: hourlyIntensities_merged
+[ 2026-09-06 15:42:15,386 ] 132 NutritionAI - INFO - Đã chuẩn hóa bảng: hourlySteps_merged
+[ 2026-09-06 15:45:30,070 ] 132 NutritionAI - INFO - Đã chuẩn hóa bảng: minuteCaloriesNarrow_merged
+[ 2026-09-06 15:48:43,001 ] 132 NutritionAI - INFO - Đã chuẩn hóa bảng: minuteIntensitiesNarrow_merged
+[ 2026-09-06 15:52:04,904 ] 132 NutritionAI - INFO - Đã chuẩn hóa bảng: minuteMETsNarrow_merged
+[ 2026-09-06 15:52:33,249 ] 132 NutritionAI - INFO - Đã chuẩn hóa bảng: minuteSleep_merged
+[ 2026-09-06 15:55:53,980 ] 132 NutritionAI - INFO - Đã chuẩn hóa bảng: minuteStepsNarrow_merged
+[ 2026-09-06 15:55:53,992 ] 132 NutritionAI - INFO - Đã chuẩn hóa bảng: weightLogInfo_merged
+[ 2026-09-06 15:55:53,992 ] 142 NutritionAI - INFO - Phase 2: Bắt đầu Aggregation với xử lý song song (Chunking)...
+[ 2026-09-06 15:55:53,992 ] 148 NutritionAI - INFO - Sử dụng 11 CPU cores để tính toán song song.
+[ 2026-09-06 15:55:58,556 ] 179 NutritionAI - INFO - Đã Aggregate xong bảng: heartrate_seconds_merged (Shape: (143, 13))
+[ 2026-09-06 15:56:06,120 ] 179 NutritionAI - INFO - Đã Aggregate xong bảng: hourlyCalories_merged (Shape: (1021, 13))
+[ 2026-09-06 15:56:09,010 ] 179 NutritionAI - INFO - Đã Aggregate xong bảng: hourlyIntensities_merged (Shape: (1021, 24))
+[ 2026-09-06 15:56:11,690 ] 179 NutritionAI - INFO - Đã Aggregate xong bảng: hourlySteps_merged (Shape: (1021, 13))
+[ 2026-09-06 15:56:17,220 ] 179 NutritionAI - INFO - Đã Aggregate xong bảng: minuteCaloriesNarrow_merged (Shape: (1021, 13))
+[ 2026-09-06 15:56:23,035 ] 179 NutritionAI - INFO - Đã Aggregate xong bảng: minuteIntensitiesNarrow_merged (Shape: (1021, 13))
+[ 2026-09-06 15:56:28,842 ] 179 NutritionAI - INFO - Đã Aggregate xong bảng: minuteMETsNarrow_merged (Shape: (1021, 13))
+[ 2026-09-06 15:56:31,940 ] 179 NutritionAI - INFO - Đã Aggregate xong bảng: minuteSleep_merged (Shape: (467, 24))
+[ 2026-09-06 15:56:38,035 ] 179 NutritionAI - INFO - Đã Aggregate xong bảng: minuteStepsNarrow_merged (Shape: (1021, 13))
+[ 2026-09-06 15:56:38,041 ] 199 NutritionAI - INFO - Đang xử lý nội suy bảng weightLogInfo_merged...
+[ 2026-09-06 15:56:38,163 ] 237 NutritionAI - INFO - Phase 3: Master Join và Khảo sát dữ liệu...
+[ 2026-09-06 15:56:38,190 ] 249 NutritionAI - INFO - ---------- BÁO CÁO ĐÁNH GIÁ MASTER DATAFRAME ----------
+[ 2026-09-06 15:56:38,190 ] 252 NutritionAI - INFO - [1] Kích thước (Shape): 452 dòng, 141 cột
+[ 2026-09-06 15:56:38,200 ] 258 NutritionAI - INFO - [2] Tỉ lệ Dữ liệu khuyết (Missing %):
+Value_mean_heartrate_seconds_merged                   68.36
+Value_max_heartrate_seconds_merged                    68.36
+Value_min_heartrate_seconds_merged                    68.36
+Value_std_heartrate_seconds_merged                    68.36
+Value_median_heartrate_seconds_merged                 68.36
+Value_var_heartrate_seconds_merged                    68.36
+Value_get_mode_heartrate_seconds_merged               68.36
+Value_q1_heartrate_seconds_merged                     68.36
+Value_q3_heartrate_seconds_merged                     68.36
+Value_get_skew_heartrate_seconds_merged               68.36
+Value_get_kurt_heartrate_seconds_merged               68.36
+IsManualReport_interpolated_weightLogInfo             68.36
+BMI_interpolated_weightLogInfo                        68.36
+WeightKg_interpolated_weightLogInfo                   68.36
+WeightPounds_interpolated_weightLogInfo               68.36
+LogId_interpolated_weightLogInfo                      68.36
+value_min_minuteSleep_merged                          55.97
+logId_median_minuteSleep_merged                       55.97
+logId_std_minuteSleep_merged                          55.97
+value_get_mode_minuteSleep_merged                     55.97
+value_q3_minuteSleep_merged                           55.97
+value_q1_minuteSleep_merged                           55.97
+value_var_minuteSleep_merged                          55.97
+value_max_minuteSleep_merged                          55.97
+value_median_minuteSleep_merged                       55.97
+value_std_minuteSleep_merged                          55.97
+value_mean_minuteSleep_merged                         55.97
+logId_mean_minuteSleep_merged                         55.97
+logId_max_minuteSleep_merged                          55.97
+logId_min_minuteSleep_merged                          55.97
+logId_get_kurt_minuteSleep_merged                     55.97
+logId_get_skew_minuteSleep_merged                     55.97
+logId_var_minuteSleep_merged                          55.97
+value_get_skew_minuteSleep_merged                     55.97
+value_get_kurt_minuteSleep_merged                     55.97
+logId_get_mode_minuteSleep_merged                     55.97
+logId_q3_minuteSleep_merged                           55.97
+logId_q1_minuteSleep_merged                           55.97
+StepTotal_get_kurt_hourlySteps_merged                  5.75
+Calories_get_kurt_hourlyCalories_merged                5.75
+AverageIntensity_get_kurt_hourlyIntensities_merged     5.75
+TotalIntensity_get_kurt_hourlyIntensities_merged       5.75
+AverageIntensity_max_hourlyIntensities_merged          5.31
+TotalIntensity_get_mode_hourlyIntensities_merged       5.31
+TotalIntensity_var_hourlyIntensities_merged            5.31
+TotalIntensity_get_skew_hourlyIntensities_merged       5.31
+TotalIntensity_q1_hourlyIntensities_merged             5.31
+Calories_min_hourlyCalories_merged                     5.31
+Calories_var_hourlyCalories_merged                     5.31
+Calories_median_hourlyCalories_merged                  5.31
+Calories_get_mode_hourlyCalories_merged                5.31
+Calories_std_hourlyCalories_merged                     5.31
+Calories_q3_hourlyCalories_merged                      5.31
+Calories_get_skew_hourlyCalories_merged                5.31
+TotalIntensity_mean_hourlyIntensities_merged           5.31
+TotalIntensity_max_hourlyIntensities_merged            5.31
+TotalIntensity_min_hourlyIntensities_merged            5.31
+TotalIntensity_std_hourlyIntensities_merged            5.31
+TotalIntensity_median_hourlyIntensities_merged         5.31
+Calories_q1_hourlyCalories_merged                      5.31
+Calories_max_hourlyCalories_merged                     5.31
+Calories_mean_hourlyCalories_merged                    5.31
+Calories_get_mode_minuteCaloriesNarrow_merged          5.31
+Calories_var_minuteCaloriesNarrow_merged               5.31
+Calories_median_minuteCaloriesNarrow_merged            5.31
+Calories_std_minuteCaloriesNarrow_merged               5.31
+Calories_min_minuteCaloriesNarrow_merged               5.31
+Calories_max_minuteCaloriesNarrow_merged               5.31
+Calories_mean_minuteCaloriesNarrow_merged              5.31
+StepTotal_get_skew_hourlySteps_merged                  5.31
+StepTotal_var_hourlySteps_merged                       5.31
+StepTotal_q3_hourlySteps_merged                        5.31
+StepTotal_q1_hourlySteps_merged                        5.31
+StepTotal_get_mode_hourlySteps_merged                  5.31
+StepTotal_std_hourlySteps_merged                       5.31
+StepTotal_median_hourlySteps_merged                    5.31
+StepTotal_min_hourlySteps_merged                       5.31
+StepTotal_max_hourlySteps_merged                       5.31
+AverageIntensity_mean_hourlyIntensities_merged         5.31
+StepTotal_mean_hourlySteps_merged                      5.31
+AverageIntensity_get_skew_hourlyIntensities_merged     5.31
+AverageIntensity_q3_hourlyIntensities_merged           5.31
+AverageIntensity_get_mode_hourlyIntensities_merged     5.31
+AverageIntensity_q1_hourlyIntensities_merged           5.31
+AverageIntensity_var_hourlyIntensities_merged          5.31
+AverageIntensity_median_hourlyIntensities_merged       5.31
+TotalIntensity_q3_hourlyIntensities_merged             5.31
+AverageIntensity_std_hourlyIntensities_merged          5.31
+AverageIntensity_min_hourlyIntensities_merged          5.31
+Calories_get_skew_minuteCaloriesNarrow_merged          5.31
+Intensity_median_minuteIntensitiesNarrow_merged        5.31
+Intensity_var_minuteIntensitiesNarrow_merged           5.31
+Calories_q1_minuteCaloriesNarrow_merged                5.31
+Calories_q3_minuteCaloriesNarrow_merged                5.31
+METs_get_kurt_minuteMETsNarrow_merged                  5.31
+METs_get_skew_minuteMETsNarrow_merged                  5.31
+METs_std_minuteMETsNarrow_merged                       5.31
+METs_median_minuteMETsNarrow_merged                    5.31
+METs_var_minuteMETsNarrow_merged                       5.31
+METs_get_mode_minuteMETsNarrow_merged                  5.31
+METs_q1_minuteMETsNarrow_merged                        5.31
+METs_q3_minuteMETsNarrow_merged                        5.31
+METs_min_minuteMETsNarrow_merged                       5.31
+METs_max_minuteMETsNarrow_merged                       5.31
+Intensity_get_mode_minuteIntensitiesNarrow_merged      5.31
+Intensity_q1_minuteIntensitiesNarrow_merged            5.31
+Intensity_q3_minuteIntensitiesNarrow_merged            5.31
+Intensity_get_skew_minuteIntensitiesNarrow_merged      5.31
+Intensity_get_kurt_minuteIntensitiesNarrow_merged      5.31
+METs_mean_minuteMETsNarrow_merged                      5.31
+Intensity_std_minuteIntensitiesNarrow_merged           5.31
+Intensity_min_minuteIntensitiesNarrow_merged           5.31
+Intensity_max_minuteIntensitiesNarrow_merged           5.31
+Intensity_mean_minuteIntensitiesNarrow_merged          5.31
+Calories_get_kurt_minuteCaloriesNarrow_merged          5.31
+Steps_mean_minuteStepsNarrow_merged                    5.31
+Steps_min_minuteStepsNarrow_merged                     5.31
+Steps_max_minuteStepsNarrow_merged                     5.31
+Steps_q1_minuteStepsNarrow_merged                      5.31
+Steps_get_mode_minuteStepsNarrow_merged                5.31
+Steps_var_minuteStepsNarrow_merged                     5.31
+Steps_median_minuteStepsNarrow_merged                  5.31
+Steps_std_minuteStepsNarrow_merged                     5.31
+Steps_get_kurt_minuteStepsNarrow_merged                5.31
+Steps_q3_minuteStepsNarrow_merged                      5.31
+Steps_get_skew_minuteStepsNarrow_merged                5.31
+[ 2026-09-06 15:56:38,200 ] 266 NutritionAI - INFO - [3] Tỉ lệ Giá trị 0 (%):
+LoggedActivitiesDistance                              94.69
+Intensity_median_minuteIntensitiesNarrow_merged       94.69
+Intensity_get_mode_minuteIntensitiesNarrow_merged     94.69
+Intensity_q1_minuteIntensitiesNarrow_merged           94.69
+Steps_min_minuteStepsNarrow_merged                    94.69
+Steps_median_minuteStepsNarrow_merged                 94.69
+Steps_get_mode_minuteStepsNarrow_merged               94.69
+Steps_q1_minuteStepsNarrow_merged                     94.69
+Intensity_min_minuteIntensitiesNarrow_merged          94.69
+TotalIntensity_min_hourlyIntensities_merged           94.47
+StepTotal_min_hourlySteps_merged                      94.47
+AverageIntensity_min_hourlyIntensities_merged         94.47
+StepTotal_get_mode_hourlySteps_merged                 94.03
+AverageIntensity_get_mode_hourlyIntensities_merged    92.26
+TotalIntensity_get_mode_hourlyIntensities_merged      92.26
+SedentaryActiveDistance                               91.59
+Steps_q3_minuteStepsNarrow_merged                     86.50
+Intensity_q3_minuteIntensitiesNarrow_merged           83.41
+StepTotal_q1_hourlySteps_merged                       68.36
+AverageIntensity_q1_hourlyIntensities_merged          65.49
+TotalIntensity_q1_hourlyIntensities_merged            65.49
+VeryActiveDistance                                    53.10
+VeryActiveMinutes                                     52.21
+ModeratelyActiveDistance                              49.34
+FairlyActiveMinutes                                   49.12
+StepTotal_median_hourlySteps_merged                   25.88
+AverageIntensity_median_hourlyIntensities_merged      24.12
+TotalIntensity_median_hourlyIntensities_merged        24.12
+logId_var_minuteSleep_merged                          19.69
+logId_get_skew_minuteSleep_merged                     19.69
+logId_get_kurt_minuteSleep_merged                     19.69
+logId_std_minuteSleep_merged                          19.69
+StepTotal_q3_hourlySteps_merged                       15.71
+LightActiveDistance                                   15.27
+TotalIntensity_q3_hourlyIntensities_merged            15.04
+AverageIntensity_q3_hourlyIntensities_merged          15.04
+LightlyActiveMinutes                                  14.82
+TrackerDistance                                       13.50
+TotalDistance                                         12.83
+TotalSteps                                            12.39
+Calories_std_hourlyCalories_merged                     9.73
+Steps_var_minuteStepsNarrow_merged                     9.73
+TotalIntensity_get_skew_hourlyIntensities_merged       9.73
+TotalIntensity_std_hourlyIntensities_merged            9.73
+TotalIntensity_var_hourlyIntensities_merged            9.73
+Calories_get_skew_hourlyCalories_merged                9.73
+TotalIntensity_mean_hourlyIntensities_merged           9.73
+TotalIntensity_max_hourlyIntensities_merged            9.73
+Calories_var_hourlyCalories_merged                     9.73
+Intensity_mean_minuteIntensitiesNarrow_merged          9.73
+Intensity_max_minuteIntensitiesNarrow_merged           9.73
+StepTotal_mean_hourlySteps_merged                      9.73
+AverageIntensity_max_hourlyIntensities_merged          9.73
+StepTotal_max_hourlySteps_merged                       9.73
+AverageIntensity_var_hourlyIntensities_merged          9.73
+AverageIntensity_std_hourlyIntensities_merged          9.73
+AverageIntensity_mean_hourlyIntensities_merged         9.73
+StepTotal_get_skew_hourlySteps_merged                  9.73
+Steps_std_minuteStepsNarrow_merged                     9.73
+Steps_mean_minuteStepsNarrow_merged                    9.73
+Steps_max_minuteStepsNarrow_merged                     9.73
+Steps_get_kurt_minuteStepsNarrow_merged                9.73
+Steps_get_skew_minuteStepsNarrow_merged                9.73
+Intensity_get_kurt_minuteIntensitiesNarrow_merged      9.73
+Intensity_get_skew_minuteIntensitiesNarrow_merged      9.73
+StepTotal_std_hourlySteps_merged                       9.73
+Intensity_std_minuteIntensitiesNarrow_merged           9.73
+StepTotal_var_hourlySteps_merged                       9.73
+AverageIntensity_get_skew_hourlyIntensities_merged     9.73
+Intensity_var_minuteIntensitiesNarrow_merged           9.73
+Calories_get_kurt_hourlyCalories_merged                9.51
+TotalIntensity_get_kurt_hourlyIntensities_merged       9.51
+AverageIntensity_get_kurt_hourlyIntensities_merged     9.51
+StepTotal_get_kurt_hourlySteps_merged                  9.51
+METs_var_minuteMETsNarrow_merged                       9.07
+Calories_get_skew_minuteCaloriesNarrow_merged          9.07
+Calories_var_minuteCaloriesNarrow_merged               9.07
+Calories_get_kurt_minuteCaloriesNarrow_merged          9.07
+Calories_std_minuteCaloriesNarrow_merged               9.07
+METs_std_minuteMETsNarrow_merged                       9.07
+METs_get_skew_minuteMETsNarrow_merged                  9.07
+METs_get_kurt_minuteMETsNarrow_merged                  9.07
+IsManualReport_interpolated_weightLogInfo              5.31
+METs_min_minuteMETsNarrow_merged                       1.11
+Calories_min_minuteCaloriesNarrow_merged               0.88
+value_get_kurt_minuteSleep_merged                      0.44
+value_get_skew_minuteSleep_merged                      0.44
+value_var_minuteSleep_merged                           0.44
+value_std_minuteSleep_merged                           0.44
+[ 2026-09-06 15:56:38,200 ] 270 NutritionAI - INFO - -------------------------------------------------------
+[ 2026-09-06 15:56:38,200 ] 271 NutritionAI - INFO - Tạm dừng các bước làm sạch (Imputation/Drop). Giữ nguyên trạng thái thô sau Merge.
+[ 2026-09-06 15:56:38,217 ] 290 NutritionAI - INFO - Đã xuất báo cáo chi tiết ra file: D:\NutritionAI_V1\Data\reports\data_assessment_report.txt
+[ 2026-09-06 15:56:38,218 ] 302 NutritionAI - INFO - Phase 4: Lọc đa cộng tuyến thông minh (So sánh với Target)...
+[ 2026-09-06 15:56:38,474 ] 332 NutritionAI - INFO - Đã so sánh với Target và xóa 86 cột bị đa cộng tuyến (>0.85).
+[ 2026-09-06 15:56:38,514 ] 346 NutritionAI - INFO - Đã xuất file Final Dataset (Parquet & CSV) sẵn sàng cho Model tại: D:\NutritionAI_V1\Data\processed
+[ 2026-09-06 15:56:38,515 ] 105 NutritionAI - INFO - Hoàn thành Data Transformation Pipeline!

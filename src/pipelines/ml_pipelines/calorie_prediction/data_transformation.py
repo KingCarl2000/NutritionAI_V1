@@ -2,6 +2,7 @@ import os
 import sys
 import yaml
 import numpy as np
+import io
 import pandas as pd
 import multiprocessing
 from concurrent.futures import ProcessPoolExecutor
@@ -112,27 +113,42 @@ class DataTransformationPipeline:
     # PHASE 1: INGESTION & CHUẨN HÓA CƠ SỞ
     # ==========================================
     def phase_1_ingestion_and_standardize(self):
-        logger.info("Phase 1: Chuẩn hóa trục thời gian và Load Data...")
+        logger.info("Phase 1: Chuẩn hóa trục thời gian và Load Data (Sử dụng COPY TO STDOUT)...")
         with get_connection() as conn:
             for table_name in self.tables_config.keys():
                 try:
-                    # SỬA DÒNG NÀY: Thêm dấu ngoặc kép (") bao quanh table_name
-                    query = f'SELECT * FROM raw."{table_name}"'
+                    # Chuyển từ SELECT sang COPY TO STDOUT (Nhanh gấp 10 lần pd.read_sql)
+                    copy_query = f'COPY raw."{table_name}" TO STDOUT WITH CSV HEADER'
                     
-                    df = pd.read_sql(query, conn)
+                    # Khởi tạo bộ đệm nhị phân trên RAM
+                    buffer = io.BytesIO()
                     
+                    # Kéo luồng dữ liệu thô từ Postgres thẳng vào buffer
+                    with conn.cursor() as cur:
+                        with cur.copy(copy_query) as copy:
+                            for data in copy:
+                                buffer.write(data)
+                                
+                    # Đưa con trỏ buffer về đầu file
+                    buffer.seek(0)
+                    
+                    # Pandas đọc thẳng từ vùng nhớ bằng C-engine cực nhanh
+                    df = pd.read_csv(buffer, low_memory=False)
+                    
+                    # Xử lý cột thời gian (Giữ nguyên logic .dt.normalize() đã tối ưu)
                     date_col = self._get_date_column_name(table_name)
                     if date_col and date_col in df.columns:
-                        df['date_temp'] = pd.to_datetime(df[date_col], format='mixed', errors='coerce')
+                        df['date_temp'] = pd.to_datetime(df[date_col], errors='coerce')
                         df = df.drop(columns=[date_col])
                         df.rename(columns={'date_temp': 'date'}, inplace=True)
-                        df['date'] = df['date'].dt.date
+                        df['date'] = df['date'].dt.normalize()
                         
                     self.dataframes[table_name] = df
-                    logger.info(f"Đã chuẩn hóa bảng: {table_name}")
+                    logger.info(f"Đã chuẩn hóa bảng: {table_name} (Shape: {df.shape})")
+                    
                 except Exception as e:
                     logger.warning(f"Không thể đọc bảng {table_name} từ schema raw: {e}")
-                    raise DataTransformationError(f"Lỗi trích xuất bảng {table_name}: {e}", sys)
+                    raise DataTransformationError(f"Lỗi trích xuất bảng {table_name}: {e}", sys) 
 
     # ==========================================
     # PHASE 2: FEATURE ENGINEERING (PARALLEL)
@@ -271,7 +287,7 @@ class DataTransformationPipeline:
             logger.info("Tạm dừng các bước làm sạch (Imputation/Drop). Giữ nguyên trạng thái thô sau Merge.")
 
             # Tạo thư mục chứa báo cáo đánh giá
-            report_dir = r"D:\NutritionAI_V1\Artifacts\reports"
+            report_dir = r"D:\NutritionAI_V1\Data\reports"
             os.makedirs(report_dir, exist_ok=True)
             report_file = os.path.join(report_dir, "data_assessment_report.txt")
             
@@ -332,7 +348,7 @@ class DataTransformationPipeline:
             logger.info(f"Đã so sánh với Target và xóa {len(to_drop)} cột bị đa cộng tuyến (>0.85).")
             
             # 5. Đóng gói ra thư mục Artifacts
-            output_dir = r"D:\NutritionAI_V1\Artifacts\data\processed"
+            output_dir = r"D:\NutritionAI_V1\Data\processed"
             os.makedirs(output_dir, exist_ok=True)
             
             # Lưu Parquet (Khuyên dùng cho Model Training vì nhẹ và load nhanh)
