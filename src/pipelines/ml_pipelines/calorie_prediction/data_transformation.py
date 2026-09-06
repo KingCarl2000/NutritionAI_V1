@@ -106,22 +106,33 @@ class DataTransformationPipeline:
                         num_cols = [col for col in num_cols if col != 'Id']
                         
                         if num_cols:
-                            # Định nghĩa các hàm custom cho aggregations
+                            # 1. Các custom function
                             def q1(x): return x.quantile(0.25)
                             def q3(x): return x.quantile(0.75)
+                            
+                            # Hàm xử lý mode
                             def get_mode(x): 
                                 m = x.mode()
                                 return m.iloc[0] if not m.empty else np.nan
+                                
+                            # Hàm xử lý độ lệch (skewness) và độ nhọn (kurtosis)
+                            def get_skew(x): return x.skew()
+                            def get_kurt(x): return x.kurt()
                             
-                            # Cập nhật: dùng get_mode thay cho 'mode', dùng 'skew' và 'kurt' thay cho skewness/kurtosis
-                            agg_dict = {col: ['mean', 'max', 'min', 'std', 'median', 'var', get_mode, q1, q3, 'skew', 'kurt'] for col in num_cols}
+                            # 2. Đưa các hàm này vào agg_dict thay vì dùng string
+                            agg_dict = {col: [
+                                'mean', 'max', 'min', 'std', 'median', 'var', 
+                                get_mode, q1, q3, get_skew, get_kurt
+                            ] for col in num_cols}
                             
                             grouped = df.groupby(['Id', 'date']).agg(agg_dict).reset_index()
-                            # Flatten MultiIndex columns
+                            
+                            # 3. Làm phẳng (flatten) các cột MultiIndex
                             grouped.columns = [f"{col[0]}_{col[1]}" if col[1] else col[0] for col in grouped.columns]
                             
                             aggregated_dfs[table_name] = grouped
                             logger.info(f"Đã Aggregate bảng: {table_name}")
+
                             
             if weight_df is not None and 'dailyActivity_merged' in self.dataframes:
                 daily_df = self.dataframes['dailyActivity_merged']
