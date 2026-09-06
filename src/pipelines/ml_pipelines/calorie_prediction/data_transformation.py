@@ -1,20 +1,57 @@
 import os
 import sys
 import yaml
-import pandas as pd
 import numpy as np
+import pandas as pd
+import multiprocessing
+from concurrent.futures import ProcessPoolExecutor
 from psycopg.errors import UndefinedTable
 
-# Import connection pool từ architecture hiện tại
+# Import connections and core
 from src.postgres.core.connection import get_connection
-
-# 1. Tích hợp Custom Logger và Exception từ nutrition_core
 from src.nutrition_core.logging.logger import logger
 from src.nutrition_core.exception.exception import (
     DataPipelineException,
     DataTransformationError,
     DataCleansingError
 )
+
+# =====================================================================
+# [QUAN TRỌNG] ĐẶT CÁC HÀM NÀY Ở NGOÀI CLASS ĐỂ HỖ TRỢ MULTIPROCESSING
+# =====================================================================
+def q1(x): return x.quantile(0.25)
+def q3(x): return x.quantile(0.75)
+def get_mode(x): 
+    m = x.mode()
+    return m.iloc[0] if not m.empty else np.nan
+def get_skew(x): return x.skew()
+def get_kurt(x): return x.kurt()
+
+def process_agg_chunk(args):
+    """
+    Hàm Worker: Thực thi tính toán thống kê trên từng mảnh (chunk) dữ liệu.
+    """
+    df_chunk, num_cols, table_name = args
+    
+    # 1. Giữ nguyên 11 hàm thống kê ban đầu
+    agg_dict = {
+        col: ['mean', 'max', 'min', 'std', 'median', 'var', get_mode, q1, q3, get_skew, get_kurt]
+        for col in num_cols
+    }
+    
+    grouped = df_chunk.groupby(['Id', 'date']).agg(agg_dict).reset_index()
+    
+    # 2. Đổi tên cột để tránh nhầm lẫn: TênCột_HàmThốngKê_TênBảng
+    new_cols = []
+    for col in grouped.columns:
+        if col[0] in ['Id', 'date']:
+            new_cols.append(col[0])  # Giữ nguyên Id và date để join
+        else:
+            # col[0]: Tên cột gốc, col[1]: Hàm thống kê
+            new_cols.append(f"{col[0]}_{col[1]}_{table_name}")
+            
+    grouped.columns = new_cols
+    return grouped
 
 class DataTransformationPipeline:
     def __init__(self, schema_path: str = r'D:\NutritionAI_V1\src\api\data_schema\schema.yaml'):
@@ -96,15 +133,19 @@ class DataTransformationPipeline:
                 except Exception as e:
                     logger.warning(f"Không thể đọc bảng {table_name} từ schema raw: {e}")
                     raise DataTransformationError(f"Lỗi trích xuất bảng {table_name}: {e}", sys)
-    
+
     # ==========================================
-    # PHASE 2: FEATURE ENGINEERING
+    # PHASE 2: FEATURE ENGINEERING (PARALLEL)
     # ==========================================
     def phase_2_feature_engineering(self):
         try:
-            logger.info("Phase 2: Aggregation và Nội suy dữ liệu...")
+            logger.info("Phase 2: Bắt đầu Aggregation với xử lý song song (Chunking)...")
             aggregated_dfs = {}
             weight_df = None
+            
+            # Khởi tạo số lượng worker dựa trên số nhân CPU của máy (bớt 1 nhân cho hệ điều hành)
+            n_workers = max(1, multiprocessing.cpu_count() - 1)
+            logger.info(f"Sử dụng {n_workers} CPU cores để tính toán song song.")
             
             for table_name, df in self.dataframes.items():
                 if table_name == 'dailyActivity_merged':
@@ -117,35 +158,45 @@ class DataTransformationPipeline:
                         num_cols = [col for col in num_cols if col != 'Id']
                         
                         if num_cols:
-                            # 1. Các custom function
-                            def q1(x): return x.quantile(0.25)
-                            def q3(x): return x.quantile(0.75)
+                            # Tách dữ liệu thành các chunks an toàn dựa trên tập hợp Id duy nhất
+                            # (Đảm bảo dữ liệu của 1 user không bị cắt làm đôi giữa 2 CPU core)
+                            unique_ids = df['Id'].unique()
+                            id_chunks = np.array_split(unique_ids, n_workers)
                             
-                            # Hàm xử lý mode
-                            def get_mode(x): 
-                                m = x.mode()
-                                return m.iloc[0] if not m.empty else np.nan
+                            chunks = []
+                            for id_chunk in id_chunks:
+                                df_chunk = df[df['Id'].isin(id_chunk)]
+                                chunks.append((df_chunk, num_cols, table_name))
                                 
-                            # Hàm xử lý độ lệch (skewness) và độ nhọn (kurtosis)
-                            def get_skew(x): return x.skew()
-                            def get_kurt(x): return x.kurt()
-                            
-                            # 2. Đưa các hàm này vào agg_dict thay vì dùng string
-                            agg_dict = {col: [
-                                'mean', 'max', 'min', 'std', 'median', 'var', 
-                                get_mode, q1, q3, get_skew, get_kurt
-                            ] for col in num_cols}
-                            
-                            grouped = df.groupby(['Id', 'date']).agg(agg_dict).reset_index()
-                            
-                            # 3. Làm phẳng (flatten) các cột MultiIndex
-                            grouped.columns = [f"{col[0]}_{col[1]}" if col[1] else col[0] for col in grouped.columns]
+                            # Chạy đa luồng bằng ProcessPoolExecutor
+                            with ProcessPoolExecutor(max_workers=n_workers) as executor:
+                                results = list(executor.map(process_agg_chunk, chunks))
+                                
+                            # Gộp kết quả từ các core lại thành 1 DataFrame hoàn chỉnh
+                            grouped = pd.concat(results, ignore_index=True)
                             
                             aggregated_dfs[table_name] = grouped
-                            logger.info(f"Đã Aggregate bảng: {table_name}")
-
-
+                            logger.info(f"Đã Aggregate xong bảng: {table_name} (Shape: {grouped.shape})")
+                            
+                            # --------------------------------------------------
+                            # LƯU DỮ LIỆU TRUNG GIAN (ARTIFACTS CỤC BỘ)
+                            # --------------------------------------------------
+                            inter_dir = r"D:\NutritionAI_V1\Data\intermediate"
+                            os.makedirs(inter_dir, exist_ok=True)
+                            
+                            # Lưu Parquet local để kiểm tra
+                            grouped.to_parquet(os.path.join(inter_dir, f"{table_name}_agg.parquet"), index=False)
+                            
+                            # --------------------------------------------------
+                            # KHUNG LỆNH ĐẨY LÊN DATABASE (POSTGRESQL STAGING)
+                            # --------------------------------------------------
+                            # with get_connection() as conn:
+                            #     grouped.to_sql(name=f"{table_name}_aggregated", con=conn, schema="staging", if_exists="replace", index=False)
+                            # logger.info(f"# [DB] Đã push bảng staging.{table_name}_aggregated lên PostgreSQL")
+                            
+            # Nội suy dữ liệu Cân nặng (Weight Interpolation)
             if weight_df is not None and 'dailyActivity_merged' in self.dataframes:
+                logger.info("Đang xử lý nội suy bảng weightLogInfo_merged...")
                 daily_df = self.dataframes['dailyActivity_merged']
                 time_grid = daily_df[['Id', 'date']].drop_duplicates()
                 
@@ -153,21 +204,30 @@ class DataTransformationPipeline:
                 weight_interpolated = pd.merge(time_grid, weight_df, on=['Id', 'date'], how='left')
                 weight_interpolated = weight_interpolated.sort_values(by=['Id', 'date'])
                 
-                weight_cols = weight_interpolated.select_dtypes(include=[np.number]).columns.tolist()
-                weight_cols.remove('Id')
-                
-                weight_interpolated['date'] = pd.to_datetime(weight_interpolated['date'])
-                weight_interpolated.set_index('date', inplace=True)
+                weight_cols = [col for col in weight_interpolated.select_dtypes(include=[np.number]).columns if col != 'Id']
                 
                 for col in weight_cols:
                     weight_interpolated[col] = weight_interpolated.groupby('Id')[col].transform(
-                        lambda x: x.interpolate(method='nearest').ffill().bfill()
+                        lambda x: x.interpolate(method='linear').ffill().bfill()
                     )
-                weight_interpolated.reset_index(inplace=True)
                 
+                # Sửa lại tên các cột weight để đồng nhất format (ngoại trừ Id, date)
+                weight_interpolated.rename(columns={col: f"{col}_interpolated_weightLogInfo" for col in weight_cols}, inplace=True)
+                weight_df = weight_interpolated
+                
+                # Lưu file cân nặng đã nội suy ra Local
+                inter_dir = r"D:\NutritionAI_V1\Data\intermediate"
+                os.makedirs(inter_dir, exist_ok=True)
+                weight_df.to_parquet(os.path.join(inter_dir, "weight_interpolated.parquet"), index=False)
+                
+                # # [DB Push cho bảng Weight]
+                # # with get_connection() as conn:
+                # #     weight_df.to_sql(name="weight_interpolated", con=conn, schema="staging", if_exists="replace", index=False)
+
             return aggregated_dfs, weight_df
+
         except Exception as e:
-            raise DataTransformationError(f"Lỗi quá trình Feature Engineering: {e}", sys)
+            raise DataTransformationError(f"Lỗi quá trình Feature Engineering (Phase 2 Parallel): {e}", sys)
 
     # ==========================================
     # PHASE 3: INTEGRATION & LÀM SẠCH (Chỉ Thống kê Đánh giá)
@@ -269,4 +329,6 @@ if __name__ == "__main__":
     pipeline = DataTransformationPipeline()
     final_dataset = pipeline.execute_pipeline()
     print(final_dataset.head())
+
+
 
