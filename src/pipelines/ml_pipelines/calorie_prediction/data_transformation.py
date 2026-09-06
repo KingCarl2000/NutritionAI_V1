@@ -33,9 +33,20 @@ class DataTransformationPipeline:
     def _get_date_column_name(self, table_name):
         config = self.tables_config.get(table_name, {})
         cat_cols = config.get('categorical_columns', [])
+        
+        # Mở rộng danh sách nhận diện các biến thể tên cột thời gian
+        possible_date_keywords = ['activitydate', 'date', 'activityhour', 'activityminute', 'time', 'activity_date']
+        
         for col in cat_cols:
-            if col.lower() in ["ActivityDate", "ActivityHour", "ActivityMinute", "Date", "Time", "date"]:
+            if col.lower() in possible_date_keywords:
                 return col
+                
+        # Fallback kiểm tra trực tiếp trên các cột của DataFrame nếu schema không khớp
+        if table_name in self.dataframes:
+            for col in self.dataframes[table_name].columns:
+                if col.lower() in possible_date_keywords:
+                    return col
+                    
         return None
 
     def execute_pipeline(self):
@@ -133,7 +144,7 @@ class DataTransformationPipeline:
                             aggregated_dfs[table_name] = grouped
                             logger.info(f"Đã Aggregate bảng: {table_name}")
 
-                            
+
             if weight_df is not None and 'dailyActivity_merged' in self.dataframes:
                 daily_df = self.dataframes['dailyActivity_merged']
                 time_grid = daily_df[['Id', 'date']].drop_duplicates()
