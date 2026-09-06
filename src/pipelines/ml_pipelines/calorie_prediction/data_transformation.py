@@ -68,7 +68,9 @@ class DataTransformationPipeline:
         with get_connection() as conn:
             for table_name in self.tables_config.keys():
                 try:
-                    query = f"SELECT * FROM raw.{table_name}"
+                    # SỬA DÒNG NÀY: Thêm dấu ngoặc kép (") bao quanh table_name
+                    query = f'SELECT * FROM raw."{table_name}"'
+                    
                     df = pd.read_sql(query, conn)
                     
                     date_col = self._get_date_column_name(table_name)
@@ -81,10 +83,9 @@ class DataTransformationPipeline:
                     self.dataframes[table_name] = df
                     logger.info(f"Đã chuẩn hóa bảng: {table_name}")
                 except Exception as e:
-                    # Ghi nhận log cảnh báo và có thể tiếp tục hoặc raise Exception tùy logic nghiệp vụ
                     logger.warning(f"Không thể đọc bảng {table_name} từ schema raw: {e}")
                     raise DataTransformationError(f"Lỗi trích xuất bảng {table_name}: {e}", sys)
-
+    
     # ==========================================
     # PHASE 2: FEATURE ENGINEERING
     # ==========================================
@@ -105,11 +106,18 @@ class DataTransformationPipeline:
                         num_cols = [col for col in num_cols if col != 'Id']
                         
                         if num_cols:
+                            # Định nghĩa các hàm custom cho aggregations
                             def q1(x): return x.quantile(0.25)
                             def q3(x): return x.quantile(0.75)
+                            def get_mode(x): 
+                                m = x.mode()
+                                return m.iloc[0] if not m.empty else np.nan
                             
-                            agg_dict = {col: ['mean', 'max', 'min', 'std', 'median', 'var', 'mode', q1, q3, 'skewness', 'kurtosis'] for col in num_cols}
+                            # Cập nhật: dùng get_mode thay cho 'mode', dùng 'skew' và 'kurt' thay cho skewness/kurtosis
+                            agg_dict = {col: ['mean', 'max', 'min', 'std', 'median', 'var', get_mode, q1, q3, 'skew', 'kurt'] for col in num_cols}
+                            
                             grouped = df.groupby(['Id', 'date']).agg(agg_dict).reset_index()
+                            # Flatten MultiIndex columns
                             grouped.columns = [f"{col[0]}_{col[1]}" if col[1] else col[0] for col in grouped.columns]
                             
                             aggregated_dfs[table_name] = grouped
