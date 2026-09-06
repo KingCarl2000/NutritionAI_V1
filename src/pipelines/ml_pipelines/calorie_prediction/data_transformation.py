@@ -110,38 +110,48 @@ class DataTransformationPipeline:
             raise DataPipelineException(str(e), sys)
 
     # ==========================================
-    # PHASE 1: INGESTION & CHUẨN HÓA CƠ SỞ
+    # PHASE 1: INGESTION & CHUẨN HÓA CƠ SỞ (OPTIMIZED TIMESTAMP)
     # ==========================================
     def phase_1_ingestion_and_standardize(self):
-        logger.info("Phase 1: Chuẩn hóa trục thời gian và Load Data (Sử dụng COPY TO STDOUT)...")
+        logger.info("Phase 1: Chuẩn hóa trục thời gian và Load Data (Optimized via SQL Timestamp)...")
         with get_connection() as conn:
             for table_name in self.tables_config.keys():
                 try:
-                    # Chuyển từ SELECT sang COPY TO STDOUT (Nhanh gấp 10 lần pd.read_sql)
-                    copy_query = f'COPY raw."{table_name}" TO STDOUT WITH CSV HEADER'
+                    date_col = self._get_date_column_name(table_name)
+                    
+                    if date_col:
+                        # Ép kiểu tường minh cột thời gian thành TIMESTAMP trực tiếp trong SQL
+                        # Giúp COPY truyền sang client dạng giá trị chuẩn, giảm hoàn toàn chi phí parse của pandas
+                        query = f"""
+                            COPY (
+                                SELECT *, CAST("{date_col}" AS TIMESTAMP) AS date_parsed 
+                                FROM raw."{table_name}"
+                            ) TO STDOUT WITH CSV HEADER
+                        """
+                    else:
+                        query = f'COPY raw."{table_name}" TO STDOUT WITH CSV HEADER'
                     
                     # Khởi tạo bộ đệm nhị phân trên RAM
                     buffer = io.BytesIO()
                     
-                    # Kéo luồng dữ liệu thô từ Postgres thẳng vào buffer
                     with conn.cursor() as cur:
-                        with cur.copy(copy_query) as copy:
+                        with cur.copy(query) as copy:
                             for data in copy:
                                 buffer.write(data)
                                 
-                    # Đưa con trỏ buffer về đầu file
                     buffer.seek(0)
                     
-                    # Pandas đọc thẳng từ vùng nhớ bằng C-engine cực nhanh
+                    # Đọc dữ liệu thô vào Pandas
                     df = pd.read_csv(buffer, low_memory=False)
                     
-                    # Xử lý cột thời gian (Giữ nguyên logic .dt.normalize() đã tối ưu)
-                    date_col = self._get_date_column_name(table_name)
-                    if date_col and date_col in df.columns:
-                        df['date_temp'] = pd.to_datetime(df[date_col], errors='coerce')
-                        df = df.drop(columns=[date_col])
-                        df.rename(columns={'date_temp': 'date'}, inplace=True)
-                        df['date'] = df['date'].dt.normalize()
+                    # Nếu có cột date_parsed vừa tạo từ SQL, gán lại thành cột 'date' chính thức
+                    if date_col and 'date_parsed' in df.columns:
+                        if date_col in df.columns:
+                            df = df.drop(columns=[date_col])
+                        df.rename(columns={'date_parsed': 'date'}, inplace=True)
+                        
+                        # Chuyển đổi siêu tốc sang datetime64[ns] và chuẩn hóa về 00:00:00
+                        df['date'] = pd.to_datetime(df['date'], errors='coerce').dt.normalize()
                         
                     self.dataframes[table_name] = df
                     logger.info(f"Đã chuẩn hóa bảng: {table_name} (Shape: {df.shape})")
