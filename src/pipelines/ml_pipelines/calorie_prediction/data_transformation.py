@@ -209,9 +209,27 @@ class DataTransformationPipeline:
                 
             logger.info("-------------------------------------------------------")
             logger.info("Tạm dừng các bước làm sạch (Imputation/Drop). Giữ nguyên trạng thái thô sau Merge.")
+
+            # Tạo thư mục chứa báo cáo đánh giá
+            report_dir = r"D:\NutritionAI_V1\Artifacts\reports"
+            os.makedirs(report_dir, exist_ok=True)
+            report_file = os.path.join(report_dir, "data_assessment_report.txt")
             
+            with open(report_file, "w", encoding="utf-8") as f:
+                f.write("========== BÁO CÁO ĐÁNH GIÁ MASTER DATAFRAME ==========\n\n")
+                f.write(f"1. Kích thước (Shape): {master_df.shape[0]} dòng, {master_df.shape[1]} cột\n\n")
+                
+                f.write("2. Tỉ lệ Dữ liệu khuyết (Missing %):\n")
+                f.write(missing_cols.round(2).to_string() if not missing_cols.empty else "Không có missing value.")
+                f.write("\n\n")
+                
+                f.write("3. Tỉ lệ Giá trị 0 (%):\n")
+                f.write(zero_cols.round(2).to_string() if not zero_cols.empty else "Không có giá trị 0.")
+                f.write("\n\n=======================================================")
+            
+                logger.info(f"Đã xuất báo cáo chi tiết ra file: {report_file}")
             return master_df
-        
+
         except Exception as e:
             # Vẫn dùng DataCleansingError để track đúng phase
             raise DataCleansingError(f"Lỗi Integration và Khảo sát: {e}", sys)

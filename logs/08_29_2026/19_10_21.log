@@ -1,3 +1,0 @@
-[ 2026-08-29 19:10:21,440 ] 26 NutritionAI - INFO - Khởi động tiến trình Bulk Load dữ liệu...
-[ 2026-08-29 19:10:21,525 ] 49 NutritionAI - INFO - === Bắt đầu Bulk Load: Bảng 'raw.apple_data_raw' | File 'D:\NutritionAI_V1\Data\raw\health_data.csv' ===
-[ 2026-08-29 19:10:21,525 ] 67 NutritionAI - ERROR - ❌ Lỗi khi nạp dữ liệu bảng 'raw.apple_data_raw': PostgresBulkLoader.execute_bulk_load() got an unexpected keyword argument 'file_path'
