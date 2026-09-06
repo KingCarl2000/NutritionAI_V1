@@ -299,30 +299,62 @@ class DataTransformationPipeline:
     # ==========================================
     def phase_4_optimization_and_packaging(self, df):
         try:
-            logger.info("Phase 4: Lọc đa cộng tuyến và Đóng gói...")
+            logger.info("Phase 4: Lọc đa cộng tuyến thông minh (So sánh với Target)...")
             target_col = 'Calories'
             
             numeric_df = df.select_dtypes(include=[np.number])
+            
+            # 1. Tính ma trận tương quan toàn cục
             corr_matrix = numeric_df.corr().abs()
-            upper = corr_matrix.where(np.triu(np.ones(corr_matrix.shape), k=1).astype(bool))
             
-            to_drop = [column for column in upper.columns if any(upper[column] > 0.85)]
-            to_drop = [col for col in to_drop if col not in [target_col, 'Id']]
+            # 2. Lấy riêng mức độ tương quan của từng biến đối với cột Target ('Calories')
+            target_corr = corr_matrix[target_col]
             
+            # 3. Tạo ma trận tương quan chỉ giữa các features (loại bỏ Id và Target để xét chéo nhau)
+            features_corr = corr_matrix.drop(index=[target_col, 'Id'], columns=[target_col, 'Id'], errors='ignore')
+            upper = features_corr.where(np.triu(np.ones(features_corr.shape), k=1).astype(bool))
+            
+            to_drop = set()
+            
+            # 4. Duyệt ma trận để tìm các cặp đa cộng tuyến (> 0.85)
+            for col in upper.columns:
+                for row in upper.index:
+                    if upper.loc[row, col] > 0.85:
+                        # [SMART DROP] Biến nào tương quan với Calories YẾU HƠN sẽ bị xóa
+                        if target_corr.get(col, 0) < target_corr.get(row, 0):
+                            to_drop.add(col)
+                        else:
+                            to_drop.add(row)
+                            
+            to_drop = list(to_drop)
             df_final = df.drop(columns=to_drop)
-            logger.info(f"Đã xóa các cột bị đa cộng tuyến (>0.85): {to_drop}")
             
-            output_dir = "D:\\NutritionAI_V1\\Data\\processed"
+            logger.info(f"Đã so sánh với Target và xóa {len(to_drop)} cột bị đa cộng tuyến (>0.85).")
+            
+            # 5. Đóng gói ra thư mục Artifacts
+            output_dir = r"D:\NutritionAI_V1\Artifacts\data\processed"
             os.makedirs(output_dir, exist_ok=True)
+            
+            # Lưu Parquet (Khuyên dùng cho Model Training vì nhẹ và load nhanh)
+            parquet_path = os.path.join(output_dir, "core_daily_calories_features.parquet")
+            df_final.to_parquet(parquet_path, index=False)
+            
+            # Lưu CSV (Để dễ dàng xem bằng Excel/VSCode)
             csv_path = os.path.join(output_dir, "core_daily_calories_features.csv")
             df_final.to_csv(csv_path, index=False)
             
-            logger.info(f"Đã xuất file CSV sẵn sàng cho Model tại: {csv_path}")
+            logger.info(f"Đã xuất file Final Dataset (Parquet & CSV) sẵn sàng cho Model tại: {output_dir}")
             
-            # self._save_to_core_schema(df_final, "daily_calories_features")
+            # --------------------------------------------------
+            # KHUNG LỆNH ĐẨY LÊN DATABASE (POSTGRESQL CORE)
+            # --------------------------------------------------
+            # with get_connection() as conn:
+            #     df_final.to_sql(name="daily_calories_features", con=conn, schema="core", if_exists="replace", index=False)
+            # logger.info("# [DB] Đã push bảng core.daily_calories_features lên PostgreSQL")
+            
             return df_final
+            
         except Exception as e:
-            # Bắt DataTransformationError cho tiến trình drop columns/lọc đa cộng tuyến
             raise DataTransformationError(f"Lỗi tối ưu hóa đa cộng tuyến và Đóng gói: {e}", sys)
 
 if __name__ == "__main__":
