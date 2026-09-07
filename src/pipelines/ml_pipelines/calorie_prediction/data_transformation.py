@@ -383,6 +383,56 @@ class DataTransformationPipeline:
         except Exception as e:
             raise DataTransformationError(f"Lỗi tối ưu hóa đa cộng tuyến và Đóng gói: {e}", sys)
 
+
+    def preprocess_core_daily_calories(self, df, exclude_cat_col='categorical_id', poly_features=['low_corr_1', 'low_corr_2'], missing_thresh=0.5, zero_thresh=0.5):
+        """
+        Tiền xử lý dữ liệu: Loại bỏ cột/hàng nhiễu (>50% missing/zero) và xử lý null.
+        Tích hợp vào DataTransformationPipeline.
+        """
+        processed_df = df.copy()
+
+        # ==========================================
+        # 1. XÓA CỘT NHIỄU (Missing/Zero > 50%)
+        # ==========================================
+        missing_percentages = processed_df.isnull().mean()
+        cols_to_drop_missing = missing_percentages[missing_percentages > missing_thresh].index.tolist()
+
+        zero_percentages = (processed_df == 0).mean()
+        cols_to_drop_zero = zero_percentages[zero_percentages > zero_thresh].index.tolist()
+
+        cols_to_drop = set(cols_to_drop_missing + cols_to_drop_zero)
+
+        # BẢO VỆ DỮ LIỆU CỐT LÕI: Giữ lại biến đa thức và mã định danh
+        cols_to_drop = [col for col in cols_to_drop if col not in poly_features]
+        if exclude_cat_col in cols_to_drop:
+            cols_to_drop.remove(exclude_cat_col)
+
+        processed_df.drop(columns=list(cols_to_drop), inplace=True, errors='ignore')
+
+        # ==========================================
+        # 2. XÓA HÀNG NHIỄU (Missing > 50%)
+        # ==========================================
+        # Tham số thresh trong dropna yêu cầu số lượng giá trị non-null tối thiểu.
+        # Để xóa hàng có > 50% missing, ta cần giữ lại các hàng có >= 50% dữ liệu hợp lệ.
+        min_valid_cols = len(processed_df.columns) * (1 - missing_thresh)
+        processed_df.dropna(axis=0, thresh=min_valid_cols, inplace=True)
+
+        # ==========================================
+        # 3. ĐIỀN GIÁ TRỊ THIẾU CHO PHẦN CÒN LẠI
+        # ==========================================
+        numeric_cols = processed_df.select_dtypes(include=['float64', 'int64']).columns
+        
+        # Điền null bằng median (bỏ qua cột định danh)
+        for col in numeric_cols:
+            if col != exclude_cat_col:
+                processed_df[col] = processed_df[col].fillna(processed_df[col].median())
+                
+        # Điền null bằng mode cho cột định danh
+        if exclude_cat_col in processed_df.columns:
+            processed_df[exclude_cat_col] = processed_df[exclude_cat_col].fillna(processed_df[exclude_cat_col].mode()[0])
+
+        return processed_df
+
 if __name__ == "__main__":
     pipeline = DataTransformationPipeline()
     final_dataset = pipeline.execute_pipeline()
