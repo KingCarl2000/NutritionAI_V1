@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg18
+    container_name: nutrition_postgres
+    ports:
+      - "5432:5432"
+    env_file:
+      # Đã sửa thành đường dẫn tương đối (lùi 3 cấp) đúng như ý định trong comment của bạn.
+      # Dùng absolute path (D:\...) sẽ gây lỗi khi deploy sang máy khác hoặc môi trường Linux.
+      - ../../../.env 
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_DB=nutrition_ai
+      # Docker sẽ tự động lấy POSTGRES_PASSWORD từ file .env
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+
+volumes:
+  # Chú thích phải dùng dấu '#' thay vì thuộc tính 'description' (Docker Compose không hỗ trợ key này)
+  pg_data:

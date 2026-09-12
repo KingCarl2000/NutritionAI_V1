@@ -368,7 +368,26 @@ class DataTransformationPipeline:
             # Lưu CSV (Để dễ dàng xem bằng Excel/VSCode)
             csv_path = os.path.join(output_dir, "core_daily_calories_features.csv")
             df_final.to_csv(csv_path, index=False)
-            
+
+            # TỰ ĐỘNG SINH FEATURES.YAML
+            features_list = df_final.columns.tolist()
+            features_config = {
+                "target": "Calories",
+                "features": [col for col in features_list if col not in ['Id', 'Calories', 'date']],
+                "metadata": {
+                    "num_features": len(features_list) - 3,
+                    "description": "Generated automatically after collinearity removal."
+                }
+            }
+
+            config_path = r"D:\NutritionAI_V1\config\pipelines\ml_calories\features.yaml"
+            # Đảm bảo thư mục tồn tại
+            os.makedirs(os.path.dirname(config_path), exist_ok=True)
+
+            with open(config_path, 'w', encoding='utf-8') as f:
+                yaml.dump(features_config, f, allow_unicode=True, default_flow_style=False)
+
+            logger.info(f"Đã xuất cấu hình features phục vụ training & inference tại: {config_path}")
             logger.info(f"Đã xuất file Final Dataset (Parquet & CSV) sẵn sàng cho Model tại: {output_dir}")
             
             # --------------------------------------------------

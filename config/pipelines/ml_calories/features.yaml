@@ -1,0 +1,56 @@
+features:
+- LoggedActivitiesDistance
+- ModeratelyActiveDistance
+- LightActiveDistance
+- SedentaryActiveDistance
+- FairlyActiveMinutes
+- SedentaryMinutes
+- Value_max_heartrate_seconds_merged
+- Value_min_heartrate_seconds_merged
+- Value_get_mode_heartrate_seconds_merged
+- Value_q3_heartrate_seconds_merged
+- Value_get_skew_heartrate_seconds_merged
+- Value_get_kurt_heartrate_seconds_merged
+- Calories_mean_hourlyCalories_merged
+- AverageIntensity_get_mode_hourlyIntensities_merged
+- AverageIntensity_q1_hourlyIntensities_merged
+- AverageIntensity_get_skew_hourlyIntensities_merged
+- StepTotal_min_hourlySteps_merged
+- StepTotal_median_hourlySteps_merged
+- StepTotal_get_mode_hourlySteps_merged
+- StepTotal_q1_hourlySteps_merged
+- StepTotal_q3_hourlySteps_merged
+- StepTotal_get_kurt_hourlySteps_merged
+- Calories_median_minuteCaloriesNarrow_merged
+- Calories_q3_minuteCaloriesNarrow_merged
+- Intensity_max_minuteIntensitiesNarrow_merged
+- Intensity_min_minuteIntensitiesNarrow_merged
+- Intensity_median_minuteIntensitiesNarrow_merged
+- Intensity_get_mode_minuteIntensitiesNarrow_merged
+- Intensity_q1_minuteIntensitiesNarrow_merged
+- METs_min_minuteMETsNarrow_merged
+- METs_median_minuteMETsNarrow_merged
+- METs_q1_minuteMETsNarrow_merged
+- METs_get_skew_minuteMETsNarrow_merged
+- value_mean_minuteSleep_merged
+- value_max_minuteSleep_merged
+- value_min_minuteSleep_merged
+- value_get_mode_minuteSleep_merged
+- value_q1_minuteSleep_merged
+- value_q3_minuteSleep_merged
+- value_get_skew_minuteSleep_merged
+- logId_std_minuteSleep_merged
+- logId_get_mode_minuteSleep_merged
+- logId_get_skew_minuteSleep_merged
+- Steps_min_minuteStepsNarrow_merged
+- Steps_median_minuteStepsNarrow_merged
+- Steps_get_mode_minuteStepsNarrow_merged
+- Steps_q1_minuteStepsNarrow_merged
+- Steps_q3_minuteStepsNarrow_merged
+- Steps_get_skew_minuteStepsNarrow_merged
+- BMI_interpolated_weightLogInfo
+- LogId_interpolated_weightLogInfo
+metadata:
+  description: Generated automatically after collinearity removal.
+  num_features: 51
+target: Calories
