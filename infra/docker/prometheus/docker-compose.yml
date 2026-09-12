@@ -9,9 +9,9 @@ services:
     volumes:
       # Áp dụng Phần 2: Cung cấp file cấu hình qua Bind-Mount
       # Chú ý đường dẫn tương đối từ nơi đặt file docker-compose.yml đến file prometheus.yml
-      - ./config/infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./config/infra/prometheus/prometheus.yml:/etc/infra/docker/prometheus/docker-compose.yml
       # Nếu bạn muốn mount cả file web.yml hay thư mục rules:
-      - ./config/infra/prometheus:/etc/prometheus/config_files
+      - ./config/infra/prometheus:/etc/prometheus/config_files/sd_configs/*.json
       
       # Áp dụng Phần 3: Lưu trữ dữ liệu bền vững qua Named Volume
       - prometheus_data:/prometheus
