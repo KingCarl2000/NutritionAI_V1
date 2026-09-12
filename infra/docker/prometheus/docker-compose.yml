@@ -1,24 +1,24 @@
 services:
   prometheus:
     # Áp dụng Phần 1: Nguồn Image
-    image: prom/prometheus:latest 
+    image: prom/prometheus:latest
     container_name: prometheus
     ports:
       - "9090:9090"
     
     volumes:
       # Áp dụng Phần 2: Cung cấp file cấu hình qua Bind-Mount
-      # Chú ý đường dẫn tương đối từ nơi đặt file docker-compose.yml đến file prometheus.yml
-      - ./config/infra/prometheus/prometheus.yml:/etc/infra/docker/prometheus/docker-compose.yml
-      # Nếu bạn muốn mount cả file web.yml hay thư mục rules:
-      - ./config/infra/prometheus:/etc/prometheus/config_files/sd_configs/*.json
+      # Đã sửa: Lùi 3 cấp thư mục để lấy đúng file từ máy host và đưa vào đúng đích /etc/prometheus/
+      - ../../../config/infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      
+      # Đã sửa: Mount toàn bộ thư mục cấu hình nếu cần đọc rule alert/record (KHÔNG dùng ký tự *)
+      - ../../../config/infra/prometheus:/etc/prometheus
       
       # Áp dụng Phần 3: Lưu trữ dữ liệu bền vững qua Named Volume
       - prometheus_data:/prometheus
     
     command:
       # Áp dụng Phần 5: Lưu ý về tham số dòng lệnh
-      # Khai báo lại các cờ mặc định kèm cờ tùy chỉnh nếu cần
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
       - '--web.enable-lifecycle' # Cho phép reload cấu hình nóng
