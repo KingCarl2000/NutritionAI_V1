@@ -1,0 +1,48 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prometheus
+  namespace: default # Thay đổi nếu Prometheus của bạn chạy ở namespace khác (ví dụ: monitoring)
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: prometheus-sd-role
+rules:
+  # Quyền xem thông tin Node và Namespace (attach_metadata.node, attach_metadata.namespace)
+  - apiGroups: [""]
+    resources:
+      - nodes
+      - namespaces
+      # Bổ sung các tài nguyên cơ bản mà Prometheus thường cần để auto-discovery
+      - pods
+      - services
+      - endpoints
+    verbs: ["get", "list", "watch"]
+
+  # Quyền xem thông tin Deployment qua ReplicaSets (attach_metadata.deployment)
+  - apiGroups: ["apps"]
+    resources:
+      - replicasets
+    verbs: ["get", "list", "watch"]
+
+  # Quyền xem thông tin Job và CronJob (attach_metadata.job, attach_metadata.cronjob)
+  - apiGroups: ["batch"]
+    resources:
+      - jobs
+      - cronjobs
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: prometheus-sd-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: prometheus-sd-role
+subjects:
+  - kind: ServiceAccount
+    name: prometheus
+    namespace: default # Cần khớp với namespace của ServiceAccount ở trên
