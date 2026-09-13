@@ -1,0 +1,5 @@
+# Tạo ConfigMap vào namespace default (phù hợp với RBAC hiện tại của bạn)
+kubectl create configmap prometheus-config \
+  --from-file=prometheus.yml=config/infra/prometheus/prometheus.yml \
+  -n default
+
