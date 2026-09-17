@@ -25,3 +25,5 @@ seaborn
 # datasets
 setuptools<70.0.0
 ydata_profiling
+
+pynvml
