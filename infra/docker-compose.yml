@@ -2,9 +2,10 @@ version: '3.8'
 
 services:
   postgres:
-    image: pgvector/pgvector:pg18
+    image: pgvector/pgvector:pg18-trixie
     container_name: nutrition_postgres
     restart: unless-stopped
+    shm_size: '3g'  # Cấp 3GB RAM chia sẻ cho Container (đủ cho maintenance_work_mem = 2GB)
     ports:
       - "5432:5432"
     env_file:
@@ -12,16 +13,24 @@ services:
     environment:
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
       - POSTGRES_DB=${POSTGRES_DB:-nutrition_ai}
-      # Docker sẽ tự động lấy POSTGRES_PASSWORD từ file .env
+      # Truyền biến môi trường để Postgres dùng cơ chế xác thực mật khẩu chuẩn SCRAM-SHA-256
+      - POSTGRES_HOST_AUTH_METHOD=scram-sha-256
+    
+    # Ép PostgreSQL khởi chạy và đọc duy nhất file postgresql.conf tập trung
+    command: postgres -c config_file=/etc/postgresql/postgresql.conf
+    
     volumes:
       - pg_data:/var/lib/postgresql/data
-      # Mount script khởi tạo DB & pgvector vào container
       - ./db_postgres/init_vector_db.sql:/docker-entrypoint-initdb.d/01_init_vector_db.sql:ro
+      # Chỉ mount duy nhất 1 file cấu hình này
+      - ./db_postgres/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-nutrition_ai}"]
       interval: 10s
       timeout: 5s
       retries: 5
+
     networks:
       - nutrition_net
 
