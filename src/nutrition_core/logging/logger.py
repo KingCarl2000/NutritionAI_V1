@@ -125,8 +125,6 @@ def check_hardware_limits():
                 )
         except pynvml.NVMLError as e:
             # Lỗi này sẽ lưu vào CẢ 3 THƯ MỤC
-<<<<<<< HEAD
+
             logger.error(f"Không thể đọc thông số GPU: {e}")
-=======
             logger.error(f"Không thể đọc thông số GPU: {e}")
->>>>>>> c5bbc66907343c81c99e1ca3a7adeccf86d9b473

@@ -23,3 +23,5 @@ except Exception as e:
 def get_connection():
     """Hàm hỗ trợ lấy connection từ pool."""
     return db_pool.connection()
+
+
