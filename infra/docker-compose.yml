@@ -5,7 +5,7 @@ services:
     image: pgvector/pgvector:pg18-trixie
     container_name: nutrition_postgres
     restart: unless-stopped
-    shm_size: '3g'  # Cấp 3GB RAM chia sẻ cho Container (đủ cho maintenance_work_mem = 2GB)
+    shm_size: '3g'
     ports:
       - "5432:5432"
     env_file:
@@ -15,14 +15,13 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_HOST_AUTH_METHOD=${POSTGRES_HOST_AUTH_METHOD}
-
-    # Ép PostgreSQL khởi chạy và đọc duy nhất file postgresql.conf tập trung
+    
     command: postgres -c config_file=/etc/postgresql/postgresql.conf
     
     volumes:
-      - pg_data:/var/lib/postgresql/data
+      # ĐÃ SỬA: Mount vào /var/lib/postgresql thay vì /var/lib/postgresql/data
+      - pg_data:/var/lib/postgresql
       - ./db_postgres/init_vector_db.sql:/docker-entrypoint-initdb.d/01_init_vector_db.sql:ro
-      # Chỉ mount duy nhất 1 file cấu hình này
       - ./db_postgres/postgresql.conf:/etc/postgresql/postgresql.conf:ro
 
     healthcheck:
