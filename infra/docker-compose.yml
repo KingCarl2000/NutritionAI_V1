@@ -11,10 +11,10 @@ services:
     env_file:
       - ../.env
     environment:
-      - POSTGRES_USER=${PG_USER}
-      - POSTGRES_PASSWORD=${PG_PASSWORD}
-      - POSTGRES_DB=${PG_DB}
-      - POSTGRES_HOST_AUTH_METHOD=${PG_HOST}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_HOST_AUTH_METHOD=${POSTGRES_HOST_AUTH_METHOD}
 
     # Ép PostgreSQL khởi chạy và đọc duy nhất file postgresql.conf tập trung
     command: postgres -c config_file=/etc/postgresql/postgresql.conf
