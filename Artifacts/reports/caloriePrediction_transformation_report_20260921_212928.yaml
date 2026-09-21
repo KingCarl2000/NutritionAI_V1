@@ -1,0 +1,66 @@
+after_transformation:
+  final_dataset:
+    columns: 19
+    memory_usage_mb: 0.0653076171875
+    missing_values: 0
+    rows: 428
+before_transformation:
+  fitabase_data_3_12_16_4_11_16_dailyActivity_merged:
+    columns: 16
+    memory_usage_mb: 0.1035623550415039
+    missing_values: 0
+    rows: 457
+  fitabase_data_3_12_16_4_11_16_heartrate_seconds_merged:
+    columns: 4
+    memory_usage_mb: 167.86827850341797
+    missing_values: 0
+    rows: 1154681
+  fitabase_data_3_12_16_4_11_16_hourlyCalories_merged:
+    columns: 4
+    memory_usage_mb: 3.513434410095215
+    missing_values: 0
+    rows: 24084
+  fitabase_data_3_12_16_4_11_16_hourlyIntensities_merged:
+    columns: 5
+    memory_usage_mb: 3.69718074798584
+    missing_values: 0
+    rows: 24084
+  fitabase_data_3_12_16_4_11_16_hourlySteps_merged:
+    columns: 4
+    memory_usage_mb: 3.513434410095215
+    missing_values: 0
+    rows: 24084
+  fitabase_data_3_12_16_4_11_16_minuteCaloriesNarrow_merged:
+    columns: 4
+    memory_usage_mb: 210.79863739013672
+    missing_values: 0
+    rows: 1445040
+  fitabase_data_3_12_16_4_11_16_minuteIntensitiesNarrow_merged:
+    columns: 4
+    memory_usage_mb: 210.79863739013672
+    missing_values: 0
+    rows: 1445040
+  fitabase_data_3_12_16_4_11_16_minuteMETsNarrow_merged:
+    columns: 4
+    memory_usage_mb: 210.79863739013672
+    missing_values: 0
+    rows: 1445040
+  fitabase_data_3_12_16_4_11_16_minuteSleep_merged:
+    columns: 5
+    memory_usage_mb: 30.471956253051758
+    missing_values: 0
+    rows: 198559
+  fitabase_data_3_12_16_4_11_16_minuteStepsNarrow_merged:
+    columns: 4
+    memory_usage_mb: 210.79863739013672
+    missing_values: 0
+    rows: 1445040
+  fitabase_data_3_12_16_4_11_16_weightLogInfo_merged:
+    columns: 9
+    memory_usage_mb: 0.0075206756591796875
+    missing_values: 31
+    rows: 33
+summary:
+  final_rows: 428
+  retention_rate: 0.01%
+  total_raw_rows: 7206142

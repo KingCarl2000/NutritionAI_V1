@@ -88,7 +88,7 @@ def calculate_custom_metrics(df):
             "iqr_25_75": safe_float(col_data.quantile(0.75) - col_data.quantile(0.25)) if not col_data.empty else None,
             "skewness": safe_float(col_data.skew()),
             "kurtosis": safe_float(col_data.kurt())
-        }
+        } 
 
     # 3. Chỉ số cho cột Phân loại (Categorical)
     for col in cat_cols:
