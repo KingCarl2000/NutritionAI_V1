@@ -1,0 +1,242 @@
+raw:
+  fitabase_data_3_12_16_4_11_16_dailyActivity_merged:
+    source_dataset: Fitabase Data 3.12.16-4.11.16
+    columns:
+      Id:
+        yaml_type: integer
+        postgresql_type: BIGINT
+        nullable: false
+      ActivityDate:
+        yaml_type: categorical
+        postgresql_type: TEXT
+        nullable: false
+      TotalSteps:
+        yaml_type: integer
+        postgresql_type: BIGINT
+        nullable: false
+      TotalDistance:
+        yaml_type: float
+        postgresql_type: DOUBLE PRECISION
+        nullable: false
+      TrackerDistance:
+        yaml_type: float
+        postgresql_type: DOUBLE PRECISION
+        nullable: false
+      LoggedActivitiesDistance:
+        yaml_type: float
+        postgresql_type: DOUBLE PRECISION
+        nullable: false
+      VeryActiveDistance:
+        yaml_type: float
+        postgresql_type: DOUBLE PRECISION
+        nullable: false
+      ModeratelyActiveDistance:
+        yaml_type: float
+        postgresql_type: DOUBLE PRECISION
+        nullable: false
+      LightActiveDistance:
+        yaml_type: float
+        postgresql_type: DOUBLE PRECISION
+        nullable: false
+      SedentaryActiveDistance:
+        yaml_type: float
+        postgresql_type: DOUBLE PRECISION
+        nullable: false
+      VeryActiveMinutes:
+        yaml_type: integer
+        postgresql_type: BIGINT
+        nullable: false
+      FairlyActiveMinutes:
+        yaml_type: integer
+        postgresql_type: BIGINT
+        nullable: false
+      LightlyActiveMinutes:
+        yaml_type: integer
+        postgresql_type: BIGINT
+        nullable: false
+      SedentaryMinutes:
+        yaml_type: integer
+        postgresql_type: BIGINT
+        nullable: false
+      Calories:
+        yaml_type: integer
+        postgresql_type: BIGINT
+        nullable: false
+  fitabase_data_3_12_16_4_11_16_heartrate_seconds_merged:
+    source_dataset: Fitabase Data 3.12.16-4.11.16
+    columns:
+      Id:
+        yaml_type: integer
+        postgresql_type: BIGINT
+        nullable: false
+      Time:
+        yaml_type: categorical
+        postgresql_type: TEXT
+        nullable: false
+      Value:
+        yaml_type: integer
+        postgresql_type: BIGINT
+        nullable: false
+  fitabase_data_3_12_16_4_11_16_hourlyCalories_merged:
+    source_dataset: Fitabase Data 3.12.16-4.11.16
+    columns:
+      Id:
+        yaml_type: integer
+        postgresql_type: BIGINT
+        nullable: false
+      ActivityHour:
+        yaml_type: categorical
+        postgresql_type: TEXT
+        nullable: false
+      Calories:
+        yaml_type: integer
+        postgresql_type: BIGINT
+        nullable: false
+  fitabase_data_3_12_16_4_11_16_hourlyIntensities_merged:
+    source_dataset: Fitabase Data 3.12.16-4.11.16
+    columns:
+      Id:
+        yaml_type: integer
+        postgresql_type: BIGINT
+        nullable: false
+      ActivityHour:
+        yaml_type: categorical
+        postgresql_type: TEXT
+        nullable: false
+      TotalIntensity:
+        yaml_type: integer
+        postgresql_type: BIGINT
+        nullable: false
+      AverageIntensity:
+        yaml_type: float
+        postgresql_type: DOUBLE PRECISION
+        nullable: false
+  fitabase_data_3_12_16_4_11_16_hourlySteps_merged:
+    source_dataset: Fitabase Data 3.12.16-4.11.16
+    columns:
+      Id:
+        yaml_type: integer
+        postgresql_type: BIGINT
+        nullable: false
+      ActivityHour:
+        yaml_type: categorical
+        postgresql_type: TEXT
+        nullable: false
+      StepTotal:
+        yaml_type: integer
+        postgresql_type: BIGINT
+        nullable: false
+  fitabase_data_3_12_16_4_11_16_minuteCaloriesNarrow_merged:
+    source_dataset: Fitabase Data 3.12.16-4.11.16
+    columns:
+      Id:
+        yaml_type: integer
+        postgresql_type: BIGINT
+        nullable: false
+      ActivityMinute:
+        yaml_type: categorical
+        postgresql_type: TEXT
+        nullable: false
+      Calories:
+        yaml_type: float
+        postgresql_type: DOUBLE PRECISION
+        nullable: false
+  fitabase_data_3_12_16_4_11_16_minuteIntensitiesNarrow_merged:
+    source_dataset: Fitabase Data 3.12.16-4.11.16
+    columns:
+      Id:
+        yaml_type: integer
+        postgresql_type: BIGINT
+        nullable: false
+      ActivityMinute:
+        yaml_type: categorical
+        postgresql_type: TEXT
+        nullable: false
+      Intensity:
+        yaml_type: integer
+        postgresql_type: BIGINT
+        nullable: false
+  fitabase_data_3_12_16_4_11_16_minuteMETsNarrow_merged:
+    source_dataset: Fitabase Data 3.12.16-4.11.16
+    columns:
+      Id:
+        yaml_type: integer
+        postgresql_type: BIGINT
+        nullable: false
+      ActivityMinute:
+        yaml_type: categorical
+        postgresql_type: TEXT
+        nullable: false
+      METs:
+        yaml_type: integer
+        postgresql_type: BIGINT
+        nullable: false
+  fitabase_data_3_12_16_4_11_16_minuteSleep_merged:
+    source_dataset: Fitabase Data 3.12.16-4.11.16
+    columns:
+      Id:
+        yaml_type: integer
+        postgresql_type: BIGINT
+        nullable: false
+      date:
+        yaml_type: categorical
+        postgresql_type: TEXT
+        nullable: false
+      value:
+        yaml_type: integer
+        postgresql_type: BIGINT
+        nullable: false
+      logId:
+        yaml_type: integer
+        postgresql_type: BIGINT
+        nullable: false
+  fitabase_data_3_12_16_4_11_16_minuteStepsNarrow_merged:
+    source_dataset: Fitabase Data 3.12.16-4.11.16
+    columns:
+      Id:
+        yaml_type: integer
+        postgresql_type: BIGINT
+        nullable: false
+      ActivityMinute:
+        yaml_type: categorical
+        postgresql_type: TEXT
+        nullable: false
+      Steps:
+        yaml_type: integer
+        postgresql_type: BIGINT
+        nullable: false
+  fitabase_data_3_12_16_4_11_16_weightLogInfo_merged:
+    source_dataset: Fitabase Data 3.12.16-4.11.16
+    columns:
+      Id:
+        yaml_type: integer
+        postgresql_type: BIGINT
+        nullable: false
+      Date:
+        yaml_type: categorical
+        postgresql_type: TEXT
+        nullable: false
+      WeightKg:
+        yaml_type: float
+        postgresql_type: DOUBLE PRECISION
+        nullable: false
+      WeightPounds:
+        yaml_type: float
+        postgresql_type: DOUBLE PRECISION
+        nullable: false
+      Fat:
+        yaml_type: float
+        postgresql_type: DOUBLE PRECISION
+        nullable: true
+      BMI:
+        yaml_type: float
+        postgresql_type: DOUBLE PRECISION
+        nullable: false
+      IsManualReport:
+        yaml_type: boolean
+        postgresql_type: BOOLEAN
+        nullable: false
+      LogId:
+        yaml_type: integer
+        postgresql_type: BIGINT
+        nullable: false
