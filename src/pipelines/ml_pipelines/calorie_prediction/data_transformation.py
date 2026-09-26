@@ -8,13 +8,14 @@ import multiprocessing
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 from psycopg.errors import UndefinedTable
+from sqlalchemy import create_engine # Thêm sqlalchemy để pd.to_sql dễ dàng save to staging
 
 # Import connections and core
 from src.postgres.core.connection import get_connection
 from src.nutrition_core.logging.logger import logger
 from src.nutrition_core.exception.exception import (
-    DataPipelineException,
-    DataTransformationError,
+    DataPipelineException, 
+    DataTransformationError, 
     DataCleansingError
 )
 
@@ -23,68 +24,54 @@ from src.nutrition_core.exception.exception import (
 # =====================================================================
 def q1(x):
     return x.quantile(0.25)
-
 def q3(x):
     return x.quantile(0.75)
-
 def get_mode(x):
-    # Lưu ý: Hàm mode khá tốn tài nguyên so với các hàm vector hóa
     m = x.mode()
     return m.iloc[0] if not m.empty else np.nan
-
 def get_skew(x):
     return x.skew()
-
 def get_kurt(x):
     return x.kurt()
 
 def process_agg_chunk(args):
     """
-    Hàm Worker: Thực thi tính toán thống kê trên từng mảnh (chunk) dữ liệu.
+    Hàm Worker: Thực thi tính toán thống kê trên từng mảnh (chunk) dữ liệu 
+    cho các bảng chi tiết hơn ngày (hourly, minute, heartrate...).
     """
     df_chunk, num_cols, table_name = args
+    agg_dict = {col: ['mean', 'max', 'min', 'std', 'median', 'var', get_mode, q1, q3, get_skew, get_kurt] for col in num_cols}
     
-    agg_dict = {col: ['mean', 'max', 'min', 'std', 'median', 'var', get_mode, q1, q3, get_skew, get_kurt]
-                for col in num_cols}
-    
+    # Nhóm theo Id và date để đưa về cùng granularity với dailyActivity
     grouped = df_chunk.groupby(['Id', 'date']).agg(agg_dict).reset_index()
-
+    
     new_cols = []
     for col in grouped.columns:
         if col[0] in ['Id', 'date']:
-            new_cols.append(col[0]) 
+            new_cols.append(col[0])
         else:
             new_cols.append(f"{col[0]}_{col[1]}_{table_name}")
-            
     grouped.columns = new_cols
     return grouped
 
 
 class DataTransformationPipeline:
     def __init__(self, schema_path: str = None):
-        # 1. Khởi tạo đường dẫn động (Dynamic Paths)
         self.project_root = Path(__file__).resolve().parent.parent.parent.parent.parent
-        
-        # Trỏ mặc định tới tables_created_report.yaml thay vì schema.yaml cũ
         if schema_path is None:
             self.schema_path = str(self.project_root / 'docs' / 'architecture' / 'tables_created_report.yaml')
         else:
             self.schema_path = schema_path
             
         self.report_dir = self.project_root / 'Artifacts' / 'reports'
-        
-        # 2. Khởi tạo cấu trúc lưu report
-        self.report_data = {
-            "before_transformation": {},
-            "after_transformation": {},
-            "summary": {}
-        }
-        
-        # 3. Load config
+        self.report_data = {"before_transformation": {}, "after_transformation": {}, "summary": {}}
         self.schema_config = self._load_schema()
-        # Lấy thông tin các bảng từ dict 'raw' theo cấu trúc YAML mới
         self.tables_config = self.schema_config.get('raw', {})
         self.dataframes = {}
+
+        # Database URL string dùng cho pd.to_sql (bạn cần thay config thực tế hoặc lấy từ biến môi trường)
+        # Ví dụ: 'postgresql+psycopg2://user:password@host:port/dbname'
+        self.db_engine_url = os.environ.get("DATABASE_URL", "postgresql+psycopg2://postgres:postgres@localhost:5432/nutrition_db")
 
     def _load_schema(self):
         try:
@@ -93,17 +80,42 @@ class DataTransformationPipeline:
         except Exception as e:
             logger.exception("Lỗi khi đọc file schema:")
             raise DataPipelineException(str(e), sys)
+
+    # -------------------------------------------------------------------
+    # MỚI BỔ SUNG: Hàm cập nhật thông tin schema staging vào file YAML
+    # -------------------------------------------------------------------
+    def _update_staging_schema_report(self, staging_metadata: dict):
+        """
+        Đọc file tables_created_report.yaml hiện tại, thêm/cập nhật 
+        thông tin schema 'staging' và ghi đè lại file.
+        """
+        try:
+            # Đọc lại config mới nhất từ file
+            current_config = self._load_schema()
             
+            # Khởi tạo key 'staging' nếu chưa có
+            if 'staging' not in current_config:
+                current_config['staging'] = {}
+                
+            # Cập nhật metadata của các bảng mới vào schema staging
+            current_config['staging'].update(staging_metadata)
+            
+            # Ghi xuống YAML
+            with open(self.schema_path, 'w', encoding='utf-8') as file:
+                yaml.dump(current_config, file, allow_unicode=True, default_flow_style=False, sort_keys=False)
+                
+            logger.info(f"Đã cập nhật cấu trúc bảng staging vào: {self.schema_path}")
+        except Exception as e:
+            logger.exception("Lỗi khi ghi lịch sử cập nhật bảng vào file YAML:")
+            raise DataPipelineException(str(e), sys)
+
     def _save_transformation_report(self):
-        """Hàm ghi file report ra Artifacts/reports"""
         try:
             self.report_dir.mkdir(parents=True, exist_ok=True)
             timestamp = pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')
             report_path = self.report_dir / f"caloriePrediction_transformation_report_{timestamp}.yaml"
-            
             with open(report_path, 'w', encoding='utf-8') as f:
                 yaml.dump(self.report_data, f, allow_unicode=True, default_flow_style=False)
-                
             logger.info("Đã xuất report transformation tại: %s", report_path)
         except Exception as e:
             logger.exception("Lỗi khi lưu report:")
@@ -113,35 +125,35 @@ class DataTransformationPipeline:
         config = self.tables_config.get(table_name, {})
         columns_info = config.get('columns', {})
         
-        cat_cols = []
-        # Lấy các cột dựa trên yaml_type từ tables_created_report.yaml
-        for col_name, col_attrs in columns_info.items():
-            if col_attrs.get('yaml_type') in ['categorical', 'datetime', 'date']:
-                cat_cols.append(col_name)
-
         possible_date_keywords = ['activitydate', 'date', 'activityhour', 'activityminute', 'time', 'activity_date']
-        
-        for col in cat_cols:
-            if col.lower() in possible_date_keywords:
-                return col
-
+        for col_name in columns_info.keys():
+            if col_name.lower() in possible_date_keywords:
+                return col_name
+                
+        # Fallback check trực tiếp trên df
         if table_name in self.dataframes:
             for col in self.dataframes[table_name].columns:
                 if col.lower() in possible_date_keywords:
                     return col
-                    
         return None
 
     def execute_pipeline(self):
         try:
             logger.info("Bắt đầu Data Transformation Pipeline...")
-
+            
+            # Phase 1: Tải dữ liệu và chuẩn hóa trục thời gian thành cột 'date'
             self.phase_1_ingestion_and_standardize()
-            aggregated_dfs, weight_df = self.phase_2_feature_engineering()
-            master_df = self.phase_3_integration_and_cleaning(aggregated_dfs, weight_df)
-            final_df = self.phase_4_optimization_and_packaging(master_df)
+            
+            # Phase 2: Feature Engineering (Đồng bộ khung thời gian, Aggregate & Trám Weight)
+            transformed_dfs = self.phase_2_feature_engineering_and_alignment()
+            
+            # Phase 3: Lưu các bảng trung gian vào schema staging
+            self.phase_3_save_to_staging(transformed_dfs)
+            
+            # Phase 4: Master Join và Cleanup
+            final_df = self.phase_4_integration_and_cleaning(transformed_dfs)
 
-            # Ghi nhận metadata sau khi biến đổi
+            # Metadata Report
             self.report_data["after_transformation"]["final_dataset"] = {
                 "rows": int(final_df.shape[0]),
                 "columns": int(final_df.shape[1]),
@@ -149,16 +161,13 @@ class DataTransformationPipeline:
                 "memory_usage_mb": float(final_df.memory_usage(deep=True).sum() / (1024 ** 2))
             }
             
-            # Tổng kết report
             total_raw_rows = sum(t["rows"] for t in self.report_data["before_transformation"].values())
             self.report_data["summary"] = {
                 "total_raw_rows": total_raw_rows,
                 "final_rows": int(final_df.shape[0]),
                 "retention_rate": f"{(final_df.shape[0] / total_raw_rows * 100):.2f}%" if total_raw_rows > 0 else "0%"
             }
-            
             self._save_transformation_report()
-
             logger.info("Hoàn thành Data Transformation Pipeline!")
             return final_df
         except Exception as e:
@@ -166,35 +175,34 @@ class DataTransformationPipeline:
             raise DataPipelineException(str(e), sys)
 
     # ==========================================
-    # PHASE 1: INGESTION & CHUẨN HÓA (CÓ REPORT)
+    # PHASE 1: INGESTION & CHUẨN HÓA
     # ==========================================
     def phase_1_ingestion_and_standardize(self):
-        logger.info("Phase 1: Chuẩn hóa trục thời gian và Load Data (Optimized via SQL Timestamp)...")
+        logger.info("Phase 1: Ingestion & Standardize (Chuẩn hóa cột mốc thời gian thành 'date')...")
         with get_connection() as conn:
             for table_name in self.tables_config.keys():
                 try:
                     date_col = self._get_date_column_name(table_name)
                     if date_col:
                         query = f"""
-                        COPY (SELECT *, CAST("{date_col}" AS TIMESTAMP) AS date_parsed 
-                              FROM raw."{table_name}") TO STDOUT WITH CSV HEADER
+                            COPY (SELECT *, CAST("{date_col}" AS TIMESTAMP) AS date_parsed 
+                            FROM raw."{table_name}") TO STDOUT WITH CSV HEADER
                         """
                     else:
                         query = f'COPY raw."{table_name}" TO STDOUT WITH CSV HEADER'
-
+                        
                     buffer = io.BytesIO()
                     with conn.cursor() as cur:
                         with cur.copy(query) as copy:
                             for data in copy:
                                 buffer.write(data)
-                    
+                                
                     buffer.seek(0)
                     df = pd.read_csv(buffer, low_memory=False)
 
-                    # Ghi nhận metadata vào Report (Trước biến đổi)
+                    # Ghi nhận Report
                     self.report_data["before_transformation"][table_name] = {
-                        "rows": int(df.shape[0]),
-                        "columns": int(df.shape[1]),
+                        "rows": int(df.shape[0]), "columns": int(df.shape[1]),
                         "missing_values": int(df.isna().sum().sum()),
                         "memory_usage_mb": float(df.memory_usage(deep=True).sum() / (1024 ** 2))
                     }
@@ -203,148 +211,160 @@ class DataTransformationPipeline:
                         if date_col in df.columns:
                             df = df.drop(columns=[date_col])
                         df.rename(columns={'date_parsed': 'date'}, inplace=True)
-
-                    if 'date' in df.columns:
-                        df['date'] = pd.to_datetime(df['date'], errors='coerce').dt.normalize()
-
+                        if 'date' in df.columns:
+                            df['date'] = pd.to_datetime(df['date'], errors='coerce').dt.normalize()
+                            
                     self.dataframes[table_name] = df
-                    logger.info("Đã chuẩn hóa bảng: %s (Shape: %s)", table_name, df.shape)
-
+                    logger.info("Đã load bảng: %s", table_name)
                 except Exception as e:
                     logger.exception("Không thể đọc bảng %s từ PostgreSQL:", table_name)
                     raise DataTransformationError(str(e), sys)
 
     # ==========================================
-    # PHASE 2: FEATURE ENGINEERING (PARALLEL & DYNAMIC PATH)
+    # PHASE 2: FEATURE ENGINEERING & ALIGNMENT
     # ==========================================
-    def phase_2_feature_engineering(self):
+    def phase_2_feature_engineering_and_alignment(self):
         try:
-            logger.info("Phase 2: Bắt đầu Aggregation với xử lý song song (Chunking)...")
-            aggregated_dfs = {}
-            weight_df = None
-            
+            logger.info("Phase 2: Feature Engineering & Alignment...")
+            transformed_dfs = {}
             n_workers = max(1, multiprocessing.cpu_count() - 1)
-            logger.info("Sử dụng %s CPU cores để tính toán song song.", n_workers)
             
-            # Cập nhật đường dẫn lưu intermediate động
-            inter_dir = self.project_root / 'Data' / 'intermediate'
-            inter_dir.mkdir(parents=True, exist_ok=True)
-
-            # Tìm key động, kiểm tra xem tên bảng CÓ CHỨA từ khóa hay không
+            # Lấy df dailyActivity làm bảng mốc chuẩn
             daily_activity_key = next((k for k in self.dataframes.keys() if 'dailyactivity_merged' in k.lower()), None)
             weight_key = next((k for k in self.dataframes.keys() if 'weightloginfo_merged' in k.lower()), None)
+            
+            if not daily_activity_key:
+                raise DataTransformationError("Không tìm thấy bảng dailyActivity làm mốc chuẩn (spine).", sys)
+            
+            daily_df = self.dataframes[daily_activity_key]
+            transformed_dfs[daily_activity_key] = daily_df # Giữ nguyên daily_df
 
+            # Xương sống thời gian (Base grid) cho toàn bộ user
+            base_grid = daily_df[['Id', 'date']].drop_duplicates().sort_values(by=['Id', 'date'])
+
+            # 1. Xử lý các bảng có dữ liệu phân giải cao (hourly, intensities, heartrate...)
             for table_name, df in self.dataframes.items():
-                if table_name == daily_activity_key:
+                if table_name == daily_activity_key or table_name == weight_key:
                     continue
-                elif table_name == weight_key:
-                    weight_df = df
-                else:
-                    if 'date' in df.columns and 'Id' in df.columns:
-                        num_cols = df.select_dtypes(include=[np.number]).columns.tolist()
-                        num_cols = [col for col in num_cols if col != 'Id']
+                
+                if 'date' in df.columns and 'Id' in df.columns:
+                    num_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+                    num_cols = [col for col in num_cols if col != 'Id']
+                    
+                    if num_cols:
+                        logger.info(f"Aggregating bảng chi tiết: {table_name}")
+                        unique_ids = df['Id'].unique()
+                        id_chunks = np.array_split(unique_ids, n_workers)
                         
-                        if num_cols:
-                            unique_ids = df['Id'].unique()
-                            id_chunks = np.array_split(unique_ids, n_workers)
-                            chunks = []
-                            for id_chunk in id_chunks:
-                                df_chunk = df[df['Id'].isin(id_chunk)]
-                                chunks.append((df_chunk, num_cols, table_name))
-
-                            with ProcessPoolExecutor(max_workers=n_workers) as executor:
-                                results = list(executor.map(process_agg_chunk, chunks))
-                                logger.debug("Đang xử lý chunk cho %s user IDs", len(id_chunk))
-
-                            grouped = pd.concat(results, ignore_index=True)
-                            aggregated_dfs[table_name] = grouped
+                        chunks = []
+                        for id_chunk in id_chunks:
+                            df_chunk = df[df['Id'].isin(id_chunk)]
+                            chunks.append((df_chunk, num_cols, table_name))
                             
-                            # Lưu parquet trung gian bằng Path
-                            parquet_path = inter_dir / f"{table_name}_agg.parquet"
-                            grouped.to_parquet(parquet_path, index=False)
-                        
-                        logger.info("Đã Aggregate xong bảng: %s (Shape: %s)", table_name, grouped.shape)
-                        
-            return aggregated_dfs, weight_df
+                        with ProcessPoolExecutor(max_workers=n_workers) as executor:
+                            results = list(executor.map(process_agg_chunk, chunks))
+                            
+                        grouped_df = pd.concat(results, ignore_index=True)
+                        transformed_dfs[table_name] = grouped_df
+
+            # 2. Xử lý bảng Weight Log (Dữ liệu thưa thớt)
+            if weight_key:
+                logger.info("Xử lý bảng Weight: Tạo base ngày và điền giá trị (ffill, bfill)...")
+                weight_df = self.dataframes[weight_key]
+                # Merge weight_df vào base_grid bằng Left Join để sinh ra các ngày bị thiếu
+                merged_weight = pd.merge(base_grid, weight_df, on=['Id', 'date'], how='left')
+                merged_weight = merged_weight.sort_values(by=['Id', 'date'])
+                
+                # Điền khuyết các cột theo Id: Lấy giá trị của ngày gần nhất trước đó (ffill) rồi lùi (bfill)
+                merged_weight = merged_weight.groupby('Id', group_keys=False).apply(lambda x: x.ffill().bfill())
+                transformed_dfs[weight_key] = merged_weight
+
+            return transformed_dfs
+
         except Exception as e:
             logger.exception("Lỗi Phase 2:")
             raise DataTransformationError(str(e), sys)
 
     # ==========================================
-    # PHASE 3: INTEGRATION & LÀM SẠCH 
+    # PHASE 3: STAGING & SAVE POSTGRESQL (ĐÃ CẬP NHẬT GHI YAML)
     # ==========================================
-    def phase_3_integration_and_cleaning(self, aggregated_dfs, weight_df):
-        logger.info("Phase 3: Integration & Cleaning...")
+    def phase_3_save_to_staging(self, transformed_dfs):
+        logger.info("Phase 3: Lưu các bảng sau khi biến đổi vào schema 'staging'...")
+        staging_metadata = {}
         try:
-            logger.info("Phase 3: Master Join và Khảo sát dữ liệu...")
-            
-            # Tìm key động, kiểm tra xem tên bảng CÓ CHỨA từ khóa hay không
-            daily_activity_key = next((k for k in self.dataframes.keys() if 'dailyactivity_merged' in k.lower()), None)
-            if daily_activity_key is None:
-                raise KeyError(f"Không tìm thấy bảng chứa 'dailyActivity_merged' trong dữ liệu. Các bảng hiện có: {list(self.dataframes.keys())}")
-                
-            master_df = self.dataframes[daily_activity_key].copy()
-            
-            # Merge các bảng Aggregate
-            for table_name, agg_df in aggregated_dfs.items():
-                master_df = pd.merge(master_df, agg_df, on=['Id', 'date'], how='left', suffixes=('', f'_{table_name}'))
-                
-            # Merge bảng Cân nặng
-            if weight_df is not None:
-                master_df = pd.merge(master_df, weight_df, on=['Id', 'date'], how='left')
-                
-            # ĐÁNH GIÁ DATAFRAME MỚI
-            logger.info("---------- BÁO CÁO ĐÁNH GIÁ MASTER DATAFRAME ----------")
-            
-            # 1. Kích thước tập dữ liệu
-            logger.info("[1] Kích thước (Shape): %s dòng, %s cột", master_df.shape[0], master_df.shape[1])
-            
-            # 2. Tính tỉ lệ phần trăm Missing Values
-            missing_pct = (master_df.isnull().sum() / len(master_df)) * 100
-            missing_cols = missing_pct[missing_pct > 0].sort_values(ascending=False)
-            if not missing_cols.empty:
-                logger.info("[2] Tỉ lệ Dữ liệu khuyết (Missing %%):\n%s", missing_cols.round(2).to_string())
-            else:
-                logger.info("[2] Tỉ lệ Dữ liệu khuyết: Không có.")
-                
-            # 3. Tính tỉ lệ phần trăm Giá trị 0
-            zero_pct = (master_df == 0).sum() / len(master_df) * 100
-            zero_cols = zero_pct[zero_pct > 0].sort_values(ascending=False)
-            if not zero_cols.empty:
-                logger.info("[3] Tỉ lệ Giá trị 0 (%%):\n%s", zero_cols.round(2).to_string())
-            else:
-                logger.info("[3] Tỉ lệ Giá trị 0: Không có.")
-                
-            logger.info("-------------------------------------------------------")
+            # Tạo schema staging nếu chưa tồn tại
+            with get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("CREATE SCHEMA IF NOT EXISTS staging;")
+                conn.commit()
 
-            # Tạo thư mục chứa báo cáo đánh giá (DYNAMIC PATH)
-            report_dir = self.project_root / "Data" / "reports"
-            report_dir.mkdir(parents=True, exist_ok=True)
-            report_file = report_dir / "caloriePrediction_data_assessment_report.txt"
+            engine = create_engine(self.db_engine_url)
             
-            with open(report_file, "w", encoding="utf-8") as f:
-                f.write("========== BÁO CÁO ĐÁNH GIÁ MASTER DATAFRAME ==========\n\n")
-                f.write(f"1. Kích thước (Shape): {master_df.shape[0]} dòng, {master_df.shape[1]} cột\n\n")
+            for table_name, df in transformed_dfs.items():
+                target_table = f"{table_name}_transformed"
+                logger.info(f"Đang ghi bảng {target_table} vào schema staging...")
                 
-                f.write("2. Tỉ lệ Dữ liệu khuyết (Missing %):\n")
-                f.write(missing_cols.round(2).to_string() if not missing_cols.empty else "Không có missing value.")
-                f.write("\n\n")
+                # 1. Lưu vào PostgreSQL
+                df.to_sql(
+                    name=target_table, 
+                    con=engine, 
+                    schema='staging', 
+                    if_exists='replace', 
+                    index=False,
+                    chunksize=5000,
+                    method='multi'
+                )
                 
-                f.write("3. Tỉ lệ Giá trị 0 (%):\n")
-                f.write(zero_cols.round(2).to_string() if not zero_cols.empty else "Không có giá trị 0.")
-                f.write("\n\n=======================================================")
+                # 2. Thu thập metadata định dạng bảng cho file YAML
+                # Convert object types thành strings để YAML dễ dàng dump
+                columns_info = {str(col): str(dtype) for col, dtype in df.dtypes.items()}
+                
+                staging_metadata[target_table] = {
+                    "created_at": pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S'),
+                    "rows": int(df.shape[0]),
+                    "columns_count": int(df.shape[1]),
+                    "columns": columns_info
+                }
+                
+            logger.info("Lưu các bảng staging vào Database thành công.")
             
-            logger.info("Đã xuất báo cáo chi tiết ra file: %s", report_file)
+            # 3. Ghi thông tin metadata vào docs/architecture/tables_created_report.yaml
+            self._update_staging_schema_report(staging_metadata)
+            
+        except Exception as e:
+            logger.exception("Lỗi khi lưu bảng vào staging PostgreSQL hoặc ghi schema report:")
+            raise DataTransformationError(str(e), sys)
 
-            # Thực thi việc làm sạch dữ liệu
-            logger.info("Thực thi làm sạch dữ liệu (Missing/Zero)...")
-            master_df = self.preprocess_core_daily_calories(master_df)
+    # ==========================================
+    # PHASE 4: INTEGRATION & LÀM SẠCH
+    # ==========================================
+    def phase_4_integration_and_cleaning(self, transformed_dfs):
+        logger.info("Phase 4: Hợp nhất các bảng với dailyActivity (Master Join)...")
+        try:
+            daily_activity_key = next((k for k in transformed_dfs.keys() if 'dailyactivity_merged' in k.lower()), None)
+            master_df = transformed_dfs[daily_activity_key]
+            
+            # Left join các bảng aggregated và bảng weight (đã nội suy) vào bảng master dựa trên Id và date
+            for table_name, df in transformed_dfs.items():
+                if table_name == daily_activity_key:
+                    continue
+                logger.info(f"Đang Left Join bảng {table_name} vào Master Dataframe...")
+                master_df = pd.merge(master_df, df, on=['Id', 'date'], how='left')
 
+            # Xử lý missing values sau khi join
+            # Có thể có những Id tồn tại ở daily_df nhưng hoàn toàn không có trong bảng phụ
+            # -> Các cột aggregation sẽ là NaN -> Fill 0 hoặc median tùy nghiệp vụ
+            master_df = master_df.fillna(0) # Tạm thời fill 0, bạn có thể customize phần này
+            
+            # Bỏ các cột trùng lặp hoặc không cần thiết nếu có
+            master_df = master_df.loc[:,~master_df.columns.duplicated()]
+            
+            logger.info(f"Master Dataset shape sau khi hợp nhất: {master_df.shape}")
             return master_df
 
         except Exception as e:
-            logger.exception("Lỗi Integration và Khảo sát:")
-            raise DataCleansingError(str(e), sys)
+            logger.exception("Lỗi Phase 4:")
+            raise DataTransformationError(str(e), sys)
 
     # ==========================================
     # PHASE 4: TỐI ƯU HÓA & ĐÓNG GÓI
