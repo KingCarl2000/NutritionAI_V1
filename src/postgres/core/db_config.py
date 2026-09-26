@@ -23,4 +23,8 @@ class DatabaseConfig:
         """Tạo chuỗi kết nối chuẩn DSN cho psycopg."""
         return f"dbname={self.dbname} user={self.user} password={self.password} host={self.host} port={self.port}"
 
+    def get_sqlalchemy_url(self) -> str:
+        """Tạo chuỗi kết nối chuẩn URI cho SQLAlchemy với driver psycopg2."""
+        return f"postgresql+psycopg2://{self.user}:{self.password}@{self.host}:{self.port}/{self.dbname}"
+
 config = DatabaseConfig()

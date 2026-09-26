@@ -37,13 +37,10 @@ def get_engine():
     global _db_engine
     if _db_engine is None:
         try:
-            # Lấy chuỗi kết nối từ db_config hiện tại
-            base_string = config.get_connection_string()
+            # Gọi trực tiếp hàm lấy URL chuẩn của SQLAlchemy
+            engine_url = config.get_sqlalchemy_url()
             
-            # Chuyển đổi sang định dạng SQLAlchemy hỗ trợ driver psycopg2
-            engine_url = base_string.replace("postgresql://", "postgresql+psycopg2://").replace("postgres://", "postgresql+psycopg2://")
-            
-            # Khởi tạo engine với connection pooling của SQLAlchemy
+            # Khởi tạo engine
             _db_engine = create_engine(engine_url, pool_size=5, max_overflow=10)
             logger.info("Đã khởi tạo thành công SQLAlchemy Engine.")
         except Exception as e:
