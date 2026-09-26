@@ -11,7 +11,7 @@ from psycopg.errors import UndefinedTable
 from sqlalchemy import create_engine # Thêm sqlalchemy để pd.to_sql dễ dàng save to staging
 
 # Import connections and core
-from src.postgres.core.connection import get_connection
+from src.postgres.core.connection import get_connection, get_engine
 from src.nutrition_core.logging.logger import logger
 from src.nutrition_core.exception.exception import (
     DataPipelineException, 
@@ -69,10 +69,7 @@ class DataTransformationPipeline:
         self.tables_config = self.schema_config.get('raw', {})
         self.dataframes = {}
 
-        # Database URL string dùng cho pd.to_sql (bạn cần thay config thực tế hoặc lấy từ biến môi trường)
-        # Ví dụ: 'postgresql+psycopg2://user:password@host:port/dbname'
-        self.db_engine_url = os.environ.get("DATABASE_URL", "postgresql+psycopg2://postgres:postgres@localhost:5432/nutrition_db")
-
+        
     def _load_schema(self):
         try:
             with open(self.schema_path, 'r', encoding='utf-8') as file:
@@ -298,7 +295,7 @@ class DataTransformationPipeline:
                     cur.execute("CREATE SCHEMA IF NOT EXISTS staging;")
                 conn.commit()
 
-            engine = create_engine(self.db_engine_url)
+            engine = get_engine()  # Lấy engine SQLAlchemy từ connection.py
             
             for table_name, df in transformed_dfs.items():
                 target_table = f"{table_name}_transformed"
