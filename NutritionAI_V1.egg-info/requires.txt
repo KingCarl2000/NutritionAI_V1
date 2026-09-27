@@ -1,4 +1,4 @@
-fastapi
+fastapi>=0.109.0
 uvicorn
 python-multipart
 python-dotenv
@@ -10,8 +10,9 @@ pgvector
 psycopg
 psycopg_pool
 seaborn
-setuptools<70.0.0
-ydata_profiling
+setuptools
+ydata-profiling>=4.6.0
+pynvml
 
 [all]
 pandas
@@ -22,7 +23,9 @@ mlflow
 dagshub
 skops
 awscli
-apache-airflow
+dvc
+bentoml>=1.2.0
+apache-airflow>=2.9.0
 datasets
 langchain
 langchain-community
@@ -44,5 +47,7 @@ mlflow
 dagshub
 skops
 awscli
-apache-airflow
+dvc
+bentoml>=1.2.0
+apache-airflow>=2.9.0
 datasets

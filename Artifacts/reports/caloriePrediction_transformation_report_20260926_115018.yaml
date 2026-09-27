@@ -1,9 +1,9 @@
 after_transformation:
   final_dataset:
-    columns: 19
-    memory_usage_mb: 0.0653076171875
+    columns: 142
+    memory_usage_mb: 0.5093803405761719
     missing_values: 0
-    rows: 428
+    rows: 457
 before_transformation:
   fitabase_data_3_12_16_4_11_16_dailyActivity_merged:
     columns: 16
@@ -61,6 +61,6 @@ before_transformation:
     missing_values: 31
     rows: 33
 summary:
-  final_rows: 428
+  final_rows: 457
   retention_rate: 0.01%
   total_raw_rows: 7206142

@@ -298,7 +298,7 @@ class DataTransformationPipeline:
             engine = get_engine()  # Lấy engine SQLAlchemy từ connection.py
             
             for table_name, df in transformed_dfs.items():
-                target_table = f"{table_name}_transformed"
+                target_table = f"{table_name}_tr"
                 logger.info(f"Đang ghi bảng {target_table} vào schema staging...")
                 
                 # 1. Lưu vào PostgreSQL

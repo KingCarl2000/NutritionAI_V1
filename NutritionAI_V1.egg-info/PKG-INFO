@@ -3,7 +3,7 @@ Name: NutritionAI_V1
 Version: 0.0.1
 Author: Carl
 Author-email: ngvcuong282@gmail.com
-Requires-Dist: fastapi
+Requires-Dist: fastapi>=0.109.0
 Requires-Dist: uvicorn
 Requires-Dist: python-multipart
 Requires-Dist: python-dotenv
@@ -15,8 +15,9 @@ Requires-Dist: pgvector
 Requires-Dist: psycopg
 Requires-Dist: psycopg_pool
 Requires-Dist: seaborn
-Requires-Dist: setuptools<70.0.0
-Requires-Dist: ydata_profiling
+Requires-Dist: setuptools
+Requires-Dist: ydata-profiling>=4.6.0
+Requires-Dist: pynvml
 Provides-Extra: ml
 Requires-Dist: pandas; extra == "ml"
 Requires-Dist: numpy; extra == "ml"
@@ -26,7 +27,9 @@ Requires-Dist: mlflow; extra == "ml"
 Requires-Dist: dagshub; extra == "ml"
 Requires-Dist: skops; extra == "ml"
 Requires-Dist: awscli; extra == "ml"
-Requires-Dist: apache-airflow; extra == "ml"
+Requires-Dist: dvc; extra == "ml"
+Requires-Dist: bentoml>=1.2.0; extra == "ml"
+Requires-Dist: apache-airflow>=2.9.0; extra == "ml"
 Requires-Dist: datasets; extra == "ml"
 Provides-Extra: llm
 Requires-Dist: langchain; extra == "llm"
@@ -42,7 +45,9 @@ Requires-Dist: mlflow; extra == "all"
 Requires-Dist: dagshub; extra == "all"
 Requires-Dist: skops; extra == "all"
 Requires-Dist: awscli; extra == "all"
-Requires-Dist: apache-airflow; extra == "all"
+Requires-Dist: dvc; extra == "all"
+Requires-Dist: bentoml>=1.2.0; extra == "all"
+Requires-Dist: apache-airflow>=2.9.0; extra == "all"
 Requires-Dist: datasets; extra == "all"
 Requires-Dist: langchain; extra == "all"
 Requires-Dist: langchain-community; extra == "all"

@@ -1,8 +1,8 @@
-# Chế độ cài đặt cho thư mục hiện tại (cần có setup.py hoặc pyproject.toml)
+# Chế độ cài đặt cho thư mục hiện tại
 -e .
 
-# Web Framework & Server (API/Template responses)
-fastapi
+# Web Framework & Server 
+fastapi>=0.109.0
 uvicorn
 python-multipart
 
@@ -21,9 +21,7 @@ psycopg_pool
 # visualization
 seaborn
 
-
 # datasets
-setuptools<70.0.0
-ydata_profiling
-
+setuptools
+ydata-profiling>=4.6.0
 pynvml

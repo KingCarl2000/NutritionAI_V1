@@ -14,7 +14,11 @@ mlflow
 dagshub
 skops
 awscli
-apache-airflow
+dvc
+
+# ÉP PHIÊN BẢN MỚI ĐỂ TRÁNH LỖI TRÊN PYTHON 3.12
+bentoml>=1.2.0
+apache-airflow>=2.9.0
 
 # hugging face
 datasets
