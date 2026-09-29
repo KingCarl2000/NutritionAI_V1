@@ -11,8 +11,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 # 2. Dictionary cấu hình danh sách các dataset sử dụng đường dẫn ĐỘNG
 DATASETS_CONFIG = {
-    "fitabase_tracker_data": {
-        "data_path": str(PROJECT_ROOT / "Data" / "raw" / "Fitabase Data 3.12.16-4.11.16"),
+    "calorie_efficiency_dataset": {
+        "data_path": str(PROJECT_ROOT / "Data" / "raw" / "calorie_efficiency_dataset.csv"),
         "schema_path": str(PROJECT_ROOT / "src" / "api" / "data_schema" / "schema.yaml"),
         "db_schema": "raw"
     }

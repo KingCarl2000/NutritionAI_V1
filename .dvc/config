@@ -1,0 +1,2 @@
+['db "nutrition_pg_conn"']
+    url = postgresql://postgres:4321qazxcv@localhost:5432/nutrition_ai

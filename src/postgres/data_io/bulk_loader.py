@@ -23,6 +23,7 @@ class PostgresBulkLoader:
                           format: Literal["csv", "text", "binary"] = "csv",
                           delimiter: str = ',', header: bool = True):
         r"""
+        
         Thực hiện quá trình ETL nạp dữ liệu lớn tối ưu hiệu năng.
         """
         # Sử dụng 'with' để tự động trả connection về pool sau khi dùng xong

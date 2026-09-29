@@ -1,460 +1,64 @@
 raw:
-  fitabase_data_3_12_16_4_11_16_dailyActivity_merged:
-    source_dataset: Fitabase Data 3.12.16-4.11.16
+  calorie_efficiency_dataset:
+    source_dataset: calorie_efficiency_dataset
     columns:
-      Id:
+      age:
         yaml_type: integer
         postgresql_type: BIGINT
         nullable: false
-      ActivityDate:
+      steps_per_day:
+        yaml_type: integer
+        postgresql_type: BIGINT
+        nullable: false
+      active_minutes:
+        yaml_type: integer
+        postgresql_type: BIGINT
+        nullable: false
+      calories_burned:
+        yaml_type: integer
+        postgresql_type: BIGINT
+        nullable: false
+      sleep_hours:
+        yaml_type: float
+        postgresql_type: DOUBLE PRECISION
+        nullable: false
+      hydration_liters:
+        yaml_type: float
+        postgresql_type: DOUBLE PRECISION
+        nullable: false
+      bmi:
+        yaml_type: float
+        postgresql_type: DOUBLE PRECISION
+        nullable: false
+      workouts_per_week:
+        yaml_type: integer
+        postgresql_type: BIGINT
+        nullable: false
+      muscle_mass_ratio:
+        yaml_type: float
+        postgresql_type: DOUBLE PRECISION
+        nullable: false
+      body_fat_percentage:
+        yaml_type: float
+        postgresql_type: DOUBLE PRECISION
+        nullable: false
+      heart_rate_resting:
+        yaml_type: float
+        postgresql_type: DOUBLE PRECISION
+        nullable: false
+      heart_rate_avg:
+        yaml_type: float
+        postgresql_type: DOUBLE PRECISION
+        nullable: false
+      continuous_exercise_days:
+        yaml_type: integer
+        postgresql_type: BIGINT
+        nullable: false
+      efficiency_score:
+        yaml_type: float
+        postgresql_type: DOUBLE PRECISION
+        nullable: false
+      calorie_efficiency:
         yaml_type: categorical
         postgresql_type: TEXT
         nullable: false
-      TotalSteps:
-        yaml_type: integer
-        postgresql_type: BIGINT
-        nullable: false
-      TotalDistance:
-        yaml_type: float
-        postgresql_type: DOUBLE PRECISION
-        nullable: false
-      TrackerDistance:
-        yaml_type: float
-        postgresql_type: DOUBLE PRECISION
-        nullable: false
-      LoggedActivitiesDistance:
-        yaml_type: float
-        postgresql_type: DOUBLE PRECISION
-        nullable: false
-      VeryActiveDistance:
-        yaml_type: float
-        postgresql_type: DOUBLE PRECISION
-        nullable: false
-      ModeratelyActiveDistance:
-        yaml_type: float
-        postgresql_type: DOUBLE PRECISION
-        nullable: false
-      LightActiveDistance:
-        yaml_type: float
-        postgresql_type: DOUBLE PRECISION
-        nullable: false
-      SedentaryActiveDistance:
-        yaml_type: float
-        postgresql_type: DOUBLE PRECISION
-        nullable: false
-      VeryActiveMinutes:
-        yaml_type: integer
-        postgresql_type: BIGINT
-        nullable: false
-      FairlyActiveMinutes:
-        yaml_type: integer
-        postgresql_type: BIGINT
-        nullable: false
-      LightlyActiveMinutes:
-        yaml_type: integer
-        postgresql_type: BIGINT
-        nullable: false
-      SedentaryMinutes:
-        yaml_type: integer
-        postgresql_type: BIGINT
-        nullable: false
-      Calories:
-        yaml_type: integer
-        postgresql_type: BIGINT
-        nullable: false
-  fitabase_data_3_12_16_4_11_16_heartrate_seconds_merged:
-    source_dataset: Fitabase Data 3.12.16-4.11.16
-    columns:
-      Id:
-        yaml_type: integer
-        postgresql_type: BIGINT
-        nullable: false
-      Time:
-        yaml_type: categorical
-        postgresql_type: TEXT
-        nullable: false
-      Value:
-        yaml_type: integer
-        postgresql_type: BIGINT
-        nullable: false
-  fitabase_data_3_12_16_4_11_16_hourlyCalories_merged:
-    source_dataset: Fitabase Data 3.12.16-4.11.16
-    columns:
-      Id:
-        yaml_type: integer
-        postgresql_type: BIGINT
-        nullable: false
-      ActivityHour:
-        yaml_type: categorical
-        postgresql_type: TEXT
-        nullable: false
-      Calories:
-        yaml_type: integer
-        postgresql_type: BIGINT
-        nullable: false
-  fitabase_data_3_12_16_4_11_16_hourlyIntensities_merged:
-    source_dataset: Fitabase Data 3.12.16-4.11.16
-    columns:
-      Id:
-        yaml_type: integer
-        postgresql_type: BIGINT
-        nullable: false
-      ActivityHour:
-        yaml_type: categorical
-        postgresql_type: TEXT
-        nullable: false
-      TotalIntensity:
-        yaml_type: integer
-        postgresql_type: BIGINT
-        nullable: false
-      AverageIntensity:
-        yaml_type: float
-        postgresql_type: DOUBLE PRECISION
-        nullable: false
-  fitabase_data_3_12_16_4_11_16_hourlySteps_merged:
-    source_dataset: Fitabase Data 3.12.16-4.11.16
-    columns:
-      Id:
-        yaml_type: integer
-        postgresql_type: BIGINT
-        nullable: false
-      ActivityHour:
-        yaml_type: categorical
-        postgresql_type: TEXT
-        nullable: false
-      StepTotal:
-        yaml_type: integer
-        postgresql_type: BIGINT
-        nullable: false
-  fitabase_data_3_12_16_4_11_16_minuteCaloriesNarrow_merged:
-    source_dataset: Fitabase Data 3.12.16-4.11.16
-    columns:
-      Id:
-        yaml_type: integer
-        postgresql_type: BIGINT
-        nullable: false
-      ActivityMinute:
-        yaml_type: categorical
-        postgresql_type: TEXT
-        nullable: false
-      Calories:
-        yaml_type: float
-        postgresql_type: DOUBLE PRECISION
-        nullable: false
-  fitabase_data_3_12_16_4_11_16_minuteIntensitiesNarrow_merged:
-    source_dataset: Fitabase Data 3.12.16-4.11.16
-    columns:
-      Id:
-        yaml_type: integer
-        postgresql_type: BIGINT
-        nullable: false
-      ActivityMinute:
-        yaml_type: categorical
-        postgresql_type: TEXT
-        nullable: false
-      Intensity:
-        yaml_type: integer
-        postgresql_type: BIGINT
-        nullable: false
-  fitabase_data_3_12_16_4_11_16_minuteMETsNarrow_merged:
-    source_dataset: Fitabase Data 3.12.16-4.11.16
-    columns:
-      Id:
-        yaml_type: integer
-        postgresql_type: BIGINT
-        nullable: false
-      ActivityMinute:
-        yaml_type: categorical
-        postgresql_type: TEXT
-        nullable: false
-      METs:
-        yaml_type: integer
-        postgresql_type: BIGINT
-        nullable: false
-  fitabase_data_3_12_16_4_11_16_minuteSleep_merged:
-    source_dataset: Fitabase Data 3.12.16-4.11.16
-    columns:
-      Id:
-        yaml_type: integer
-        postgresql_type: BIGINT
-        nullable: false
-      date:
-        yaml_type: categorical
-        postgresql_type: TEXT
-        nullable: false
-      value:
-        yaml_type: integer
-        postgresql_type: BIGINT
-        nullable: false
-      logId:
-        yaml_type: integer
-        postgresql_type: BIGINT
-        nullable: false
-  fitabase_data_3_12_16_4_11_16_minuteStepsNarrow_merged:
-    source_dataset: Fitabase Data 3.12.16-4.11.16
-    columns:
-      Id:
-        yaml_type: integer
-        postgresql_type: BIGINT
-        nullable: false
-      ActivityMinute:
-        yaml_type: categorical
-        postgresql_type: TEXT
-        nullable: false
-      Steps:
-        yaml_type: integer
-        postgresql_type: BIGINT
-        nullable: false
-  fitabase_data_3_12_16_4_11_16_weightLogInfo_merged:
-    source_dataset: Fitabase Data 3.12.16-4.11.16
-    columns:
-      Id:
-        yaml_type: integer
-        postgresql_type: BIGINT
-        nullable: false
-      Date:
-        yaml_type: categorical
-        postgresql_type: TEXT
-        nullable: false
-      WeightKg:
-        yaml_type: float
-        postgresql_type: DOUBLE PRECISION
-        nullable: false
-      WeightPounds:
-        yaml_type: float
-        postgresql_type: DOUBLE PRECISION
-        nullable: false
-      Fat:
-        yaml_type: float
-        postgresql_type: DOUBLE PRECISION
-        nullable: true
-      BMI:
-        yaml_type: float
-        postgresql_type: DOUBLE PRECISION
-        nullable: false
-      IsManualReport:
-        yaml_type: boolean
-        postgresql_type: BOOLEAN
-        nullable: false
-      LogId:
-        yaml_type: integer
-        postgresql_type: BIGINT
-        nullable: false
-staging:
-  fitabase_data_3_12_16_4_11_16_dailyActivity_merged_tr:
-    created_at: '2026-09-26 11:50:14'
-    rows: 457
-    columns_count: 15
-    columns:
-      Id: int64
-      TotalSteps: int64
-      TotalDistance: float64
-      TrackerDistance: float64
-      LoggedActivitiesDistance: float64
-      VeryActiveDistance: float64
-      ModeratelyActiveDistance: float64
-      LightActiveDistance: float64
-      SedentaryActiveDistance: float64
-      VeryActiveMinutes: int64
-      FairlyActiveMinutes: int64
-      LightlyActiveMinutes: int64
-      SedentaryMinutes: int64
-      Calories: int64
-      date: datetime64[ns]
-  fitabase_data_3_12_16_4_11_16_heartrate_seconds_merged_tr:
-    created_at: '2026-09-26 11:50:14'
-    rows: 143
-    columns_count: 13
-    columns:
-      Id: int64
-      date: datetime64[ns]
-      Value_mean_fitabase_data_3_12_16_4_11_16_heartrate_seconds_merged: float64
-      Value_max_fitabase_data_3_12_16_4_11_16_heartrate_seconds_merged: int64
-      Value_min_fitabase_data_3_12_16_4_11_16_heartrate_seconds_merged: int64
-      Value_std_fitabase_data_3_12_16_4_11_16_heartrate_seconds_merged: float64
-      Value_median_fitabase_data_3_12_16_4_11_16_heartrate_seconds_merged: float64
-      Value_var_fitabase_data_3_12_16_4_11_16_heartrate_seconds_merged: float64
-      Value_get_mode_fitabase_data_3_12_16_4_11_16_heartrate_seconds_merged: int64
-      Value_q1_fitabase_data_3_12_16_4_11_16_heartrate_seconds_merged: float64
-      Value_q3_fitabase_data_3_12_16_4_11_16_heartrate_seconds_merged: float64
-      Value_get_skew_fitabase_data_3_12_16_4_11_16_heartrate_seconds_merged: float64
-      Value_get_kurt_fitabase_data_3_12_16_4_11_16_heartrate_seconds_merged: float64
-  fitabase_data_3_12_16_4_11_16_hourlyCalories_merged_tr:
-    created_at: '2026-09-26 11:50:14'
-    rows: 1021
-    columns_count: 13
-    columns:
-      Id: int64
-      date: datetime64[ns]
-      Calories_mean_fitabase_data_3_12_16_4_11_16_hourlyCalories_merged: float64
-      Calories_max_fitabase_data_3_12_16_4_11_16_hourlyCalories_merged: int64
-      Calories_min_fitabase_data_3_12_16_4_11_16_hourlyCalories_merged: int64
-      Calories_std_fitabase_data_3_12_16_4_11_16_hourlyCalories_merged: float64
-      Calories_median_fitabase_data_3_12_16_4_11_16_hourlyCalories_merged: float64
-      Calories_var_fitabase_data_3_12_16_4_11_16_hourlyCalories_merged: float64
-      Calories_get_mode_fitabase_data_3_12_16_4_11_16_hourlyCalories_merged: int64
-      Calories_q1_fitabase_data_3_12_16_4_11_16_hourlyCalories_merged: float64
-      Calories_q3_fitabase_data_3_12_16_4_11_16_hourlyCalories_merged: float64
-      Calories_get_skew_fitabase_data_3_12_16_4_11_16_hourlyCalories_merged: float64
-      Calories_get_kurt_fitabase_data_3_12_16_4_11_16_hourlyCalories_merged: float64
-  fitabase_data_3_12_16_4_11_16_hourlyIntensities_merged_tr:
-    created_at: '2026-09-26 11:50:15'
-    rows: 1021
-    columns_count: 24
-    columns:
-      Id: int64
-      date: datetime64[ns]
-      TotalIntensity_mean_fitabase_data_3_12_16_4_11_16_hourlyIntensities_merged: float64
-      TotalIntensity_max_fitabase_data_3_12_16_4_11_16_hourlyIntensities_merged: int64
-      TotalIntensity_min_fitabase_data_3_12_16_4_11_16_hourlyIntensities_merged: int64
-      TotalIntensity_std_fitabase_data_3_12_16_4_11_16_hourlyIntensities_merged: float64
-      TotalIntensity_median_fitabase_data_3_12_16_4_11_16_hourlyIntensities_merged: float64
-      TotalIntensity_var_fitabase_data_3_12_16_4_11_16_hourlyIntensities_merged: float64
-      TotalIntensity_get_mode_fitabase_data_3_12_16_4_11_16_hourlyIntensities_merged: int64
-      TotalIntensity_q1_fitabase_data_3_12_16_4_11_16_hourlyIntensities_merged: float64
-      TotalIntensity_q3_fitabase_data_3_12_16_4_11_16_hourlyIntensities_merged: float64
-      TotalIntensity_get_skew_fitabase_data_3_12_16_4_11_16_hourlyIntensities_merged: float64
-      TotalIntensity_get_kurt_fitabase_data_3_12_16_4_11_16_hourlyIntensities_merged: float64
-      AverageIntensity_mean_fitabase_data_3_12_16_4_11_16_hourlyIntensities_merged: float64
-      AverageIntensity_max_fitabase_data_3_12_16_4_11_16_hourlyIntensities_merged: float64
-      AverageIntensity_min_fitabase_data_3_12_16_4_11_16_hourlyIntensities_merged: float64
-      AverageIntensity_std_fitabase_data_3_12_16_4_11_16_hourlyIntensities_merged: float64
-      AverageIntensity_median_fitabase_data_3_12_16_4_11_16_hourlyIntensities_merged: float64
-      AverageIntensity_var_fitabase_data_3_12_16_4_11_16_hourlyIntensities_merged: float64
-      AverageIntensity_get_mode_fitabase_data_3_12_16_4_11_16_hourlyIntensities_merged: float64
-      AverageIntensity_q1_fitabase_data_3_12_16_4_11_16_hourlyIntensities_merged: float64
-      AverageIntensity_q3_fitabase_data_3_12_16_4_11_16_hourlyIntensities_merged: float64
-      AverageIntensity_get_skew_fitabase_data_3_12_16_4_11_16_hourlyIntensities_merged: float64
-      AverageIntensity_get_kurt_fitabase_data_3_12_16_4_11_16_hourlyIntensities_merged: float64
-  fitabase_data_3_12_16_4_11_16_hourlySteps_merged_tr:
-    created_at: '2026-09-26 11:50:16'
-    rows: 1021
-    columns_count: 13
-    columns:
-      Id: int64
-      date: datetime64[ns]
-      StepTotal_mean_fitabase_data_3_12_16_4_11_16_hourlySteps_merged: float64
-      StepTotal_max_fitabase_data_3_12_16_4_11_16_hourlySteps_merged: int64
-      StepTotal_min_fitabase_data_3_12_16_4_11_16_hourlySteps_merged: int64
-      StepTotal_std_fitabase_data_3_12_16_4_11_16_hourlySteps_merged: float64
-      StepTotal_median_fitabase_data_3_12_16_4_11_16_hourlySteps_merged: float64
-      StepTotal_var_fitabase_data_3_12_16_4_11_16_hourlySteps_merged: float64
-      StepTotal_get_mode_fitabase_data_3_12_16_4_11_16_hourlySteps_merged: int64
-      StepTotal_q1_fitabase_data_3_12_16_4_11_16_hourlySteps_merged: float64
-      StepTotal_q3_fitabase_data_3_12_16_4_11_16_hourlySteps_merged: float64
-      StepTotal_get_skew_fitabase_data_3_12_16_4_11_16_hourlySteps_merged: float64
-      StepTotal_get_kurt_fitabase_data_3_12_16_4_11_16_hourlySteps_merged: float64
-  fitabase_data_3_12_16_4_11_16_minuteCaloriesNarrow_merged_tr:
-    created_at: '2026-09-26 11:50:16'
-    rows: 1021
-    columns_count: 13
-    columns:
-      Id: int64
-      date: datetime64[ns]
-      Calories_mean_fitabase_data_3_12_16_4_11_16_minuteCaloriesNarrow_merged: float64
-      Calories_max_fitabase_data_3_12_16_4_11_16_minuteCaloriesNarrow_merged: float64
-      Calories_min_fitabase_data_3_12_16_4_11_16_minuteCaloriesNarrow_merged: float64
-      Calories_std_fitabase_data_3_12_16_4_11_16_minuteCaloriesNarrow_merged: float64
-      Calories_median_fitabase_data_3_12_16_4_11_16_minuteCaloriesNarrow_merged: float64
-      Calories_var_fitabase_data_3_12_16_4_11_16_minuteCaloriesNarrow_merged: float64
-      Calories_get_mode_fitabase_data_3_12_16_4_11_16_minuteCaloriesNarrow_merged: float64
-      Calories_q1_fitabase_data_3_12_16_4_11_16_minuteCaloriesNarrow_merged: float64
-      Calories_q3_fitabase_data_3_12_16_4_11_16_minuteCaloriesNarrow_merged: float64
-      Calories_get_skew_fitabase_data_3_12_16_4_11_16_minuteCaloriesNarrow_merged: float64
-      Calories_get_kurt_fitabase_data_3_12_16_4_11_16_minuteCaloriesNarrow_merged: float64
-  fitabase_data_3_12_16_4_11_16_minuteIntensitiesNarrow_merged_tr:
-    created_at: '2026-09-26 11:50:16'
-    rows: 1021
-    columns_count: 13
-    columns:
-      Id: int64
-      date: datetime64[ns]
-      Intensity_mean_fitabase_data_3_12_16_4_11_16_minuteIntensitiesNarrow_merged: float64
-      Intensity_max_fitabase_data_3_12_16_4_11_16_minuteIntensitiesNarrow_merged: int64
-      Intensity_min_fitabase_data_3_12_16_4_11_16_minuteIntensitiesNarrow_merged: int64
-      Intensity_std_fitabase_data_3_12_16_4_11_16_minuteIntensitiesNarrow_merged: float64
-      Intensity_median_fitabase_data_3_12_16_4_11_16_minuteIntensitiesNarrow_merged: float64
-      Intensity_var_fitabase_data_3_12_16_4_11_16_minuteIntensitiesNarrow_merged: float64
-      Intensity_get_mode_fitabase_data_3_12_16_4_11_16_minuteIntensitiesNarrow_merged: int64
-      Intensity_q1_fitabase_data_3_12_16_4_11_16_minuteIntensitiesNarrow_merged: float64
-      Intensity_q3_fitabase_data_3_12_16_4_11_16_minuteIntensitiesNarrow_merged: float64
-      Intensity_get_skew_fitabase_data_3_12_16_4_11_16_minuteIntensitiesNarrow_merged: float64
-      Intensity_get_kurt_fitabase_data_3_12_16_4_11_16_minuteIntensitiesNarrow_merged: float64
-  fitabase_data_3_12_16_4_11_16_minuteMETsNarrow_merged_tr:
-    created_at: '2026-09-26 11:50:17'
-    rows: 1021
-    columns_count: 13
-    columns:
-      Id: int64
-      date: datetime64[ns]
-      METs_mean_fitabase_data_3_12_16_4_11_16_minuteMETsNarrow_merged: float64
-      METs_max_fitabase_data_3_12_16_4_11_16_minuteMETsNarrow_merged: int64
-      METs_min_fitabase_data_3_12_16_4_11_16_minuteMETsNarrow_merged: int64
-      METs_std_fitabase_data_3_12_16_4_11_16_minuteMETsNarrow_merged: float64
-      METs_median_fitabase_data_3_12_16_4_11_16_minuteMETsNarrow_merged: float64
-      METs_var_fitabase_data_3_12_16_4_11_16_minuteMETsNarrow_merged: float64
-      METs_get_mode_fitabase_data_3_12_16_4_11_16_minuteMETsNarrow_merged: int64
-      METs_q1_fitabase_data_3_12_16_4_11_16_minuteMETsNarrow_merged: float64
-      METs_q3_fitabase_data_3_12_16_4_11_16_minuteMETsNarrow_merged: float64
-      METs_get_skew_fitabase_data_3_12_16_4_11_16_minuteMETsNarrow_merged: float64
-      METs_get_kurt_fitabase_data_3_12_16_4_11_16_minuteMETsNarrow_merged: float64
-  fitabase_data_3_12_16_4_11_16_minuteSleep_merged_tr:
-    created_at: '2026-09-26 11:50:17'
-    rows: 467
-    columns_count: 24
-    columns:
-      Id: int64
-      date: datetime64[ns]
-      value_mean_fitabase_data_3_12_16_4_11_16_minuteSleep_merged: float64
-      value_max_fitabase_data_3_12_16_4_11_16_minuteSleep_merged: int64
-      value_min_fitabase_data_3_12_16_4_11_16_minuteSleep_merged: int64
-      value_std_fitabase_data_3_12_16_4_11_16_minuteSleep_merged: float64
-      value_median_fitabase_data_3_12_16_4_11_16_minuteSleep_merged: float64
-      value_var_fitabase_data_3_12_16_4_11_16_minuteSleep_merged: float64
-      value_get_mode_fitabase_data_3_12_16_4_11_16_minuteSleep_merged: int64
-      value_q1_fitabase_data_3_12_16_4_11_16_minuteSleep_merged: float64
-      value_q3_fitabase_data_3_12_16_4_11_16_minuteSleep_merged: float64
-      value_get_skew_fitabase_data_3_12_16_4_11_16_minuteSleep_merged: float64
-      value_get_kurt_fitabase_data_3_12_16_4_11_16_minuteSleep_merged: float64
-      logId_mean_fitabase_data_3_12_16_4_11_16_minuteSleep_merged: float64
-      logId_max_fitabase_data_3_12_16_4_11_16_minuteSleep_merged: int64
-      logId_min_fitabase_data_3_12_16_4_11_16_minuteSleep_merged: int64
-      logId_std_fitabase_data_3_12_16_4_11_16_minuteSleep_merged: float64
-      logId_median_fitabase_data_3_12_16_4_11_16_minuteSleep_merged: float64
-      logId_var_fitabase_data_3_12_16_4_11_16_minuteSleep_merged: float64
-      logId_get_mode_fitabase_data_3_12_16_4_11_16_minuteSleep_merged: int64
-      logId_q1_fitabase_data_3_12_16_4_11_16_minuteSleep_merged: float64
-      logId_q3_fitabase_data_3_12_16_4_11_16_minuteSleep_merged: float64
-      logId_get_skew_fitabase_data_3_12_16_4_11_16_minuteSleep_merged: float64
-      logId_get_kurt_fitabase_data_3_12_16_4_11_16_minuteSleep_merged: float64
-  fitabase_data_3_12_16_4_11_16_minuteStepsNarrow_merged_tr:
-    created_at: '2026-09-26 11:50:18'
-    rows: 1021
-    columns_count: 13
-    columns:
-      Id: int64
-      date: datetime64[ns]
-      Steps_mean_fitabase_data_3_12_16_4_11_16_minuteStepsNarrow_merged: float64
-      Steps_max_fitabase_data_3_12_16_4_11_16_minuteStepsNarrow_merged: int64
-      Steps_min_fitabase_data_3_12_16_4_11_16_minuteStepsNarrow_merged: int64
-      Steps_std_fitabase_data_3_12_16_4_11_16_minuteStepsNarrow_merged: float64
-      Steps_median_fitabase_data_3_12_16_4_11_16_minuteStepsNarrow_merged: float64
-      Steps_var_fitabase_data_3_12_16_4_11_16_minuteStepsNarrow_merged: float64
-      Steps_get_mode_fitabase_data_3_12_16_4_11_16_minuteStepsNarrow_merged: int64
-      Steps_q1_fitabase_data_3_12_16_4_11_16_minuteStepsNarrow_merged: float64
-      Steps_q3_fitabase_data_3_12_16_4_11_16_minuteStepsNarrow_merged: float64
-      Steps_get_skew_fitabase_data_3_12_16_4_11_16_minuteStepsNarrow_merged: float64
-      Steps_get_kurt_fitabase_data_3_12_16_4_11_16_minuteStepsNarrow_merged: float64
-  fitabase_data_3_12_16_4_11_16_weightLogInfo_merged_tr:
-    created_at: '2026-09-26 11:50:18'
-    rows: 457
-    columns_count: 8
-    columns:
-      Id: int64
-      date: datetime64[ns]
-      WeightKg: float64
-      WeightPounds: float64
-      Fat: float64
-      BMI: float64
-      IsManualReport: object
-      LogId: float64

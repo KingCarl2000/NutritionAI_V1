@@ -9,6 +9,7 @@ sqlalchemy
 pgvector
 psycopg
 psycopg_pool
+psycopg2-binary
 seaborn
 setuptools
 ydata-profiling>=4.6.0

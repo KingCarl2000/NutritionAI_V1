@@ -14,6 +14,7 @@ Requires-Dist: sqlalchemy
 Requires-Dist: pgvector
 Requires-Dist: psycopg
 Requires-Dist: psycopg_pool
+Requires-Dist: psycopg2-binary
 Requires-Dist: seaborn
 Requires-Dist: setuptools
 Requires-Dist: ydata-profiling>=4.6.0

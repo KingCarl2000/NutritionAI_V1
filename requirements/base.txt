@@ -17,6 +17,7 @@ sqlalchemy
 pgvector
 psycopg
 psycopg_pool
+psycopg2-binary
 
 # visualization
 seaborn
