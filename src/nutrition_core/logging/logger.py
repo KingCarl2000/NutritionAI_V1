@@ -6,20 +6,10 @@ from datetime import datetime
 from pathlib import Path
 from functools import wraps
 
-try:
-    import psutil
-except ImportError:
-    psutil = None
-
-try:
-    import pynvml
-except ImportError:
-    pynvml = None
-
 # Xác định đường dẫn thư mục logs gốc
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
-current_time = datetime.now()
 
+current_time = datetime.now()
 DATE_DIR = current_time.strftime('%m_%d_%Y')
 LOG_FILE = f"{current_time.strftime('%H_%M_%S')}.log"
 
@@ -51,7 +41,7 @@ if not logger.handlers:
 
     # 2. File Handler cho warm_logs (Lưu từ WARNING trở lên)
     warm_handler = logging.FileHandler(WARM_LOG_FILE_PATH, encoding='utf-8')
-    warm_handler.setLevel(logging.WARNING) 
+    warm_handler.setLevel(logging.WARNING)
     warm_handler.setFormatter(formatter)
     logger.addHandler(warm_handler)
 
@@ -69,9 +59,8 @@ if not logger.handlers:
     logger.addHandler(console_handler)
 
 # ==========================================
-# CÁC HÀM CẢNH BÁO HIỆU NĂNG VÀ PHẦN CỨNG
+# CÁC HÀM CẢNH BÁO HIỆU NĂNG THỜI GIAN
 # ==========================================
-
 def monitor_performance(time_limit=5.0):
     def decorator(func):
         @wraps(func)
@@ -79,13 +68,11 @@ def monitor_performance(time_limit=5.0):
             start_time = time.time()
             result = func(*args, **kwargs)
             exec_time = time.time() - start_time
-            
             if exec_time > time_limit:
                 # Ghi vào oper_logs và warm_logs
-                logger.warning(
-                    f"[HIỆU NĂNG] Hàm '{func.__name__}' chạy quá chậm: {exec_time:.2f}s "
-                    f"(Ngưỡng cảnh báo: {time_limit}s)."
-                )
+                logger.warning(f"[HIỆU NĂNG] Hàm '{func.__name__}' chạy quá chậm: {exec_time:.2f}s "
+                               f"(Ngưỡng cảnh báo: {time_limit}s)."
+                               )
             else:
                 # Chỉ ghi vào oper_logs
                 logger.info(f"Hàm '{func.__name__}' hoàn thành trong {exec_time:.2f}s.")
@@ -94,37 +81,36 @@ def monitor_performance(time_limit=5.0):
     return decorator
 
 
-def check_hardware_limits():
-    if psutil:
-        cpu_usage = psutil.cpu_percent(interval=0.5)
-        if cpu_usage > 90.0:
-            logger.warning(f"[HARDWARE] CPU (i7) đang quá tải: {cpu_usage}%!")
-        
-        ram = psutil.virtual_memory()
-        if ram.percent > 85.0:
-            used_gb = ram.used / (1024 ** 3)
-            logger.warning(f"[HARDWARE] RAM sắp hết: {ram.percent}% ({used_gb:.1f}GB / 32.0GB đã dùng)!")
-    else:
-        # Lỗi này sẽ lưu vào CẢ 3 THƯ MỤC: oper_logs, warm_logs, và error_logs
-        logger.error("Thư viện 'psutil' chưa được cài đặt. Chạy: pip install psutil")
+import json
 
-    if pynvml:
+def log_pipeline_step(step_name: str, status: str, details: dict = None):
+    """
+    Ghi log chuẩn hóa cho các bước trong DVC/MLOps pipeline.
+    Giúp theo dõi tiến trình dễ dàng và tương thích với các công cụ đọc log tự động.
+    
+    Args:
+        step_name: Tên của stage (VD: 'data_ingestion', 'featureize', 'train_model')
+        status: Trạng thái ('START', 'SUCCESS', 'FAILED', 'ERROR')
+        details: Dictionary chứa các metadata bổ sung (số dòng, số cột, accuracy...)
+    """
+    log_data = {
+        "pipeline_step": step_name,
+        "status": status.upper(),
+        "timestamp": datetime.now().isoformat()
+    }
+    
+    if details:
+        # Cố gắng chuyển đổi các kiểu dữ liệu không chuẩn thành string để tránh lỗi serialize
         try:
-            pynvml.nvmlInit()
-            handle = pynvml.nvmlDeviceGetHandleByIndex(0)
-            info = pynvml.nvmlDeviceGetMemoryInfo(handle)
-            
-            gpu_used_gb = info.used / (1024 ** 3)
-            gpu_total_gb = info.total / (1024 ** 3)
-            gpu_percent = (info.used / info.total) * 100
-            
-            if gpu_percent > 85.0:
-                logger.warning(
-                    f"[HARDWARE] GPU (A3000) VRAM đang cạn kiệt: {gpu_percent:.1f}% "
-                    f"({gpu_used_gb:.2f}GB / {gpu_total_gb:.2f}GB)!"
-                )
-        except pynvml.NVMLError as e:
-            # Lỗi này sẽ lưu vào CẢ 3 THƯ MỤC
-
-            logger.error(f"Không thể đọc thông số GPU: {e}")
-            logger.error(f"Không thể đọc thông số GPU: {e}")
+            log_data["details"] = {k: str(v) for k, v in details.items()}
+        except Exception:
+            pass
+        
+    msg = f"[PIPELINE_TRACKING] {json.dumps(log_data, ensure_ascii=False)}"
+    
+    if status.upper() in ["FAILED", "ERROR"]:
+        logger.error(msg)
+    elif status.upper() == "WARNING":
+        logger.warning(msg)
+    else:
+        logger.info(msg)
