@@ -38,3 +38,4 @@ raw:
         yaml_type: float
         postgresql_type: DOUBLE PRECISION
         nullable: false
+
