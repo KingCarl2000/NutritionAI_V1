@@ -1,82 +1,52 @@
-calorie_efficiency_dataset:
-  calorie_efficiency_dataset:
+calories:
+  calories:
     db_schema: raw
-    table_name: calorie_efficiency_dataset
+    table_name: calories
     columns:
-      age:
+      User_ID:
         type: integer
         nullable: false
         description: ''
-      steps_per_day:
-        type: integer
-        nullable: false
-        description: ''
-      active_minutes:
-        type: integer
-        nullable: false
-        description: ''
-      calories_burned:
-        type: integer
-        nullable: false
-        description: ''
-      sleep_hours:
-        type: float
-        nullable: false
-        description: ''
-      hydration_liters:
-        type: float
-        nullable: false
-        description: ''
-      bmi:
-        type: float
-        nullable: false
-        description: ''
-      workouts_per_week:
-        type: integer
-        nullable: false
-        description: ''
-      muscle_mass_ratio:
-        type: float
-        nullable: false
-        description: ''
-      body_fat_percentage:
-        type: float
-        nullable: false
-        description: ''
-      heart_rate_resting:
-        type: float
-        nullable: false
-        description: ''
-      heart_rate_avg:
-        type: float
-        nullable: false
-        description: ''
-      continuous_exercise_days:
-        type: integer
-        nullable: false
-        description: ''
-      efficiency_score:
-        type: float
-        nullable: false
-        description: ''
-      calorie_efficiency:
+      Gender:
         type: categorical
         nullable: false
         description: ''
+      Age:
+        type: integer
+        nullable: false
+        description: ''
+      Height:
+        type: float
+        nullable: false
+        description: ''
+      Weight:
+        type: float
+        nullable: false
+        description: ''
+      Duration:
+        type: float
+        nullable: false
+        description: ''
+      Heart_Rate:
+        type: float
+        nullable: false
+        description: ''
+      Body_Temp:
+        type: float
+        nullable: false
+        description: ''
+      Calories:
+        type: float
+        nullable: false
+        description: ''
     numerical_columns:
-    - age
-    - steps_per_day
-    - active_minutes
-    - calories_burned
-    - sleep_hours
-    - hydration_liters
-    - bmi
-    - workouts_per_week
-    - muscle_mass_ratio
-    - body_fat_percentage
-    - heart_rate_resting
-    - heart_rate_avg
-    - continuous_exercise_days
-    - efficiency_score
+    - User_ID
+    - Age
+    - Height
+    - Weight
+    - Duration
+    - Heart_Rate
+    - Body_Temp
+    - Calories
     categorical_columns:
-    - calorie_efficiency
+    - Gender

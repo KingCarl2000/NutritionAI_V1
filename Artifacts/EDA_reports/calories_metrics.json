@@ -1,0 +1,282 @@
+{
+    "1_table_level_metrics": {
+        "total_rows": 10000,
+        "total_columns": 9,
+        "duplicate_rows_count": 0,
+        "duplicate_rows_ratio": 0.0,
+        "missing_cells_ratio": 0.0
+    },
+    "2_numerical_metrics": {
+        "User_ID": {
+            "missing_null_ratio": 0.0,
+            "zero_ratio": 0.0,
+            "min": 10001607.0,
+            "max": 19999647.0,
+            "mean": 14974287.1104,
+            "median_50": 14996362.0,
+            "std_dev": 2891951.7781925723,
+            "iqr_25_75": 5037207.25,
+            "skewness": 0.0007171432608292667,
+            "kurtosis": -1.206907695114395
+        },
+        "Age": {
+            "missing_null_ratio": 0.0,
+            "zero_ratio": 0.0,
+            "min": 20.0,
+            "max": 79.0,
+            "mean": 42.7796,
+            "median_50": 40.0,
+            "std_dev": 16.930714360264744,
+            "iqr_25_75": 28.0,
+            "skewness": 0.4665918208681482,
+            "kurtosis": -0.9530732186863444
+        },
+        "Height": {
+            "missing_null_ratio": 0.0,
+            "zero_ratio": 0.0,
+            "min": 123.0,
+            "max": 218.0,
+            "mean": 174.4957,
+            "median_50": 174.0,
+            "std_dev": 14.16060852482616,
+            "iqr_25_75": 21.0,
+            "skewness": -0.007178419317524778,
+            "kurtosis": -0.49005623806656295
+        },
+        "Weight": {
+            "missing_null_ratio": 0.0,
+            "zero_ratio": 0.0,
+            "min": 36.0,
+            "max": 132.0,
+            "mean": 74.9824,
+            "median_50": 74.0,
+            "std_dev": 14.937556804923958,
+            "iqr_25_75": 23.0,
+            "skewness": 0.2348634348518062,
+            "kurtosis": -0.6655108417068223
+        },
+        "Duration": {
+            "missing_null_ratio": 0.0,
+            "zero_ratio": 0.0,
+            "min": 1.0,
+            "max": 30.0,
+            "mean": 15.5207,
+            "median_50": 15.0,
+            "std_dev": 8.304448681085919,
+            "iqr_25_75": 15.0,
+            "skewness": 0.005534399887353943,
+            "kurtosis": -1.1786595631643073
+        },
+        "Heart_Rate": {
+            "missing_null_ratio": 0.0,
+            "zero_ratio": 0.0,
+            "min": 67.0,
+            "max": 128.0,
+            "mean": 95.5209,
+            "median_50": 96.0,
+            "std_dev": 9.608391921103706,
+            "iqr_25_75": 15.0,
+            "skewness": -0.030051624723509134,
+            "kurtosis": -0.6234418416791456
+        },
+        "Body_Temp": {
+            "missing_null_ratio": 0.0,
+            "zero_ratio": 0.0,
+            "min": 37.1,
+            "max": 41.5,
+            "mean": 40.02539,
+            "median_50": 40.2,
+            "std_dev": 0.7765852537652493,
+            "iqr_25_75": 1.0,
+            "skewness": -0.9958742020901827,
+            "kurtosis": 0.5476073490156863
+        },
+        "Calories": {
+            "missing_null_ratio": 0.0,
+            "zero_ratio": 0.0,
+            "min": 1.0,
+            "max": 314.0,
+            "mean": 89.4554,
+            "median_50": 79.0,
+            "std_dev": 62.18164573687846,
+            "iqr_25_75": 102.0,
+            "skewness": 0.49582461001754974,
+            "kurtosis": -0.7351196251928931
+        }
+    },
+    "3_categorical_and_datetime_metrics": {
+        "Gender": {
+            "type": "categorical",
+            "missing_null_ratio": 0.0,
+            "distinct_unique_count": 2,
+            "mode": "female",
+            "frequency": 5030
+        }
+    },
+    "4_relationships": {
+        "pearson_correlation": {
+            "User_ID": {
+                "User_ID": 1.0,
+                "Age": -0.0065,
+                "Height": -0.0089,
+                "Weight": -0.008,
+                "Duration": -0.0041,
+                "Heart_Rate": -0.0029,
+                "Body_Temp": -0.0015,
+                "Calories": -0.0022
+            },
+            "Age": {
+                "User_ID": -0.0065,
+                "Age": 1.0,
+                "Height": 0.0023,
+                "Weight": 0.0817,
+                "Duration": 0.0047,
+                "Heart_Rate": 0.0048,
+                "Body_Temp": 0.0073,
+                "Calories": 0.145
+            },
+            "Height": {
+                "User_ID": -0.0089,
+                "Age": 0.0023,
+                "Height": 1.0,
+                "Weight": 0.9586,
+                "Duration": -0.0003,
+                "Heart_Rate": 0.0097,
+                "Body_Temp": 0.0059,
+                "Calories": 0.0231
+            },
+            "Weight": {
+                "User_ID": -0.008,
+                "Age": 0.0817,
+                "Height": 0.9586,
+                "Weight": 1.0,
+                "Duration": 0.0029,
+                "Heart_Rate": 0.0142,
+                "Body_Temp": 0.0095,
+                "Calories": 0.0408
+            },
+            "Duration": {
+                "User_ID": -0.0041,
+                "Age": 0.0047,
+                "Height": -0.0003,
+                "Weight": 0.0029,
+                "Duration": 1.0,
+                "Heart_Rate": 0.8522,
+                "Body_Temp": 0.9032,
+                "Calories": 0.9557
+            },
+            "Heart_Rate": {
+                "User_ID": -0.0029,
+                "Age": 0.0048,
+                "Height": 0.0097,
+                "Weight": 0.0142,
+                "Duration": 0.8522,
+                "Heart_Rate": 1.0,
+                "Body_Temp": 0.7745,
+                "Calories": 0.8976
+            },
+            "Body_Temp": {
+                "User_ID": -0.0015,
+                "Age": 0.0073,
+                "Height": 0.0059,
+                "Weight": 0.0095,
+                "Duration": 0.9032,
+                "Heart_Rate": 0.7745,
+                "Body_Temp": 1.0,
+                "Calories": 0.8257
+            },
+            "Calories": {
+                "User_ID": -0.0022,
+                "Age": 0.145,
+                "Height": 0.0231,
+                "Weight": 0.0408,
+                "Duration": 0.9557,
+                "Heart_Rate": 0.8976,
+                "Body_Temp": 0.8257,
+                "Calories": 1.0
+            }
+        },
+        "spearman_correlation": {
+            "User_ID": {
+                "User_ID": 1.0,
+                "Age": -0.0062,
+                "Height": -0.008,
+                "Weight": -0.0077,
+                "Duration": -0.0042,
+                "Heart_Rate": -0.002,
+                "Body_Temp": 0.0015,
+                "Calories": -0.0029
+            },
+            "Age": {
+                "User_ID": -0.0062,
+                "Age": 1.0,
+                "Height": 0.0002,
+                "Weight": 0.076,
+                "Duration": 0.0051,
+                "Heart_Rate": 0.0062,
+                "Body_Temp": 0.0058,
+                "Calories": 0.1282
+            },
+            "Height": {
+                "User_ID": -0.008,
+                "Age": 0.0002,
+                "Height": 1.0,
+                "Weight": 0.9617,
+                "Duration": -0.0003,
+                "Heart_Rate": 0.0104,
+                "Body_Temp": 0.0025,
+                "Calories": 0.0075
+            },
+            "Weight": {
+                "User_ID": -0.0077,
+                "Age": 0.076,
+                "Height": 0.9617,
+                "Weight": 1.0,
+                "Duration": 0.003,
+                "Heart_Rate": 0.0149,
+                "Body_Temp": 0.0046,
+                "Calories": 0.0197
+            },
+            "Duration": {
+                "User_ID": -0.0042,
+                "Age": 0.0051,
+                "Height": -0.0003,
+                "Weight": 0.003,
+                "Duration": 1.0,
+                "Heart_Rate": 0.8612,
+                "Body_Temp": 0.9414,
+                "Calories": 0.9754
+            },
+            "Heart_Rate": {
+                "User_ID": -0.002,
+                "Age": 0.0062,
+                "Height": 0.0104,
+                "Weight": 0.0149,
+                "Duration": 0.8612,
+                "Heart_Rate": 1.0,
+                "Body_Temp": 0.8112,
+                "Calories": 0.916
+            },
+            "Body_Temp": {
+                "User_ID": 0.0015,
+                "Age": 0.0058,
+                "Height": 0.0025,
+                "Weight": 0.0046,
+                "Duration": 0.9414,
+                "Heart_Rate": 0.8112,
+                "Body_Temp": 1.0,
+                "Calories": 0.9194
+            },
+            "Calories": {
+                "User_ID": -0.0029,
+                "Age": 0.1282,
+                "Height": 0.0075,
+                "Weight": 0.0197,
+                "Duration": 0.9754,
+                "Heart_Rate": 0.916,
+                "Body_Temp": 0.9194,
+                "Calories": 1.0
+            }
+        }
+    }
+}

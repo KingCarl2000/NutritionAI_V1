@@ -9,7 +9,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.nutrition_core.logging.logger import logger
-from src.postgres.data_io.bulk_loader import PostgresBulkLoader
+from src.data_io.bulk_loader import PostgresBulkLoader
 
 def main():
     logger.info("🚀 Khởi động tiến trình Bulk Load (Đọc từ tables_created_report.yaml)...")
@@ -43,25 +43,33 @@ def main():
                 continue
 
             # Xác định tên file CSV gốc trên ổ cứng
-            # Ví dụ: Nếu final_table_name có prefix, ta tìm file tương ứng trong folder source_dataset
-            # Hoặc bóc tách base name bằng cách loại bỏ prefix của dataset
-            clean_dataset_prefix = source_dataset.lower().replace(" ", "_").replace("-", "_")
-            # Tùy biến logic tìm file: Thử tìm trực tiếp file trùng với tên bảng gốc hoặc base name
-            
             target_dir = data_raw_dir / source_dataset
-            
-            # Tìm file CSV dựa vào tên bảng gốc (nếu đã cắt bỏ prefix) hoặc dò tất cả các file trong thư mục
             csv_file_path = None
-            if target_dir.exists():
-                for csv_file in target_dir.glob("*.csv"):
-                    # Kiểm tra xem file CSV này có khớp với tên base table không
-                    base_name = csv_file.stem
-                    if final_table_name.endswith(base_name) or final_table_name == base_name:
+            
+            # Hàm check xem file CSV có khớp với tên bảng gốc không
+            def is_matching_csv(file_path):
+                base_name = file_path.stem
+                return final_table_name.endswith(base_name) or final_table_name == base_name
+
+            # Ưu tiên 1: Tìm trong thư mục dataset cụ thể (Data/raw/source_dataset)
+            if target_dir.exists() and target_dir.is_dir():
+                # Dùng rglob để quét cả thư mục con nếu có
+                for csv_file in target_dir.rglob("*.csv"):
+                    if is_matching_csv(csv_file):
                         csv_file_path = csv_file
                         break
             
+            # Ưu tiên 2: Nếu chưa tìm thấy, quét đệ quy toàn bộ thư mục Data/raw
+            # Xử lý trường hợp file vứt ngay bên ngoài Data/raw hoặc ở thư mục khác
+            if not csv_file_path:
+                if data_raw_dir.exists() and data_raw_dir.is_dir():
+                    for csv_file in data_raw_dir.rglob("*.csv"):
+                        if is_matching_csv(csv_file):
+                            csv_file_path = csv_file
+                            break
+
             if not csv_file_path or not csv_file_path.exists():
-                logger.warning(f"  ⚠️ Bỏ qua bảng '{final_table_name}': Không tìm thấy file CSV tương ứng trong {target_dir}")
+                logger.warning(f"  ⚠️ Bỏ qua bảng '{final_table_name}': Không tìm thấy file CSV tương ứng trong '{data_raw_dir}'")
                 continue
 
             target_table = f"{schema_name}.{final_table_name}"

@@ -11,8 +11,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 # 2. Dictionary cấu hình danh sách các dataset sử dụng đường dẫn ĐỘNG
 DATASETS_CONFIG = {
-    "calorie_efficiency_dataset": {
-        "data_path": str(PROJECT_ROOT / "Data" / "raw" / "calorie_efficiency_dataset.csv"),
+    "calories": {
+        "data_path": str(PROJECT_ROOT / "Data" / "raw" / "calories.csv"),
         "schema_path": str(PROJECT_ROOT / "src" / "api" / "data_schema" / "schema.yaml"),
         "db_schema": "raw"
     }

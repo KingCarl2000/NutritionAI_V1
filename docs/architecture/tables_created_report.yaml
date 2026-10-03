@@ -1,64 +1,40 @@
 raw:
-  calorie_efficiency_dataset:
-    source_dataset: calorie_efficiency_dataset
+  calories:
+    source_dataset: calories
     columns:
-      age:
+      User_ID:
         yaml_type: integer
         postgresql_type: BIGINT
         nullable: false
-      steps_per_day:
-        yaml_type: integer
-        postgresql_type: BIGINT
-        nullable: false
-      active_minutes:
-        yaml_type: integer
-        postgresql_type: BIGINT
-        nullable: false
-      calories_burned:
-        yaml_type: integer
-        postgresql_type: BIGINT
-        nullable: false
-      sleep_hours:
-        yaml_type: float
-        postgresql_type: DOUBLE PRECISION
-        nullable: false
-      hydration_liters:
-        yaml_type: float
-        postgresql_type: DOUBLE PRECISION
-        nullable: false
-      bmi:
-        yaml_type: float
-        postgresql_type: DOUBLE PRECISION
-        nullable: false
-      workouts_per_week:
-        yaml_type: integer
-        postgresql_type: BIGINT
-        nullable: false
-      muscle_mass_ratio:
-        yaml_type: float
-        postgresql_type: DOUBLE PRECISION
-        nullable: false
-      body_fat_percentage:
-        yaml_type: float
-        postgresql_type: DOUBLE PRECISION
-        nullable: false
-      heart_rate_resting:
-        yaml_type: float
-        postgresql_type: DOUBLE PRECISION
-        nullable: false
-      heart_rate_avg:
-        yaml_type: float
-        postgresql_type: DOUBLE PRECISION
-        nullable: false
-      continuous_exercise_days:
-        yaml_type: integer
-        postgresql_type: BIGINT
-        nullable: false
-      efficiency_score:
-        yaml_type: float
-        postgresql_type: DOUBLE PRECISION
-        nullable: false
-      calorie_efficiency:
+      Gender:
         yaml_type: categorical
         postgresql_type: TEXT
+        nullable: false
+      Age:
+        yaml_type: integer
+        postgresql_type: BIGINT
+        nullable: false
+      Height:
+        yaml_type: float
+        postgresql_type: DOUBLE PRECISION
+        nullable: false
+      Weight:
+        yaml_type: float
+        postgresql_type: DOUBLE PRECISION
+        nullable: false
+      Duration:
+        yaml_type: float
+        postgresql_type: DOUBLE PRECISION
+        nullable: false
+      Heart_Rate:
+        yaml_type: float
+        postgresql_type: DOUBLE PRECISION
+        nullable: false
+      Body_Temp:
+        yaml_type: float
+        postgresql_type: DOUBLE PRECISION
+        nullable: false
+      Calories:
+        yaml_type: float
+        postgresql_type: DOUBLE PRECISION
         nullable: false
