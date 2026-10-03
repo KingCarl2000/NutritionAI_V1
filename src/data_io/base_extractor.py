@@ -8,6 +8,7 @@ from abc import ABC, abstractmethod
 from typing import Optional, Dict, Any, List, Union
 
 from src.nutrition_core.logging.logger import logger, monitor_performance
+from src.nutrition_core.logging.mlflow_tracker import MLOpsTracker
 from src.nutrition_core.exception.exception import (
     DatabaseException,
     DatabaseConnectionError,
@@ -99,7 +100,9 @@ class BasePostgresExtractor(ABC):
         params: Optional[Dict[str, Any]] = None,
         schema_mapping: Optional[Dict[str, Any]] = None,
         flatten_json_cols: Optional[List[str]] = None,
-        index_col: Optional[Union[str, List[str]]] = None
+        index_col: Optional[Union[str, List[str]]] = None,
+        mlflow_tracker: Optional[MLOpsTracker] = None, # THÊM THAM SỐ NÀY
+        dataset_name: str = "raw_postgresql_data"      # Tên dataset để track
     ) -> pd.DataFrame:
         """
         Đóng gói bản ghi thành Pandas DataFrame, cấu hình Index và chuẩn hóa kiểu dữ liệu.
@@ -134,6 +137,13 @@ class BasePostgresExtractor(ABC):
                             logger.debug(f"Đã thiết lập cột {index_col} làm DataFrame Index.")
                         else:
                             logger.warning(f"Không thể đặt Index. Cột {missing_cols} không tồn tại trong kết quả.")
+
+                    # THÊM LOGIC GHI NHẬN DATA LINEAGE VÀO ĐÂY
+                    if mlflow_tracker is not None:
+                        # Tạo chuỗi mô phỏng source URI (vì không thể truyền toàn bộ query)
+                        source_uri = f"postgresql://query_hash_{hash(query)}" 
+                        mlflow_tracker.log_dataset_lineage(df, dataset_name, source_uri)
+                        logger.info("Đã đồng bộ thông tin Dataset Lineage lên MLflow.")
 
                     return df
 

@@ -80,37 +80,3 @@ def monitor_performance(time_limit=5.0):
         return wrapper
     return decorator
 
-
-import json
-
-def log_pipeline_step(step_name: str, status: str, details: dict = None):
-    """
-    Ghi log chuẩn hóa cho các bước trong DVC/MLOps pipeline.
-    Giúp theo dõi tiến trình dễ dàng và tương thích với các công cụ đọc log tự động.
-    
-    Args:
-        step_name: Tên của stage (VD: 'data_ingestion', 'featureize', 'train_model')
-        status: Trạng thái ('START', 'SUCCESS', 'FAILED', 'ERROR')
-        details: Dictionary chứa các metadata bổ sung (số dòng, số cột, accuracy...)
-    """
-    log_data = {
-        "pipeline_step": step_name,
-        "status": status.upper(),
-        "timestamp": datetime.now().isoformat()
-    }
-    
-    if details:
-        # Cố gắng chuyển đổi các kiểu dữ liệu không chuẩn thành string để tránh lỗi serialize
-        try:
-            log_data["details"] = {k: str(v) for k, v in details.items()}
-        except Exception:
-            pass
-        
-    msg = f"[PIPELINE_TRACKING] {json.dumps(log_data, ensure_ascii=False)}"
-    
-    if status.upper() in ["FAILED", "ERROR"]:
-        logger.error(msg)
-    elif status.upper() == "WARNING":
-        logger.warning(msg)
-    else:
-        logger.info(msg)

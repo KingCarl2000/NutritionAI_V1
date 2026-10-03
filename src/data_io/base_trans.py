@@ -8,6 +8,7 @@ from typing import Optional, List, Union
 
 # Tái sử dụng các module core từ NutritionAI_V1
 from src.nutrition_core.logging.logger import logger, monitor_performance
+from src.nutrition_core.logging.mlflow_tracker import MLOpsTracker
 from src.nutrition_core.exception.exception import DataTransformationError
 
 
