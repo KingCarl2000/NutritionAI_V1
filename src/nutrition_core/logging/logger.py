@@ -5,6 +5,9 @@ import time
 from datetime import datetime
 from pathlib import Path
 from functools import wraps
+import dvc.exceptions as dvc_exc
+import subprocess
+
 
 # Xác định đường dẫn thư mục logs gốc
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
@@ -80,3 +83,66 @@ def monitor_performance(time_limit=5.0):
         return wrapper
     return decorator
 
+# Thêm vào cuối file src/nutrition_core/logging/logger.py
+
+def dvc_error_handler(max_retries: int = 3, retry_delay: int = 2, fallback_func=None):
+    """
+    Decorator xử lý lỗi tập trung cho DVC: Map ngoại lệ, Inject Context, và Fallback & Retry.
+    """
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            # Import cục bộ để tránh Circular Import với exception.py
+            from src.nutrition_core.exception.exception import (
+                DataPipelineException, 
+                DataNotFoundError, 
+                RemoteStorageError,
+                VersionNotFoundError
+            )
+            
+            retries = 0
+            while retries <= max_retries:
+                try:
+                    return func(*args, **kwargs)
+                    
+                except (dvc_exc.PathMissingError, dvc_exc.FileMissingError, FileNotFoundError) as e:
+                    # 1 & 2: Map Exception & Inject Context (Ghi log tham số đầu vào)
+                    logger.error(f"[DVC NOT FOUND] Không tìm thấy dữ liệu trong hàm '{func.__name__}'. "
+                                 f"Context: args={args}, kwargs={kwargs}. Chi tiết: {e}")
+                    raise DataNotFoundError(f"Dữ liệu hoặc mô hình không tồn tại: {e}")
+                    
+                except dvc_exc.RevisionError as e:
+                    logger.error(f"[DVC VERSION WARN] Sai revision/commit trong '{func.__name__}': {e}")
+                    raise VersionNotFoundError(f"Không tìm thấy phiên bản dữ liệu: {e}")
+                    
+                except (subprocess.CalledProcessError, Exception) as e:
+                    # Kiểm tra xem có phải lỗi mạng / Remote Storage không (dựa vào thông báo lỗi)
+                    error_msg = str(e).lower()
+                    is_network_error = any(kw in error_msg for kw in ["network", "connection", "remote", "credentials", "s3", "gcs", "timeout"])
+                    
+                    if is_network_error or isinstance(e, subprocess.CalledProcessError):
+                        logger.warning(f"[DVC NETWORK WARN] Lỗi giao tiếp Remote trong '{func.__name__}'. "
+                                       f"Lần thử {retries}/{max_retries}. Chi tiết: {e}")
+                        
+                        # 3. Retry
+                        if retries < max_retries:
+                            retries += 1
+                            time.sleep(retry_delay)
+                            continue
+                            
+                        # 3. Fallback (Cơ chế dự phòng)
+                        if fallback_func:
+                            logger.info(f"[DVC FALLBACK] Đang kích hoạt cơ chế dự phòng cục bộ cho '{func.__name__}'...")
+                            try:
+                                return fallback_func(*args, **kwargs)
+                            except Exception as fallback_err:
+                                logger.error(f"[DVC FALLBACK FAILED] Cơ chế dự phòng thất bại: {fallback_err}")
+                        
+                        logger.error(f"[DVC ERROR] Mất kết nối Remote Storage hoàn toàn sau {max_retries} lần thử.")
+                        raise RemoteStorageError(f"Không thể kết nối DVC Remote: {e}")
+                    
+                    # Các lỗi hệ thống khác không liên quan đến mạng
+                    logger.error(f"[DVC SYSTEM ERROR] Lỗi không xác định trong '{func.__name__}': {e}")
+                    raise DataPipelineException(f"Lỗi DVC nội bộ: {e}")
+        return wrapper
+    return decorator

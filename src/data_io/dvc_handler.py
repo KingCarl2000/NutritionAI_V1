@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field, ConfigDict
 import dvc.api
 
 # --- Tái sử dụng Logging và Exception từ hệ thống ---
-from src.nutrition_core.logging.logger import logger
+from src.nutrition_core.logging.logger import logger, dvc_error_handler
 from src.nutrition_core.exception.exception import DataPipelineException
 
 # ==========================================

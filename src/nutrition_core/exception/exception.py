@@ -103,3 +103,17 @@ class BulkLoadError(DatabaseException):
 class CDCStreamError(DatabaseException):
     """Lỗi phát sinh trong quá trình lắng nghe sự kiện thời gian thực (Logical Replication/CDC)."""
     pass
+
+# Thêm vào dưới cùng của src/nutrition_core/exception/exception.py
+
+class DataNotFoundError(DataPipelineException):
+    """Lỗi khi không tìm thấy dữ liệu/mô hình (Map từ dvc.exceptions.PathMissingError)."""
+    pass
+
+class RemoteStorageError(DataPipelineException):
+    """Lỗi khi mất kết nối mạng hoặc S3/GCS (Map từ ConnectionError/NetworkError)."""
+    pass
+
+class VersionNotFoundError(DataPipelineException):
+    """Lỗi khi không tìm thấy version/revision commit."""
+    pass
