@@ -1,1 +1,19 @@
+database:
+  connection_source: "src/postgres/core/connection.py"
+  schema_name: "nutrition"
+  table_name: "calorie_logs"
 
+feature_store:
+  file_path: "Artifacts/choose_features/ml_calories/calories_features.csv"
+  dvc_tracked: true
+
+data_split:
+  train_ratio: 0.8
+  test_ratio: 0.1
+  validation_ratio: 0.1
+
+output:
+  data_version: "v1.0.0"
+
+schema:
+  json_schema_file: "config/pipelines/ml_calories/calories_data_schema.json"
