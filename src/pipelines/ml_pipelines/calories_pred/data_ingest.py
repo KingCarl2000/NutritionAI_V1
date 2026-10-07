@@ -1,124 +1,97 @@
 import os
+import json
+import yaml
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
-# Import module từ kiến trúc dự án
-from src.postgres.core.connection import get_connection
 from src.nutrition_core.logging.logger import logger
-from src.data_io.dvc_handler import DVCHandler # Giả sử bạn có class này
-from src.nutrition_core.logging.mlflow_tracker import MLOpsTracker
-from src.nutrition_core.logging.logger import monitor_performance
-from src.nutrition_core.exception.exception import DataTransformationError
+from src.data_io.base_extractor import BasePostgresExtractor
+from src.data_io.dvc_handler import DVCHandler
 
-@monitor_performance
-class CaloriesDataIngestion:
-    def __init__(self, output_dir: str = "Artifacts/data/calories"):
-        """
-        Khởi tạo pipeline với thư mục đầu ra để lưu các file CSV.
-        """
-        self.output_dir = output_dir
-        os.makedirs(self.output_dir, exist_ok=True)
-        self.table_name = "calories"
-
-    def read_data_from_postgres(self) -> pd.DataFrame:
-        """Bước 1 & 2: PostgreSQL => Read data : calories => Convert to DataFrame"""
-        logger.info(f"Bắt đầu trích xuất dữ liệu từ bảng '{self.table_name}' trong PostgreSQL")
+class CaloriesDataIngestion(BasePostgresExtractor):
+    def __init__(self, config: dict):
+        super().__init__()
+        self.config = config
+        self.dvc = DVCHandler()
+        
+    def _read_schema(self) -> list:
+        schema_file = self.config['schema']['json_schema_file']
+        logger.info(f"Đọc cấu hình JSON Schema từ: {schema_file}")
         try:
-            conn = get_connection()
-            # Trích xuất toàn bộ dữ liệu từ bảng calories
-            query = f"SELECT * FROM {self.table_name};"
-            df = pd.read_sql(query, conn)
-            conn.close()
-            
-            logger.info(f"Đọc thành công {len(df)} bản ghi từ cơ sở dữ liệu.")
-            return df
-        except Exception as e:
-            logger.error(f"Lỗi khi trích xuất dữ liệu từ PostgreSQL: {str(e)}")
-            raise e
+            with open(schema_file, 'r') as f:
+                schema = json.load(f)
+            return schema.get('columns_to_drop', [])
+        except FileNotFoundError:
+            logger.warning(f"Không tìm thấy file {schema_file}, bỏ qua việc drop columns.")
+            return []
 
-    def save_raw_data(self, df: pd.DataFrame):
-        """Bước 3: Save raw.csv"""
-        raw_path = os.path.join(self.output_dir, "raw.csv")
-        df.to_csv(raw_path, index=False)
-        logger.info(f"Đã lưu dữ liệu thô vào: {raw_path}")
-
-    def feature_engineering(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Bước 4: Feature Engineering (basic preprocessing)"""
-        logger.info("Thực hiện Feature Engineering cơ bản...")
+    def extract_data_from_postgresql(self) -> pd.DataFrame:
+        schema_name = self.config['database']['schema_name']
+        table_name = self.config['database']['table_name']
         
-        # 4.1 Xóa các bản ghi có giá trị null
-        df = df.dropna()
+        logger.info(f"Bước 1: Trích xuất dữ liệu từ bảng PostgreSQL: {schema_name}.{table_name}")
         
-        # 4.2 Loại bỏ các cột không có giá trị dự đoán (ví dụ: User_ID)
-        if 'User_ID' in df.columns:
-            df = df.drop(columns=['User_ID'])
-            
-        # 4.3 Mã hóa (Encode) biến phân loại Gender thành số
-        if 'Gender' in df.columns:
-            # Chuẩn hóa chữ thường/hoa và map sang 0/1
-            df['Gender'] = df['Gender'].str.lower().map({'male': 0, 'female': 1})
-            # Xóa các dòng có Gender không hợp lệ (NaN sau khi map)
-            df = df.dropna(subset=['Gender'])
-            
-        logger.info(f"Kích thước dữ liệu sau khi tiền xử lý: {df.shape}")
+        # Lấy connection từ lớp cha BasePostgresExtractor (đã tích hợp sẵn src.postgres.core.connection)
+        conn = self._get_connection()
+        query = f"SELECT * FROM {schema_name}.{table_name}"
+        
+        df = pd.read_sql(query, conn)
+        conn.close()
+        
+        # Ép kiểu và làm sạch cơ bản bằng phương thức có sẵn của base_extractor (tuỳ chọn)
+        df = self._convert_data_types(df)
+        
         return df
 
-    def split_and_save_data(self, df: pd.DataFrame):
-        """Bước 5 & 6: Train-Test Split => (Save train.csv, Save test.csv)"""
-        logger.info("Thực hiện phân chia tập dữ liệu (Train: 80%, Test: 20%)...")
-        
-        train_df, test_df = train_test_split(df, test_size=0.2, random_state=42)
-        
-        train_path = os.path.join(self.output_dir, "train.csv")
-        test_path = os.path.join(self.output_dir, "test.csv")
-        
-        train_df.to_csv(train_path, index=False)
-        test_df.to_csv(test_path, index=False)
-        
-        logger.info(f"Đã lưu tập Train ({len(train_df)} bản ghi) tại: {train_path}")
-        logger.info(f"Đã lưu tập Test ({len(test_df)} bản ghi) tại: {test_path}")
+    def process_and_split_data(self, df: pd.DataFrame):
+        logger.info("Bước 2: Xử lý feature và loại bỏ cột không cần thiết (Drop Columns)")
+        cols_to_drop = self._read_schema()
+        df = df.drop(columns=[col for col in cols_to_drop if col in df.columns], errors='ignore')
 
-    def run_pipeline(self):
-        """Hàm thực thi toàn bộ quy trình pipeline"""
-        logger.info("========== BẮT ĐẦU PIPELINE CALORIES DATA INGESTION ==========")
-        try:
-            # 1. PostgreSQL => Read data : calories => Convert to DataFrame
-            raw_df = self.read_data_from_postgres()
-            
-            # 2. Save raw.csv
-            self.save_raw_data(raw_df)
-            
-            # 3. Feature Engineering (basic preprocessing)
-            processed_df = self.feature_engineering(raw_df)
-            
-            # 4. Train-Test Split => (Save train.csv, Save test.csv)
-            self.split_and_save_data(processed_df)
-            
-            logger.info("========== HOÀN THÀNH PIPELINE CALORIES DATA INGESTION ==========")
-        except Exception as e:
-            logger.error(f"Pipeline thất bại với lỗi: {str(e)}")
-
-    def feature_engineering(self, df: pd.DataFrame) -> pd.DataFrame:
-    try:
-        # Đọc danh sách cột cần xoá từ config thay vì hardcode
-        cols_to_drop = self.config.get("columns_to_drop", [])
-        df = df.drop(columns=cols_to_drop, errors='ignore')
-        # ... các bước xử lý khác ...
-        return df
-    except Exception as e:
-        raise DataTransformationError(f"Lỗi khi transform dữ liệu: {e}")
-
-    def run_pipeline(self):
-        with MLOpsTracker(experiment_name="Calories_Ingestion").start_run():
-            # ... chạy các bước ...
-            # Log metadata
-            mlflow.log_param("test_split_ratio", 0.2)
-            mlflow.log_metric("train_samples", len(train_df))
+        logger.info("Bước 3: Chia tách dữ liệu Train/Test/Validation")
+        train_ratio = self.config['data_split']['train_ratio']
+        test_ratio = self.config['data_split']['test_ratio']
+        val_ratio = self.config['data_split']['validation_ratio']
         
-             # DVC Tracking
-            dvc = DVCHandler()
-            dvc.add_and_push([train_path, test_path])
+        # Cân bằng tỷ lệ chia
+        test_size_relative = test_ratio / (test_ratio + val_ratio)
+        
+        train_df, temp_df = train_test_split(df, train_size=train_ratio, random_state=42)
+        val_df, test_df = train_test_split(temp_df, train_size=test_size_relative, random_state=42)
+        
+        return df, train_df, val_df, test_df
+
+    def export_to_feature_store(self, full_df: pd.DataFrame, train_df: pd.DataFrame, val_df: pd.DataFrame, test_df: pd.DataFrame):
+        feature_path = self.config['feature_store']['file_path']
+        logger.info(f"Bước 4: Xuất dữ liệu ra Artifacts ({feature_path})")
+        
+        base_dir = os.path.dirname(feature_path)
+        os.makedirs(base_dir, exist_ok=True)
+        
+        # Lưu file master features
+        full_df.to_csv(feature_path, index=False)
+        
+        # Lưu split
+        train_df.to_csv(os.path.join(base_dir, 'train.csv'), index=False)
+        val_df.to_csv(os.path.join(base_dir, 'validation.csv'), index=False)
+        test_df.to_csv(os.path.join(base_dir, 'test.csv'), index=False)
+        
+        if self.config['feature_store'].get('dvc_tracked', True):
+            logger.info("Đang track dữ liệu qua DVC...")
+            # Gọi DVC Handler add track file vào hệ thống
+            # self.dvc.add_data(base_dir) # Hoặc phương thức track dữ liệu cụ thể từ DVCHandler của bạn
+
+    def run(self):
+        logger.info("Khởi động Calories Data Ingestion Pipeline")
+        df = self.extract_data_from_postgresql()
+        full_df, train_df, val_df, test_df = self.process_and_split_data(df)
+        self.export_to_feature_store(full_df, train_df, val_df, test_df)
+        logger.info("Quá trình Ingestion hoàn tất.")
 
 if __name__ == "__main__":
-    pipeline = CaloriesDataIngestion()
-    pipeline.run_pipeline()
+    yaml_path = "config/pipelines/ml_calories/data_ingestion.yaml"
+    with open(yaml_path, "r") as f:
+        config = yaml.safe_load(f)
+        
+    pipeline = CaloriesDataIngestion(config)
+    pipeline.run()

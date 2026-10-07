@@ -1,7 +1,7 @@
 database:
-  connection_source: "src/postgres/core/connection.py"
   schema_name: "nutrition"
   table_name: "calorie_logs"
+  # Không cần connection string/source nữa vì BasePostgresExtractor đã gọi get_connection() tự động
 
 feature_store:
   file_path: "Artifacts/choose_features/ml_calories/calories_features.csv"
