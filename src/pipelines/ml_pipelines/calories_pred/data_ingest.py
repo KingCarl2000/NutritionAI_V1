@@ -10,6 +10,7 @@ from src.nutrition_core.logging.mlflow_tracker import MLOpsTracker
 from src.nutrition_core.logging.logger import monitor_performance
 from src.nutrition_core.exception.exception import DataTransformationError
 
+@monitor_performance
 class CaloriesDataIngestion:
     def __init__(self, output_dir: str = "Artifacts/data/calories"):
         """
@@ -96,6 +97,27 @@ class CaloriesDataIngestion:
             logger.info("========== HOÀN THÀNH PIPELINE CALORIES DATA INGESTION ==========")
         except Exception as e:
             logger.error(f"Pipeline thất bại với lỗi: {str(e)}")
+
+    def feature_engineering(self, df: pd.DataFrame) -> pd.DataFrame:
+    try:
+        # Đọc danh sách cột cần xoá từ config thay vì hardcode
+        cols_to_drop = self.config.get("columns_to_drop", [])
+        df = df.drop(columns=cols_to_drop, errors='ignore')
+        # ... các bước xử lý khác ...
+        return df
+    except Exception as e:
+        raise DataTransformationError(f"Lỗi khi transform dữ liệu: {e}")
+
+    def run_pipeline(self):
+        with MLOpsTracker(experiment_name="Calories_Ingestion").start_run():
+            # ... chạy các bước ...
+            # Log metadata
+            mlflow.log_param("test_split_ratio", 0.2)
+            mlflow.log_metric("train_samples", len(train_df))
+        
+             # DVC Tracking
+            dvc = DVCHandler()
+            dvc.add_and_push([train_path, test_path])
 
 if __name__ == "__main__":
     pipeline = CaloriesDataIngestion()
