@@ -15,6 +15,11 @@ src/api/routers/recommend.py
 src/api/routers/ml/__init__.py
 src/api/routers/ml/cluster_customer.py
 src/api/routers/ml/predict_calories.py
+src/data_io/__init__.py
+src/data_io/base_extractor.py
+src/data_io/base_trans.py
+src/data_io/bulk_loader.py
+src/data_io/dvc_handler.py
 src/nutrition_core/__init__.py
 src/nutrition_core/config/__init__.py
 src/nutrition_core/database/__init__.py
@@ -24,6 +29,7 @@ src/nutrition_core/exception/__init__.py
 src/nutrition_core/exception/exception.py
 src/nutrition_core/logging/__init__.py
 src/nutrition_core/logging/logger.py
+src/nutrition_core/logging/mlflow_tracker.py
 src/pipelines/__init__.py
 src/pipelines/llm_pipelines/__init__.py
 src/pipelines/llm_pipelines/schemas.py
@@ -50,10 +56,6 @@ src/postgres/__init__.py
 src/postgres/core/__init__.py
 src/postgres/core/connection.py
 src/postgres/core/db_config.py
-src/postgres/data_io/__init__.py
-src/postgres/data_io/bulk_loader.py
-src/postgres/data_io/cdc_stream.py
-src/postgres/data_io/dataset_cursor.py
 src/postgres/feature_store/__init__.py
 src/postgres/feature_store/engine.py
 src/postgres/monitoring/__init__.py

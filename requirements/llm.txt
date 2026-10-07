@@ -10,3 +10,4 @@ langchain-community
 # Xử lý văn bản & RAG (Retrieval-Augmented Generation)
 tiktoken
 pypdf
+

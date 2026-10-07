@@ -25,6 +25,7 @@ dagshub
 skops
 awscli
 dvc
+torch
 bentoml>=1.2.0
 apache-airflow>=2.9.0
 datasets
@@ -49,6 +50,7 @@ dagshub
 skops
 awscli
 dvc
+torch
 bentoml>=1.2.0
 apache-airflow>=2.9.0
 datasets
