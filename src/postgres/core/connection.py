@@ -41,7 +41,19 @@ def get_engine():
             engine_url = config.get_sqlalchemy_url()
             
             # Khởi tạo engine
-            _db_engine = create_engine(engine_url, pool_size=5, max_overflow=10)
+            _db_engine = create_engine(
+                engine_url, 
+                pool_size=5, 
+                max_overflow=10,
+                pool_timeout=30,
+                pool_recycle=1800,
+                connect_args={
+                    "options": (
+                        "-c idle_in_transaction_session_timeout=60000 " # 60 giây ngắt nếu giao dịch treo
+                        "-c statement_timeout=30000 "                   # 30 giây tối đa cho một truy vấn (tránh query nặng)
+                        "-c idle_session_timeout=300000"                # 5 phút ngắt kết nối rảnh rỗi
+            )
+                } 
             logger.info("Đã khởi tạo thành công SQLAlchemy Engine.")
         except Exception as e:
             logger.error(f"Lỗi khi khởi tạo SQLAlchemy Engine: {e}")
