@@ -16,7 +16,7 @@ class CaloriesDataIngestion(BasePostgresExtractor):
         self.dvc = DVCHandler()
         
         # Khởi tạo MLflow Tracker
-        self.tracker = MLOpsTracker(experiment_name="Calories_Prediction")
+        self.tracker = MLOpsTracker(experiment_name="calories_pred")
         
     def _read_schema(self) -> list:
         schema_file = self.config['schema']['json_schema_file']
