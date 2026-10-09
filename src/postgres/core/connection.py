@@ -21,7 +21,7 @@ def get_engine():
     if _db_engine is None:
         try:
             # Gọi trực tiếp hàm lấy URL chuẩn của SQLAlchemy
-            engine_url = config.DatabaseConfig.get_sqlalchemy_url()
+            engine_url = config.DatabaseConfig().get_sqlalchemy_url()
             
             # Khởi tạo engine
             _db_engine = create_engine(
