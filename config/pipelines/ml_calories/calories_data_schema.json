@@ -1,0 +1,67 @@
+{
+    "source_dataset": "calories",
+    "index": "User_ID",
+    "drop_columns": [
+        "User_ID"
+    ],
+    "columns": {
+        "User_ID": {
+            "yaml_type": "integer",
+            "postgresql_type": "BIGINT",
+            "nullable": false
+        },
+        "Gender": {
+            "yaml_type": "categorical",
+            "postgresql_type": "TEXT",
+            "nullable": false
+        },
+        "Age": {
+            "yaml_type": "integer",
+            "postgresql_type": "BIGINT",
+            "nullable": false
+        },
+        "Height": {
+            "yaml_type": "float",
+            "postgresql_type": "DOUBLE PRECISION",
+            "nullable": false
+        },
+        "Weight": {
+            "yaml_type": "float",
+            "postgresql_type": "DOUBLE PRECISION",
+            "nullable": false
+        },
+        "Duration": {
+            "yaml_type": "float",
+            "postgresql_type": "DOUBLE PRECISION",
+            "nullable": false
+        },
+        "Heart_Rate": {
+            "yaml_type": "float",
+            "postgresql_type": "DOUBLE PRECISION",
+            "nullable": false
+        },
+        "Body_Temp": {
+            "yaml_type": "float",
+            "postgresql_type": "DOUBLE PRECISION",
+            "nullable": false
+        },
+        "Calories": {
+            "yaml_type": "float",
+            "postgresql_type": "DOUBLE PRECISION",
+            "nullable": false
+        }
+    },
+    "numerical_columns": [
+        "User_ID",
+        "Age",
+        "Height",
+        "Weight",
+        "Duration",
+        "Heart_Rate",
+        "Body_Temp",
+        "Calories"
+    ],
+    "categorical_columns": [
+        "Gender"
+    ]
+}
