@@ -37,7 +37,7 @@ def include_name(name, type_, parent_names):
     Bỏ qua các schema hệ thống của PostgreSQL (pg_catalog, information_schema)
     """
     if type_ == "schema":
-        return name in [None, "public", "nutrition_ai"]
+        return name in [None, "public", "core", "raw", "staging"]
     return True
 
 def run_migrations_offline() -> None:
