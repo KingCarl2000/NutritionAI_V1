@@ -1,5 +1,7 @@
 README.md
 setup.py
+Alembic/__init__.py
+Alembic/env.py
 NutritionAI_V1.egg-info/PKG-INFO
 NutritionAI_V1.egg-info/SOURCES.txt
 NutritionAI_V1.egg-info/dependency_links.txt
@@ -61,6 +63,7 @@ src/postgres/feature_store/engine.py
 src/postgres/monitoring/__init__.py
 src/postgres/monitoring/query_analyzer.py
 src/scripts/__init__.py
+src/scripts/create_schema_pipelines.py
 src/scripts/create_tables.py
 src/scripts/eda_report.py
 src/scripts/generate_data_schema.py

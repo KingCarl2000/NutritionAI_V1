@@ -19,10 +19,10 @@ psycopg
 psycopg_pool
 psycopg2-binary
 
-# visualization
+# Visualization
 seaborn
 
-# datasets
+# Datasets & Profiling
 setuptools
 ydata-profiling>=4.6.0
-pynvml
+nvidia-ml-py

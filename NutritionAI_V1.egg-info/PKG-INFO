@@ -18,7 +18,7 @@ Requires-Dist: psycopg2-binary
 Requires-Dist: seaborn
 Requires-Dist: setuptools
 Requires-Dist: ydata-profiling>=4.6.0
-Requires-Dist: pynvml
+Requires-Dist: nvidia-ml-py
 Provides-Extra: ml
 Requires-Dist: pandas; extra == "ml"
 Requires-Dist: numpy; extra == "ml"

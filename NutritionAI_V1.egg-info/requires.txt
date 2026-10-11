@@ -13,7 +13,7 @@ psycopg2-binary
 seaborn
 setuptools
 ydata-profiling>=4.6.0
-pynvml
+nvidia-ml-py
 
 [all]
 pandas

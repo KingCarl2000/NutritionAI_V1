@@ -17,7 +17,7 @@ class CaloriesDataIngestion(BasePostgresExtractor):
         
         # Khởi tạo MLflow Tracker
         self.tracker = MLOpsTracker(experiment_name="calories_pred")
-        
+
     def _read_schema(self) -> list:
         schema_file = self.config['schema']['json_schema_file']
         logger.info(f"Đọc cấu hình JSON Schema từ: {schema_file}")
@@ -28,7 +28,7 @@ class CaloriesDataIngestion(BasePostgresExtractor):
         except FileNotFoundError:
             logger.warning(f"Không tìm thấy file {schema_file}, bỏ qua việc drop columns.")
             return []
-
+    
     @monitor_performance()
     def extract_data_from_postgresql(self) -> pd.DataFrame:
         schema_name = self.config['database']['schema_name']
@@ -77,6 +77,10 @@ class CaloriesDataIngestion(BasePostgresExtractor):
         if self.config['feature_store'].get('dvc_tracked', True):
             logger.info("Đang track dữ liệu qua DVC...")
             # self.dvc.add_data(base_dir)
+    
+    def extract(self) -> pd.DataFrame:
+        """Implement the abstract method required by BasePostgresExtractor."""
+        return self.extract_data_from_postgresql()
 
     def run(self):
         logger.info("Khởi động Calories Data Ingestion Pipeline")
@@ -108,7 +112,7 @@ class CaloriesDataIngestion(BasePostgresExtractor):
 
 if __name__ == "__main__":
     yaml_path = "config/pipelines/ml_calories/data_ingestion.yaml"
-    with open(yaml_path, "r") as f:
+    with open(yaml_path, "r", encoding="utf-8") as f:
         config = yaml.safe_load(f)
         
     pipeline = CaloriesDataIngestion(config)
