@@ -1,70 +1,73 @@
 import os
-import yaml
+import json
+import glob
 from sqlalchemy import Column, Integer, String, Float, BigInteger, Boolean
 from src.nutrition_core.database.session import Base
 
-# 1. Từ điển ánh xạ từ postgresql_type (trong YAML) sang SQLAlchemy Type
+# 1. Từ điển ánh xạ từ postgresql_type sang SQLAlchemy Type
 PG_TO_SA_TYPE = {
     'BIGINT': BigInteger,
     'DOUBLE PRECISION': Float,
     'TEXT': String,
     'INTEGER': Integer,
     'BOOLEAN': Boolean,
-    # Thêm các kiểu khác trong tương lai nếu YAML của bạn có (vd: JSONB, TIMESTAMP...)
+    # Thêm các kiểu khác nếu cần
 }
 
-# 2. Đường dẫn tới file YAML
-# Giả sử models.py nằm ở src/nutrition_core/database/
-# Ta lùi về thư mục gốc để trỏ tới docs/architecture/...
+# 2. Đường dẫn tới thư mục gốc và thư mục chứa pipelines config
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../"))
-YAML_PATH = os.path.join(BASE_DIR, "docs", "architecture", "tables_created_report.yaml")
+PIPELINES_CONFIG_DIR = os.path.join(BASE_DIR, "config", "pipelines")
 
-# 3. Hàm tự động sinh Models từ YAML
-def generate_models_from_yaml():
-    if not os.path.exists(YAML_PATH):
-        print(f"Cảnh báo: Không tìm thấy file YAML tại {YAML_PATH}")
+def generate_models_from_json():
+    if not os.path.exists(PIPELINES_CONFIG_DIR):
+        print(f"Cảnh báo: Không tìm thấy thư mục {PIPELINES_CONFIG_DIR}")
         return
 
-    with open(YAML_PATH, 'r', encoding='utf-8') as file:
-        yaml_data = yaml.safe_load(file)
+    # Quét tất cả các file .json nằm sâu trong các thư mục con của config/pipelines/
+    json_files = glob.glob(os.path.join(PIPELINES_CONFIG_DIR, "**", "*.json"), recursive=True)
 
-    # Lặp qua từng schema (vd: 'raw')
-    for schema_name, tables in yaml_data.items():
-        if not isinstance(tables, dict):
+    for json_path in json_files:
+        try:
+            with open(json_path, 'r', encoding='utf-8') as f:
+                config_data = json.load(f)
+        except json.JSONDecodeError:
+            print(f"Lỗi: Không thể đọc định dạng JSON từ file {json_path}")
+            continue
+
+        # Lấy tên bảng từ "source_dataset" (Nếu file không có key này -> không phải file schema -> bỏ qua)
+        table_name = config_data.get("source_dataset")
+        if not table_name:
             continue
             
-        # Lặp qua từng bảng trong schema (vd: 'calories')
-        for table_name, table_info in tables.items():
+        # Lấy cột sẽ làm khóa chính từ "index"
+        pk_column_name = config_data.get("index")
+        
+        # Mặc định schema là public, nếu JSON của bạn có config "schema": "raw" thì thay thế
+        schema_name = config_data.get("schema", "public")
+
+        class_attrs = {
+            '__tablename__': table_name,
+            '__table_args__': {'schema': "nutrition_ai"}
+        }
+
+        # Giả định cấu trúc mô tả cột nằm trong key 'columns'
+        columns = config_data.get("columns", {})
+        for col_name, col_props in columns.items():
+            pg_type = col_props.get('postgresql_type', 'TEXT').upper()
+            sa_type = PG_TO_SA_TYPE.get(pg_type, String)
+            is_nullable = col_props.get('nullable', True)
             
-            # Chuẩn bị thuộc tính cho Class
-            class_attrs = {
-                '__tablename__': table_name,
-                '__table_args__': {'schema': schema_name},
-                # Mặc định thêm cột id làm Primary Key cho mọi bảng
-                'id': Column(Integer, primary_key=True, autoincrement=True)
-            }
+            # Nếu tên cột trùng với khai báo trong tham số "index", ta biến nó thành Primary Key
+            is_pk = (col_name == pk_column_name)
 
-            # Lặp qua từng cột để tạo SQLAlchemy Column
-            columns = table_info.get('columns', {})
-            for col_name, col_props in columns.items():
-                # Lấy kiểu dữ liệu và map sang SQLAlchemy
-                pg_type = col_props.get('postgresql_type', 'TEXT').upper()
-                sa_type = PG_TO_SA_TYPE.get(pg_type, String) # Mặc định là String nếu không tìm thấy
-                
-                is_nullable = col_props.get('nullable', True)
-                
-                # Logic đánh Index: Ví dụ mặc định đánh index cho cột có chữ 'ID'
-                is_index = True if 'ID' in col_name.upper() else False
+            class_attrs[col_name] = Column(sa_type, primary_key=is_pk, nullable=is_nullable)
 
-                # Đưa cột vào thuộc tính của class
-                class_attrs[col_name] = Column(sa_type, nullable=is_nullable, index=is_index)
-
-            # Khởi tạo Class động (Tên class viết hoa chữ cái đầu: calories -> Calories)
-            class_name = ''.join(word.capitalize() for word in table_name.split('_'))
-            
-            # Hàm type() của Python dùng để tạo Class động và gán vào Base của SQLAlchemy
-            # Cú pháp: type(TênClass, (Các_Class_Kế_Thừa,), Các_Thuộc_Tính)
+        # Khởi tạo Class động (VD: 'calories' -> 'Calories')
+        class_name = ''.join(word.capitalize() for word in table_name.split('_'))
+        
+        # Ngăn ngừa việc tạo trùng class nếu nhiều JSON cùng trỏ về 1 bảng
+        if class_name not in Base.registry._class_registry:
             type(class_name, (Base,), class_attrs)
 
-# 4. Thực thi hàm khi file models.py được import
-generate_models_from_yaml()
+# 3. Thực thi hàm khi file models.py được import
+generate_models_from_json()
