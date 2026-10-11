@@ -40,18 +40,26 @@ def include_name(name, type_, parent_names):
         return name in [None, "public", "core", "staging"]
     return True
 
+# THÊM MỚI HÀM NÀY: Ngăn Alembic tự động xóa bảng trong schema 'raw'
+def include_object(object, name, type_, reflected, compare_to):
+    """
+    Lọc object: Nếu là table và nằm trong schema 'raw', bỏ qua hoàn toàn.
+    """
+    if type_ == "table" and object.schema == "raw":
+        return False
+    return True
+
 def run_migrations_offline() -> None:
     """Chạy migrations ở chế độ 'offline' (Sinh script SQL)."""
     app_logger.info("Chạy Alembic migrations ở chế độ OFFLINE")
     engine = get_engine()
-    
     context.configure(
         url=engine.url,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
         include_schemas=True,
-        transactional_ddl=True 
+        transactional_ddl=True
     )
 
     with context.begin_transaction():
@@ -68,10 +76,10 @@ def run_migrations_online() -> None:
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
-            
             # --- CẤU HÌNH TỐI ƯU CHO POSTGRESQL ---
             include_schemas=True,           # Hỗ trợ đa Schema
             include_name=include_name,      # Loại trừ schema hệ thống
+            include_object=include_object,  # <--- GỌI HÀM LỌC OBJECT Ở ĐÂY
             compare_type=True,              # Tracking kiểu dữ liệu Postgres (JSONB, ARRAY, ENUM...)
             compare_server_default=True,    # Tracking giá trị DEFAULT
             transactional_ddl=True,         # Gói DDL trong transaction (Tự động Rollback nếu lỗi)
