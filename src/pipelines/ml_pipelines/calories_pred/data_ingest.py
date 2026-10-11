@@ -17,39 +17,54 @@ class CaloriesDataIngestion(BasePostgresExtractor):
         
         # Khởi tạo MLflow Tracker
         self.tracker = MLOpsTracker(experiment_name="calories_pred")
+        
+        # Đọc file JSON schema ngay khi khởi tạo để đồng bộ 100% với Database Models
+        self.json_schema = self._load_json_schema()
 
-    def _read_schema(self) -> list:
+    def _load_json_schema(self) -> dict:
         schema_file = self.config['schema']['json_schema_file']
         logger.info(f"Đọc cấu hình JSON Schema từ: {schema_file}")
         try:
-            with open(schema_file, 'r') as f:
-                schema = json.load(f)
-            return schema.get('columns_to_drop', [])
+            with open(schema_file, 'r', encoding='utf-8') as f:
+                return json.load(f)
         except FileNotFoundError:
-            logger.warning(f"Không tìm thấy file {schema_file}, bỏ qua việc drop columns.")
-            return []
-    
+            logger.error(f"Không tìm thấy file {schema_file}.")
+            raise
+        except json.JSONDecodeError:
+            logger.error(f"Lỗi định dạng JSON trong file {schema_file}.")
+            raise
+
     @monitor_performance()
     def extract_data_from_postgresql(self) -> pd.DataFrame:
-        schema_name = self.config['database']['schema_name']
-        table_name = self.config['database']['table_name']
+        # Lấy schema và table_name TRỰC TIẾP từ JSON để khớp chính xác với models.py
+        schema_name = self.json_schema.get('schema', 'public')
+        table_name = self.json_schema.get('source_dataset')
         
+        if not table_name:
+            raise ValueError("JSON Schema thiếu trường 'source_dataset' (tên bảng).")
+
         logger.info(f"Bước 1: Trích xuất dữ liệu từ bảng PostgreSQL: {schema_name}.{table_name}")
         
         conn = self._get_connection()
         query = f"SELECT * FROM {schema_name}.{table_name}"
-        
         df = pd.read_sql(query, conn)
         conn.close()
         
-        df = self._convert_data_types(df)
+        # Nếu class base có hàm _convert_data_types, gọi nó ở đây
+        if hasattr(self, '_convert_data_types'):
+            df = self._convert_data_types(df)
+            
         return df
 
     @monitor_performance()
     def process_and_split_data(self, df: pd.DataFrame):
         logger.info("Bước 2 & 3: Lọc features và chia tách dữ liệu Train/Test/Validation")
-        cols_to_drop = self._read_schema()
-        df = df.drop(columns=[col for col in cols_to_drop if col in df.columns], errors='ignore')
+        
+        # Lấy danh sách cột cần loại bỏ (như 'User_ID') từ JSON Schema
+        cols_to_drop = self.json_schema.get('columns_to_drop', [])
+        if cols_to_drop:
+            logger.info(f"Tiến hành loại bỏ các cột: {cols_to_drop}")
+            df = df.drop(columns=[col for col in cols_to_drop if col in df.columns], errors='ignore')
 
         train_ratio = self.config['data_split']['train_ratio']
         test_ratio = self.config['data_split']['test_ratio']
@@ -77,16 +92,17 @@ class CaloriesDataIngestion(BasePostgresExtractor):
         if self.config['feature_store'].get('dvc_tracked', True):
             logger.info("Đang track dữ liệu qua DVC...")
             # self.dvc.add_data(base_dir)
-    
+
     def extract(self) -> pd.DataFrame:
         """Implement the abstract method required by BasePostgresExtractor."""
         return self.extract_data_from_postgresql()
 
     def run(self):
         logger.info("Khởi động Calories Data Ingestion Pipeline")
+        
         # Mở một run trên MLflow để tracking
         with self.tracker.start_run(run_name="data_ingestion"):
-            df = self.extract()  # Changed from extract_data_from_postgresql() to extract()
+            df = self.extract()
             full_df, train_df, val_df, test_df = self.process_and_split_data(df)
             self.export_to_feature_store(full_df, train_df, val_df, test_df)
             
@@ -105,7 +121,7 @@ class CaloriesDataIngestion(BasePostgresExtractor):
                     "test_rows": len(test_df)
                 }
             )
-            logger.info("Quá trình Ingestion hoàn tất và đã được ghi nhận trên MLflow.")
+        logger.info("Quá trình Ingestion hoàn tất và đã được ghi nhận trên MLflow.")
 
 if __name__ == "__main__":
     yaml_path = "config/pipelines/ml_calories/data_ingestion.yaml"
