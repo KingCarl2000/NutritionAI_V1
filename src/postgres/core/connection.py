@@ -32,6 +32,7 @@ def get_engine():
                 pool_recycle=1800,
                 connect_args={
                     "options": (
+                        "-c search_path=public "
                         "-c idle_in_transaction_session_timeout=60000 " # 60 giây ngắt nếu giao dịch treo
                         "-c statement_timeout=30000 "                   # 30 giây tối đa cho truy vấn
                         "-c idle_session_timeout=300000"                # 5 phút ngắt kết nối rảnh

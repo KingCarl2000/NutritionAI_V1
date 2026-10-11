@@ -1,6 +1,6 @@
 database:
-  schema_name: "nutrition_ai"
-  table_name: "calorie_logs"
+  schema_name: "raw"
+  table_name: "calories"
   # Không cần connection string/source nữa vì BasePostgresExtractor đã gọi get_connection() tự động
 
 feature_store:

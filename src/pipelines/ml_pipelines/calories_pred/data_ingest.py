@@ -36,12 +36,16 @@ class CaloriesDataIngestion(BasePostgresExtractor):
 
     @monitor_performance()
     def extract_data_from_postgresql(self) -> pd.DataFrame:
-        # Lấy schema và table_name TRỰC TIẾP từ JSON để khớp chính xác với models.py
-        schema_name = self.json_schema.get('schema', 'public')
-        table_name = self.json_schema.get('source_dataset')
+        # THAY ĐỔI: Đọc schema và table_name từ file cấu hình YAML thay vì JSON
+        schema_name = self.config['database'].get('schema_name', 'public')
+        table_name = self.config['database'].get('table_name')
         
         if not table_name:
-            raise ValueError("JSON Schema thiếu trường 'source_dataset' (tên bảng).")
+            # Lấy fallback từ json nếu yaml không có
+            table_name = self.json_schema.get('source_dataset')
+
+        if not table_name:
+            raise ValueError("Thiếu cấu hình tên bảng (table_name hoặc source_dataset).")
 
         logger.info(f"Bước 1: Trích xuất dữ liệu từ bảng PostgreSQL: {schema_name}.{table_name}")
         
