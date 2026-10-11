@@ -84,14 +84,12 @@ class CaloriesDataIngestion(BasePostgresExtractor):
 
     def run(self):
         logger.info("Khởi động Calories Data Ingestion Pipeline")
-        
         # Mở một run trên MLflow để tracking
         with self.tracker.start_run(run_name="data_ingestion"):
-            df = self.extract_data_from_postgresql()
+            df = self.extract()  # Changed from extract_data_from_postgresql() to extract()
             full_df, train_df, val_df, test_df = self.process_and_split_data(df)
             self.export_to_feature_store(full_df, train_df, val_df, test_df)
             
-            # Sử dụng log_params_and_metrics theo đúng định nghĩa trong MLOpsTracker
             self.tracker.log_params_and_metrics(
                 params={
                     "train_ratio": self.config['data_split']['train_ratio'],
@@ -107,8 +105,7 @@ class CaloriesDataIngestion(BasePostgresExtractor):
                     "test_rows": len(test_df)
                 }
             )
-            
-        logger.info("Quá trình Ingestion hoàn tất và đã được ghi nhận trên MLflow.")
+            logger.info("Quá trình Ingestion hoàn tất và đã được ghi nhận trên MLflow.")
 
 if __name__ == "__main__":
     yaml_path = "config/pipelines/ml_calories/data_ingestion.yaml"
