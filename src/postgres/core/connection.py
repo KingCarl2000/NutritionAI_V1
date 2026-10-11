@@ -47,3 +47,8 @@ def get_engine():
             raise e
             
     return _db_engine
+
+def get_connection():
+    """Tạo và trả về một kết nối đơn lẻ từ SQLAlchemy engine."""
+    engine = get_engine()
+    return engine.connect()
