@@ -1,0 +1,52 @@
+calories:
+  calories:
+    db_schema: raw
+    table_name: calories
+    columns:
+      User_ID:
+        type: integer
+        nullable: false
+        description: ''
+      Gender:
+        type: categorical
+        nullable: false
+        description: ''
+      Age:
+        type: integer
+        nullable: false
+        description: ''
+      Height:
+        type: float
+        nullable: false
+        description: ''
+      Weight:
+        type: float
+        nullable: false
+        description: ''
+      Duration:
+        type: float
+        nullable: false
+        description: ''
+      Heart_Rate:
+        type: float
+        nullable: false
+        description: ''
+      Body_Temp:
+        type: float
+        nullable: false
+        description: ''
+      Calories:
+        type: float
+        nullable: false
+        description: ''
+    numerical_columns:
+    - User_ID
+    - Age
+    - Height
+    - Weight
+    - Duration
+    - Heart_Rate
+    - Body_Temp
+    - Calories
+    categorical_columns:
+    - Gender
