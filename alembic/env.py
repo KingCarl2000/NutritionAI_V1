@@ -1,93 +1,138 @@
-# alembic/env.py
-import os
-import sys
 import logging
+from logging.config import fileConfig
+import re
+
+from sqlalchemy import engine_from_config
+from sqlalchemy import pool
+
 from alembic import context
 
-# 1. Thêm root project vào sys.path để import các module từ src/
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+USE_TWOPHASE = False
 
-# 2. Import Engine, Base, Models và Logger từ dự án
-from src.postgres.core.connection import get_engine
-from src.nutrition_core.database.session import Base
-import src.nutrition_core.database.models  # noqa (Bắt buộc import để Alembic đọc metadata)
-from src.nutrition_core.logging.logger import logger as app_logger
+# this is the Alembic Config object, which provides
+# access to the values within the .ini file in use.
+config = context.config
 
-# 3. Chuyển hướng Logging của Alembic & SQLAlchemy vào hệ thống Log của dự án
-alembic_logger = logging.getLogger("alembic")
-sqlalchemy_logger = logging.getLogger("sqlalchemy.engine")
+# Interpret the config file for Python logging.
+# This line sets up loggers basically.
+if config.config_file_name is not None:
+    fileConfig(config.config_file_name)
+logger = logging.getLogger("alembic.env")
 
-# Xóa các handler mặc định (nếu có) và gắn các handler từ logger dự án (oper, warm, error)
-alembic_logger.handlers.clear()
-sqlalchemy_logger.handlers.clear()
+# gather section names referring to different
+# databases.  These are named "engine1", "engine2"
+# in the sample .ini file.
+db_names = config.get_main_option("databases", "")
 
-for handler in app_logger.handlers:
-    alembic_logger.addHandler(handler)
-    sqlalchemy_logger.addHandler(handler)
+# add your model's MetaData objects here
+# for 'autogenerate' support.  These must be set
+# up to hold just those tables targeting a
+# particular database. table.tometadata() may be
+# helpful here in case a "copy" of
+# a MetaData is needed.
+# from myapp import mymodel
+# target_metadata = {
+#       'engine1':mymodel.metadata1,
+#       'engine2':mymodel.metadata2
+# }
+target_metadata = {}
 
-alembic_logger.setLevel(logging.INFO)
-sqlalchemy_logger.setLevel(logging.WARNING) # Đổi thành INFO nếu bạn muốn in cả câu lệnh SQL ra file log
+# other values from the config, defined by the needs of env.py,
+# can be acquired:
+# my_important_option = config.get_main_option("my_important_option")
+# ... etc.
 
-# 4. Gán target_metadata
-target_metadata = Base.metadata
-
-def include_name(name, type_, parent_names):
-    """
-    Lọc schema: Chỉ quét bảng trong schema 'public' hoặc 'nutrition_ai'
-    Bỏ qua các schema hệ thống của PostgreSQL (pg_catalog, information_schema)
-    """
-    if type_ == "schema":
-        return name in [None, "public", "core", "staging"]
-    return True
-
-# THÊM MỚI HÀM NÀY: Ngăn Alembic tự động xóa bảng trong schema 'raw'
-def include_object(object, name, type_, reflected, compare_to):
-    """
-    Lọc object: Nếu là table và nằm trong schema 'raw', bỏ qua hoàn toàn.
-    """
-    if type_ == "table" and object.schema == "raw":
-        return False
-    return True
 
 def run_migrations_offline() -> None:
-    """Chạy migrations ở chế độ 'offline' (Sinh script SQL)."""
-    app_logger.info("Chạy Alembic migrations ở chế độ OFFLINE")
-    engine = get_engine()
-    context.configure(
-        url=engine.url,
-        target_metadata=target_metadata,
-        literal_binds=True,
-        dialect_opts={"paramstyle": "named"},
-        include_schemas=True,
-        transactional_ddl=True
-    )
+    """Run migrations in 'offline' mode.
 
-    with context.begin_transaction():
-        context.run_migrations()
+    This configures the context with just a URL
+    and not an Engine, though an Engine is acceptable
+    here as well.  By skipping the Engine creation
+    we don't even need a DBAPI to be available.
+
+    Calls to context.execute() here emit the given string to the
+    script output.
+
+    """
+    # for the --sql use case, run migrations for each URL into
+    # individual files.
+
+    engines = {}
+    for name in re.split(r",\s*", db_names):
+        engines[name] = rec = {}
+        rec["url"] = context.config.get_section_option(name, "sqlalchemy.url")
+
+    for name, rec in engines.items():
+        logger.info("Migrating database %s" % name)
+        file_ = "%s.sql" % name
+        logger.info("Writing output to %s" % file_)
+        with open(file_, "w") as buffer:
+            context.configure(
+                url=rec["url"],
+                output_buffer=buffer,
+                target_metadata=target_metadata.get(name),
+                literal_binds=True,
+                dialect_opts={"paramstyle": "named"},
+            )
+            with context.begin_transaction():
+                context.run_migrations(engine_name=name)
+
 
 def run_migrations_online() -> None:
-    """Chạy migrations ở chế độ 'online' (Kết nối trực tiếp vào DB)."""
-    app_logger.info("Chạy Alembic migrations ở chế độ ONLINE")
-    
-    # Lấy engine đã được khởi tạo sẵn (Singleton) kèm pool cấu hình từ db_config.py
-    connectable = get_engine()
+    """Run migrations in 'online' mode.
 
-    with connectable.connect() as connection:
-        context.configure(
-            connection=connection,
-            target_metadata=target_metadata,
-            # --- CẤU HÌNH TỐI ƯU CHO POSTGRESQL ---
-            include_schemas=True,           # Hỗ trợ đa Schema
-            include_name=include_name,      # Loại trừ schema hệ thống
-            include_object=include_object,  # <--- GỌI HÀM LỌC OBJECT Ở ĐÂY
-            compare_type=True,              # Tracking kiểu dữ liệu Postgres (JSONB, ARRAY, ENUM...)
-            compare_server_default=True,    # Tracking giá trị DEFAULT
-            transactional_ddl=True,         # Gói DDL trong transaction (Tự động Rollback nếu lỗi)
-            dialect_name="postgresql"       # Ép kiểu dialect rõ ràng
+    In this scenario we need to create an Engine
+    and associate a connection with the context.
+
+    """
+
+    # for the direct-to-DB use case, start a transaction on all
+    # engines, then run all migrations, then commit all transactions.
+
+    engines = {}
+    for name in re.split(r",\s*", db_names):
+        engines[name] = rec = {}
+        rec["engine"] = engine_from_config(
+            context.config.get_section(name, {}),
+            prefix="sqlalchemy.",
+            poolclass=pool.NullPool,
         )
 
-        with context.begin_transaction():
-            context.run_migrations()
+    for name, rec in engines.items():
+        engine = rec["engine"]
+        rec["connection"] = conn = engine.connect()
+
+        if USE_TWOPHASE:
+            rec["transaction"] = conn.begin_twophase()
+        else:
+            rec["transaction"] = conn.begin()
+
+    try:
+        for name, rec in engines.items():
+            logger.info("Migrating database %s" % name)
+            context.configure(
+                connection=rec["connection"],
+                upgrade_token="%s_upgrades" % name,
+                downgrade_token="%s_downgrades" % name,
+                target_metadata=target_metadata.get(name),
+            )
+            context.run_migrations(engine_name=name)
+
+        if USE_TWOPHASE:
+            for rec in engines.values():
+                rec["transaction"].prepare()
+
+        for rec in engines.values():
+            rec["transaction"].commit()
+    except:
+        for rec in engines.values():
+            rec["transaction"].rollback()
+        raise
+    finally:
+        for rec in engines.values():
+            rec["connection"].close()
+
 
 if context.is_offline_mode():
     run_migrations_offline()
