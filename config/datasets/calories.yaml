@@ -2,6 +2,8 @@ calories:
   calories:
     db_schema: raw
     table_name: calories
+    # Bổ sung đường dẫn file external source tại đây
+    source_path: "D:/NutritionAI_V1/Data/raw/calories.csv" 
     columns:
       User_ID:
         type: integer
