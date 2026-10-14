@@ -1,6 +1,5 @@
 <%!
 import re
-
 %>"""${message}
 
 Revision ID: ${up_revision}
@@ -14,38 +13,20 @@ from alembic import op
 import sqlalchemy as sa
 ${imports if imports else ""}
 
+# Import thêm các thư viện đặc thù của project
+import pgvector.sqlalchemy  # Nếu model có sử dụng Vector column
+from src.nutrition_core.logging.logger import logger
+
 # revision identifiers, used by Alembic.
 revision: str = ${repr(up_revision)}
 down_revision: Union[str, Sequence[str], None] = ${repr(down_revision)}
 branch_labels: Union[str, Sequence[str], None] = ${repr(branch_labels)}
 depends_on: Union[str, Sequence[str], None] = ${repr(depends_on)}
 
+def upgrade() -> None:
+    logger.info("Running upgrade for revision: %s", revision)
+    ${upgrades if upgrades else "pass"}
 
-def upgrade(engine_name: str) -> None:
-    """Upgrade schema."""
-    globals()["upgrade_%s" % engine_name]()
-
-
-def downgrade(engine_name: str) -> None:
-    """Downgrade schema."""
-    globals()["downgrade_%s" % engine_name]()
-
-<%
-    db_names = config.get_main_option("databases")
-%>
-
-## generate an "upgrade_<xyz>() / downgrade_<xyz>()" function
-## for each database name in the ini file.
-
-% for db_name in re.split(r',\s*', db_names):
-
-def upgrade_${db_name}() -> None:
-    """Upgrade ${db_name} schema."""
-    ${context.get("%s_upgrades" % db_name, "pass")}
-
-
-def downgrade_${db_name}() -> None:
-    """Downgrade ${db_name} schema."""
-    ${context.get("%s_downgrades" % db_name, "pass")}
-
-% endfor
+def downgrade() -> None:
+    logger.info("Running downgrade for revision: %s", revision)
+    ${downgrades if downgrades else "pass"}
