@@ -1,77 +1,87 @@
-import os
-import json
-import glob
-from sqlalchemy import Column, Integer, String, Float, BigInteger, Boolean
+from pathlib import Path
+from typing import Type, Dict, Any
+import yaml
+from sqlalchemy import Column, Integer, String, Float, Boolean, Date, DateTime
 from src.nutrition_core.database.session import Base
 from src.nutrition_core.logging.logger import logger
 
-# 1. Từ điển ánh xạ từ postgresql_type sang SQLAlchemy Type
-PG_TO_SA_TYPE = {
-    'BIGINT': BigInteger,
-    'DOUBLE PRECISION': Float,
-    'TEXT': String,
-    'INTEGER': Integer,
-    'BOOLEAN': Boolean,
-    # Có thể mở rộng thêm các kiểu dữ liệu khác như JSON, TIMESTAMP nếu cần
+# Xác định thư mục cấu hình config/datasets/
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+CONFIG_DIR = PROJECT_ROOT / "config" / "datasets"
+
+# Ánh xạ kiểu dữ liệu từ YAML sang SQLAlchemy Types
+TYPE_MAPPING = {
+    "integer": Integer,
+    "string": String,
+    "float": Float,
+    "boolean": Boolean,
+    "date": Date,
+    "datetime": DateTime,
 }
 
-# 2. Đường dẫn tới thư mục gốc và thư mục chứa pipelines config
-BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../"))
-PIPELINES_CONFIG_DIR = os.path.join(BASE_DIR, "config", "pipelines")
+def build_model_from_yaml(yaml_filename: str) -> Type[Base]:
+    """
+    Đọc tệp YAML được chỉ định thủ công và tự động đăng ký Model động vào Base.metadata.
+    
+    Args:
+        yaml_filename (str): Tên file hoặc đường dẫn tương đối trong config/datasets/ (ví dụ: 'calories.yaml')
+    Returns:
+        Type[Base]: Đối tượng SQLAlchemy Model Class được tạo động.
+    """
+    file_path = CONFIG_DIR / yaml_filename if not Path(yaml_filename).is_absolute() else Path(yaml_filename)
+    if not file_path.suffix:
+        file_path = file_path.with_suffix(".yaml")
 
-def generate_models_from_json():
-    if not os.path.exists(PIPELINES_CONFIG_DIR):
-        logger.warning(f"Không tìm thấy thư mục cấu hình pipelines tại {PIPELINES_CONFIG_DIR}")
-        return
+    if not file_path.exists():
+        logger.error(f"Không tìm thấy file cấu hình dataset: {file_path}")
+        raise FileNotFoundError(f"Missing configuration file: {file_path}")
 
-    # Quét tất cả các file .json nằm sâu trong các thư mục con của config/pipelines/
-    json_files = glob.glob(os.path.join(PIPELINES_CONFIG_DIR, "**", "*.json"), recursive=True)
+    with open(file_path, "r", encoding="utf-8") as f:
+        config = yaml.safe_load(f)
 
-    for json_path in json_files:
-        try:
-            with open(json_path, 'r', encoding='utf-8') as f:
-                config_data = json.load(f)
-        except json.JSONDecodeError:
-            logger.error(f"Không thể đọc định dạng JSON từ file: {json_path}")
-            continue
+    table_name = config.get("table_name", file_path.stem)
+    schema_name = config.get("db_schema", config.get("schema", "raw"))
+    columns_info = config.get("columns", {})
 
-        # Lấy tên bảng từ "source_dataset". 
-        # Nếu file JSON không có trường này, ta bỏ qua (vì có thể là file config khác, không phải schema)
-        table_name = config_data.get("source_dataset")
-        if not table_name:
-            continue
-            
-        # Lấy tên cột sẽ làm khóa chính từ tham số "index"
-        pk_column_name = config_data.get("index")
+    # Đặt tên Class Python (ví dụ: calories -> CaloriesRaw)
+    class_name = f"{table_name.capitalize()}Raw"
+
+    attrs: Dict[str, Any] = {
+        "__tablename__": table_name,
+        "__table_args__": {"schema": schema_name},
+        "__module__": __name__,
+    }
+
+    # Sinh các thuộc tính Column dựa trên cấu hình YAML
+    has_pk = False
+    for col_name, col_type_str in columns_info.items():
+        sa_type = TYPE_MAPPING.get(str(col_type_str).lower(), String)
         
-        # Đọc tên schema, mặc định đưa vào 'public' nếu không được cấu hình
-        schema_name = config_data.get("schema", "public")
+        # Nhận diện khóa chính (Primary Key) cho User_ID hoặc ID
+        if col_name.lower() in ("user_id", "id") and not has_pk:
+            attrs[col_name] = Column(sa_type, primary_key=True, index=True)
+            has_pk = True
+        else:
+            attrs[col_name] = Column(sa_type, nullable=True)
 
-        class_attrs = {
-            '__tablename__': table_name,
-            '__table_args__': {'schema': schema_name}
-        }
+    # Fallback khóa chính nếu file YAML không có cột ID rõ ràng
+    if not has_pk:
+        attrs["id"] = Column(Integer, primary_key=True, autoincrement=True)
 
-        # Khởi tạo các cột cho bảng
-        columns = config_data.get("columns", {})
-        for col_name, col_props in columns.items():
-            pg_type = col_props.get('postgresql_type', 'TEXT').upper()
-            sa_type = PG_TO_SA_TYPE.get(pg_type, String)
-            is_nullable = col_props.get('nullable', True)
-            
-            # Cột nào trùng với tham số "index" sẽ trở thành Primary Key
-            is_pk = (col_name == pk_column_name)
+    # Khởi tạo class động kế thừa từ Base (Tự động đưa vào Base.metadata cho Alembic)
+    model_class = type(class_name, (Base,), attrs)
+    logger.info(f"Đã đăng ký thành công Model động '{class_name}' cho schema '{schema_name}.{table_name}'")
+    return model_class
 
-            # Tạo Column thuần túy không đánh index bừa bãi
-            class_attrs[col_name] = Column(sa_type, primary_key=is_pk, nullable=is_nullable)
 
-        # Khởi tạo Class động (VD: 'calories' -> 'Calories')
-        class_name = ''.join(word.capitalize() for word in table_name.split('_'))
-        
-        # Tránh việc tạo trùng lặp class nếu SQLAlchemy đã đăng ký trước đó
-        if class_name not in Base.registry._class_registry:
-            type(class_name, (Base,), class_attrs)
-            logger.info(f"Đã load model '{class_name}' cho bảng '{schema_name}.{table_name}' từ {os.path.basename(json_path)}")
+# ==========================================
+# MODULE 1: NUTRITION & DIET CORE MODELS
+# ==========================================
+# Mở rộng trong tương lai cho các bảng domain dinh dưỡng cố định (Ingredients, Recipes, DietLogs)
 
-# 3. Thực thi hàm khi file models.py được import
-generate_models_from_json()
+
+# ==========================================
+# MODULE 2: PIPELINE DATASETS (Chỉ định thủ công)
+# ==========================================
+# Giai đoạn hiện tại: Chỉ nạp và quản lý schema cho calories.yaml
+CaloriesRaw = build_model_from_yaml("calories.yaml")
