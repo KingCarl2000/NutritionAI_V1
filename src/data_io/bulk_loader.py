@@ -1,5 +1,8 @@
-from typing import Literal
+import os
+import time
+from typing import Any, Literal, cast
 from sqlalchemy import text
+import mlflow
 
 # Import custom logger
 from src.nutrition_core.logging.logger import logger, monitor_performance
@@ -7,75 +10,92 @@ from src.postgres.core.connection import get_connection
 
 class PostgresBulkLoader:
     def __init__(self, connection=None):
-        """
-        Nhận connection trực tiếp từ ConnectionPool thay vì tự kết nối.
-        """
+        """ Nhận connection trực tiếp từ ConnectionPool thay vì tự kết nối. """
         self.conn = connection
 
     # Áp dụng decorator giám sát hiệu năng (Cảnh báo nếu ETL chạy quá 10 giây)
     @monitor_performance(time_limit=10.0)
-    def execute_bulk_load(self, table_name: str, file_path_on_server: str,
-                          temp_maintenance_work_mem='2GB',
-                          format: Literal["csv", "text", "binary"] = "csv",
-                          delimiter: str = ',', header: bool = True):
-        r"""
-        Thực hiện quá trình ETL nạp dữ liệu lớn tối ưu hiệu năng.
-        Sử dụng cú pháp chuẩn SQLAlchemy.
+    def execute_bulk_load(
+        self, 
+        table_name: str, 
+        file_path_on_server: str,
+        schema_name: str = "raw",  # [Cập nhật 1] Hỗ trợ khai báo schema rõ ràng, mặc định đưa vào 'raw'
+        delimiter: str = ",",
+        format_type: Literal["CSV", "TEXT"] = "CSV",
+        has_header: bool = True
+    ):
         """
-        with get_connection() as conn:
+        Nạp dữ liệu từ file vào PostgreSQL bằng lệnh COPY.
+        Quản lý Transaction (Commit/Rollback) và MLflow Tracking.
+        """
+        # Sử dụng connection sẵn có hoặc lấy một cái mới từ pool
+        connection = self.conn if self.conn else get_connection()
+        
+        # Tiền xử lý các thông số tracking
+        start_time = time.time()
+        file_size_bytes = os.path.getsize(file_path_on_server) if os.path.exists(file_path_on_server) else 0
+        row_count = 0
+
+        # Chuẩn bị query COPY
+        header_sql = "HEADER" if has_header and format_type == "CSV" else ""
+        full_table_name = f'"{schema_name}"."{table_name}"'
+        
+        copy_sql = f"""
+            COPY {full_table_name}
+            FROM '{file_path_on_server}'
+            WITH (FORMAT {format_type}, DELIMITER '{delimiter}', {header_sql});
+        """
+        
+        logger.info(f"Bắt đầu nạp dữ liệu từ [{file_path_on_server}] vào bảng [{full_table_name}]...")
+
+        try:
+            # Lấy Raw DBAPI connection từ SQLAlchemy Connection để dùng .cursor()
+            # Tránh lỗi Pylance: Cannot access attribute "cursor"
+            raw_conn = cast(
+                Any,
+                connection.connection if hasattr(connection, "connection") else connection,
+            )
+            
+            # Khởi tạo cursor từ raw connection
+            cur = raw_conn.cursor()
             try:
-                logger.info(f"Bắt đầu quá trình Bulk Load cho bảng '{table_name}' từ file '{file_path_on_server}'...")
+                cur.execute(copy_sql)
+                row_count = cur.rowcount
+            finally:
+                cur.close()
+            
+            # Thực hiện commit
+            if hasattr(connection, "commit"):
+                connection.commit() # Dành cho SQLAlchemy Connection
+            else:
+                raw_conn.commit()   # Dành cho psycopg DBAPI raw connection
 
-                # 5. Tăng các tham số bộ nhớ đệm của Server (Session level)
-                logger.info(f"Tăng maintenance_work_mem lên {temp_maintenance_work_mem}")
-                conn.execute(text(f"SET maintenance_work_mem = '{temp_maintenance_work_mem}';"))
+            execution_time = time.time() - start_time
+            logger.info(f"Thành công! Đã nạp {row_count} dòng vào {full_table_name} trong {execution_time:.2f} giây.")
 
-                # 3 & 4. Tạm thời gỡ bỏ các chỉ mục (Indexes) và khóa ngoại (Foreign Keys)
-                logger.info("Tạm thời gỡ bỏ các ràng buộc khóa ngoại và chỉ mục (Cần implement chi tiết DDL)...")
-                self._drop_indexes_and_fks(conn, table_name)
+            # [MLflow Tracking]
+            if mlflow.active_run():
+                mlflow.log_param(f"{table_name}_source_path", file_path_on_server)
+                mlflow.log_param(f"{table_name}_target_schema", schema_name)
+                mlflow.log_metric(f"{table_name}_loaded_rows", row_count)
+                mlflow.log_metric(f"{table_name}_file_size_bytes", file_size_bytes)
+                mlflow.log_metric(f"{table_name}_etl_duration_sec", execution_time)
+            else:
+                logger.debug("Không tìm thấy MLflow Active Run để log metrics ETL.")
 
-                # 2. Sử dụng lệnh COPY trực tiếp trên server
-                logger.info("Thực thi lệnh COPY trực tiếp từ server file...")
-                
-                # Xử lý an toàn tên bảng / schema
-                if "." in table_name:
-                    schema_part, table_part = table_name.split(".", 1)
-                    safe_table = f'"{schema_part}"."{table_part}"'
-                else:
-                    safe_table = f'"{table_name}"'
+            return True
 
-                header_str = "TRUE" if header else "FALSE"
-                
-                # Cấu trúc câu lệnh COPY chuẩn
-                copy_query = f"""
-                    COPY {safe_table} 
-                    FROM '{file_path_on_server}' 
-                    WITH (FORMAT {format.upper()}, DELIMITER '{delimiter}', HEADER {header_str});
-                """
-                
-                # SQLAlchemy execute trả về CursorResult, hỗ trợ thuộc tính rowcount
-                result = conn.execute(text(copy_query))
-                logger.info(f"Đã COPY thành công. Số dòng bị ảnh hưởng: {result.rowcount}")
-
-                # 3 & 4. Xây dựng lại chỉ mục và khóa ngoại sau khi nạp (Rebuild)
-                logger.info("Tái thiết lập các ràng buộc khóa ngoại và xây dựng lại chỉ mục...")
-                self._recreate_indexes_and_fks(conn, table_name)
-
-                # Commit giao dịch
-                conn.commit()
-                logger.info("Transaction COMMIT thành công.")
-                
-            except Exception as e:
-                conn.rollback()
-                logger.error(f"Lỗi trong quá trình nạp dữ liệu. Đã ROLLBACK toàn bộ transaction. Lỗi: {e}")
-                raise e
-
-        # 7. Chạy ANALYZE sau khi block with ở trên đã giải phóng xong transaction nạp dữ liệu
-        self._run_analyze(table_name)
-
-    def _drop_indexes_and_fks(self, conn, table_name):
-        """Hàm helper: Xóa bỏ chỉ mục và khóa ngoại. Lưu ý: Tham số giờ là conn thay vì cursor."""
-        pass
+        except Exception as e:
+            logger.error(f"Lỗi nạp dữ liệu ETL vào bảng {full_table_name}. Đang Rollback... Lỗi: {str(e)}")
+            if hasattr(connection, "rollback"):
+                connection.rollback()
+            elif 'raw_conn' in locals() and hasattr(raw_conn, "rollback"):
+                raw_conn.rollback()
+            raise e
+        finally:
+            # Trả connection lại pool nếu class này tự mở
+            if not self.conn and hasattr(connection, "close"):
+                connection.close()
 
     def _recreate_indexes_and_fks(self, conn, table_name):
         """Hàm helper: Tạo lại chỉ mục và khóa ngoại. Lưu ý: Tham số giờ là conn thay vì cursor."""
@@ -83,18 +103,27 @@ class PostgresBulkLoader:
 
     # Áp dụng giám sát hiệu năng cho quá trình Analyze (Cảnh báo nếu chạy quá 5 giây)
     @monitor_performance(time_limit=5.0)
-    def _run_analyze(self, table_name):
+    def _run_analyze(self, table_name: str):
         """Chạy ANALYZE cập nhật số liệu thống kê cho planner."""
         logger.info(f"Tiến hành ANALYZE cho bảng {table_name}...")
         
+        # Xử lý format schema cho an toàn
         if "." in table_name:
             schema_part, table_part = table_name.split(".", 1)
             safe_table = f'"{schema_part}"."{table_part}"'
         else:
-            safe_table = f'"{table_name}"'
+            safe_table = f'"raw"."{table_name}"' # Mặc định rơi vào raw
 
         with get_connection() as conn:
-            conn.execute(text(f"ANALYZE {safe_table};"))
-            conn.commit()
-            
-        logger.info(f"Hoàn thành ANALYZE bảng {table_name}.")
+            # [Cập nhật 3] Transaction handling cho ANALYZE
+            try:
+                # ANALYZE không chạy được bên trong transaction block ở một số phiên bản Postgres, 
+                # do đó cần set isolation_level = AUTOCOMMIT với raw connection hoặc chạy độc lập
+                if hasattr(conn, "execution_options"):
+                    conn = conn.execution_options(isolation_level="AUTOCOMMIT")
+                conn.execute(text(f"ANALYZE {safe_table};"))
+                if hasattr(conn, "commit"):
+                    conn.commit()
+                logger.info(f"Hoàn thành ANALYZE bảng {safe_table}.")
+            except Exception as e:
+                logger.warning(f"Lỗi khi ANALYZE bảng {safe_table}: {str(e)}")
