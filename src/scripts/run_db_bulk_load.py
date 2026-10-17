@@ -11,82 +11,73 @@ if str(PROJECT_ROOT) not in sys.path:
 from src.nutrition_core.logging.logger import logger
 from src.data_io.bulk_loader import PostgresBulkLoader
 
-def main():
-    logger.info("🚀 Khởi động tiến trình Bulk Load (Đọc từ tables_created_report.yaml)...")
-    
-    # 1. Đọc báo cáo danh sách bảng đã tạo thay vì schema.yaml
-    REPORT_PATH = PROJECT_ROOT / "docs" / "architecture" / "tables_created_report.yaml"
-    if not REPORT_PATH.exists():
-        logger.error(f"❌ Không tìm thấy file báo cáo tại: {REPORT_PATH}")
-        logger.error("Vui lòng chạy script 'create_tables.py' trước để sinh file báo cáo này!")
-        return
-        
-    with open(REPORT_PATH, 'r', encoding='utf-8') as f:
-        created_report = yaml.safe_load(f)
+def main(config_rel_path: str):
+    logger.info(f"🚀 Khởi động tiến trình Bulk Load từ cấu hình: {config_rel_path}")
 
-    if not created_report:
-        logger.warning("⚠️ File báo cáo tables_created_report.yaml đang trống.")
+    # 1. Xác định đường dẫn file config
+    config_path = PROJECT_ROOT / config_rel_path
+    
+    if not config_path.exists():
+        logger.error(f"❌ Không tìm thấy file config tại: {config_path}")
+        return
+
+    # 2. Đọc file config dataset
+    with open(config_path, 'r', encoding='utf-8') as f:
+        dataset_config = yaml.safe_load(f)
+
+    if not dataset_config:
+        logger.warning(f"⚠️ File config {config_rel_path} đang trống.")
         return
 
     loader = PostgresBulkLoader(connection=None)
-    data_raw_dir = PROJECT_ROOT / "Data" / "raw"
 
-    # 2. Duyệt qua từng schema và các bảng thực tế từ báo cáo
-    for schema_name, tables in created_report.items():
-        logger.info(f"\n📂 Đang xử lý schema: '{schema_name}'")
+    # 3. Duyệt qua các dataset được khai báo trong file YAML (hỗ trợ đọc linh hoạt calories, recipes...)
+    for dataset_key, dataset_info in dataset_config.items():
+        logger.info(f"\n📂 Đang xử lý dataset định tuyến: '{dataset_key}'")
         
-        for final_table_name, table_meta in tables.items():
-            source_dataset = table_meta.get("source_dataset")
-            
-            if not source_dataset:
-                logger.warning(f"  ⚠️ Bảng '{final_table_name}' thiếu thông tin source_dataset. Bỏ qua.")
-                continue
+        # Tự động lấy các tham số thiết lập từ YAML
+        table_name = dataset_info.get("table_name", dataset_key)
+        schema_name = dataset_info.get("db_schema", "raw")
+        source_path_str = dataset_info.get("source_path")
 
-            # Xác định tên file CSV gốc trên ổ cứng
-            target_dir = data_raw_dir / source_dataset
-            csv_file_path = None
-            
-            # Hàm check xem file CSV có khớp với tên bảng gốc không
-            def is_matching_csv(file_path):
-                base_name = file_path.stem
-                return final_table_name.endswith(base_name) or final_table_name == base_name
+        if not source_path_str:
+            logger.warning(f"  ⚠️ Dataset '{dataset_key}' thiếu thông tin 'source_path'. Bỏ qua.")
+            continue
 
-            # Ưu tiên 1: Tìm trong thư mục dataset cụ thể (Data/raw/source_dataset)
-            if target_dir.exists() and target_dir.is_dir():
-                # Dùng rglob để quét cả thư mục con nếu có
-                for csv_file in target_dir.rglob("*.csv"):
-                    if is_matching_csv(csv_file):
-                        csv_file_path = csv_file
-                        break
-            
-            # Ưu tiên 2: Nếu chưa tìm thấy, quét đệ quy toàn bộ thư mục Data/raw
-            # Xử lý trường hợp file vứt ngay bên ngoài Data/raw hoặc ở thư mục khác
-            if not csv_file_path:
-                if data_raw_dir.exists() and data_raw_dir.is_dir():
-                    for csv_file in data_raw_dir.rglob("*.csv"):
-                        if is_matching_csv(csv_file):
-                            csv_file_path = csv_file
-                            break
+        # Xử lý đường dẫn linh hoạt (hỗ trợ cả đường dẫn tuyệt đối như 'D:/...' hoặc tương đối)
+        csv_file_path = Path(source_path_str)
+        if not csv_file_path.is_absolute():
+            csv_file_path = PROJECT_ROOT / csv_file_path
 
-            if not csv_file_path or not csv_file_path.exists():
-                logger.warning(f"  ⚠️ Bỏ qua bảng '{final_table_name}': Không tìm thấy file CSV tương ứng trong '{data_raw_dir}'")
-                continue
+        if not csv_file_path.exists():
+            logger.warning(f"  ⚠️ Không tìm thấy file dữ liệu tại: {csv_file_path}")
+            continue
 
-            target_table = f"{schema_name}.{final_table_name}"
-            logger.info(f"  -> Đang nạp file '{csv_file_path.name}' vào bảng '{target_table}'...")
-            
-            try:
-                loader.execute_bulk_load(
-                    table_name=target_table,
-                    file_path_on_server=str(csv_file_path),
-                    delimiter=",",
-                    header=True
-                )
-                logger.info(f"  ✅ Thành công: '{target_table}'")
-            except Exception as e:
-                logger.error(f"  ❌ Lỗi khi nạp '{target_table}': {e}")
+        target_table = f"{schema_name}.{table_name}"
+        logger.info(f"  -> Đang nạp file '{csv_file_path.name}' vào '{target_table}'...")
 
-    logger.info("\n🎉 Đã hoàn tất toàn bộ tiến trình Bulk Load!")
+        try:
+            # Gọi hàm execute_bulk_load từ class PostgresBulkLoader
+            loader.execute_bulk_load(
+                table_name=table_name,
+                file_path_on_server=str(csv_file_path),
+                schema_name=schema_name,
+                delimiter=",",
+                format_type="CSV",
+                has_header=True
+            )
+            logger.info(f"  ✅ Thành công nạp dữ liệu vào {target_table}!")
+        except Exception as e:
+            logger.error(f"  ❌ Quá trình Bulk Load thất bại cho {target_table}: {e}")
 
 if __name__ == "__main__":
-    main()
+    # Danh sách các file cấu hình dataset cần nạp.
+    # Dễ dàng mở rộng cho các dataset khác bằng cách truyền thêm đường dẫn vào danh sách này.
+    config_files = [
+        "config/datasets/calories.yaml",
+        # "config/datasets/recipes.yaml",  <-- Mở comment và thêm file cấu hình mới tại đây
+        # "config/datasets/users.yaml"
+    ]
+    
+    for cfg in config_files:
+        main(cfg)

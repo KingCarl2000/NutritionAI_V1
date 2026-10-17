@@ -21,58 +21,66 @@ TYPE_MAPPING = {
 
 def build_model_from_yaml(yaml_filename: str) -> Type[Base]:
     """
-    Đọc tệp YAML được chỉ định thủ công và tự động đăng ký Model động vào Base.metadata.
-    
-    Args:
-        yaml_filename (str): Tên file hoặc đường dẫn tương đối trong config/datasets/ (ví dụ: 'calories.yaml')
-    Returns:
-        Type[Base]: Đối tượng SQLAlchemy Model Class được tạo động.
+    Đọc tệp YAML và tự động đăng ký Model động vào Base.metadata.
+    Đã hỗ trợ xử lý nested dictionary (có root key) và các thuộc tính cột.
     """
     file_path = CONFIG_DIR / yaml_filename if not Path(yaml_filename).is_absolute() else Path(yaml_filename)
+    
     if not file_path.suffix:
         file_path = file_path.with_suffix(".yaml")
-
     if not file_path.exists():
         logger.error(f"Không tìm thấy file cấu hình dataset: {file_path}")
         raise FileNotFoundError(f"Missing configuration file: {file_path}")
 
     with open(file_path, "r", encoding="utf-8") as f:
-        config = yaml.safe_load(f)
+        raw_config = yaml.safe_load(f)
 
-    table_name = config.get("table_name", file_path.stem)
-    schema_name = config.get("db_schema", config.get("schema", "raw"))
+    # 1. FIX LỖI ROOT KEY: Nếu YAML có bọc trong root key (vd: 'calories': {...})
+    dataset_key = list(raw_config.keys())[0]
+    config = raw_config[dataset_key] if isinstance(raw_config.get(dataset_key), dict) else raw_config
+
+    table_name = config.get("table_name", dataset_key)
+    schema_name = config.get("db_schema", "raw")
     columns_info = config.get("columns", {})
 
-    # Đặt tên Class Python (ví dụ: calories -> CaloriesRaw)
     class_name = f"{table_name.capitalize()}Raw"
-
     attrs: Dict[str, Any] = {
         "__tablename__": table_name,
         "__table_args__": {"schema": schema_name},
         "__module__": __name__,
     }
 
-    # Sinh các thuộc tính Column dựa trên cấu hình YAML
     has_pk = False
-    for col_name, col_type_str in columns_info.items():
-        sa_type = TYPE_MAPPING.get(str(col_type_str).lower(), String)
-        
-        # Nhận diện khóa chính (Primary Key) cho User_ID hoặc ID
+    
+    # 2. FIX LỖI COLUMN DICT: Xử lý cột chứa các thuộc tính {type, nullable...}
+    for col_name, col_attrs in columns_info.items():
+        # Xử lý tương thích ngược: nếu YAML khai báo kiểu string đơn thuần thay vì dict
+        if isinstance(col_attrs, dict):
+            col_type_str = col_attrs.get("type", "string").lower()
+            is_nullable = col_attrs.get("nullable", True)
+        else:
+            col_type_str = str(col_attrs).lower()
+            is_nullable = True
+            
+        # Ánh xạ kiểu categorical sang String cho SQLAlchemy
+        if col_type_str == "categorical":
+            col_type_str = "string"
+
+        sa_type = TYPE_MAPPING.get(col_type_str, String)
+
+        # Nhận diện khóa chính
         if col_name.lower() in ("user_id", "id") and not has_pk:
             attrs[col_name] = Column(sa_type, primary_key=True, index=True)
             has_pk = True
         else:
-            attrs[col_name] = Column(sa_type, nullable=True)
+            attrs[col_name] = Column(sa_type, nullable=is_nullable)
 
-    # Fallback khóa chính nếu file YAML không có cột ID rõ ràng
     if not has_pk:
         attrs["id"] = Column(Integer, primary_key=True, autoincrement=True)
 
-    # Khởi tạo class động kế thừa từ Base (Tự động đưa vào Base.metadata cho Alembic)
     model_class = type(class_name, (Base,), attrs)
     logger.info(f"Đã đăng ký thành công Model động '{class_name}' cho schema '{schema_name}.{table_name}'")
     return model_class
-
 
 # ==========================================
 # MODULE 1: NUTRITION & DIET CORE MODELS

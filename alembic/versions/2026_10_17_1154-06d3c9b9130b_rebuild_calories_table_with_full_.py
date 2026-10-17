@@ -1,8 +1,8 @@
-"""Add tables for users and orders
+"""Rebuild calories table with full columns from yaml
 
-Revision ID: 68bab6c266bf
+Revision ID: 06d3c9b9130b
 Revises: 
-Create Date: 2026-10-14 21:42:26.656594
+Create Date: 2026-10-17 11:54:25.082438
 
 """
 from typing import Sequence, Union
@@ -16,7 +16,7 @@ import pgvector.sqlalchemy  # Nếu model có sử dụng Vector column
 from src.nutrition_core.logging.logger import logger
 
 # revision identifiers, used by Alembic.
-revision: str = '68bab6c266bf'
+revision: str = '06d3c9b9130b'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
