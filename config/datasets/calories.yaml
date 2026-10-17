@@ -1,47 +1,46 @@
 calories:
-  calories:
-    db_schema: raw
-    table_name: calories
-    # Bổ sung đường dẫn file external source tại đây
-    source_path: "D:/NutritionAI_V1/Data/raw/calories.csv" 
-    columns:
-      User_ID:
-        type: integer
-        nullable: false
-        description: ''
-      Gender:
-        type: categorical
-        nullable: false
-        description: ''
-      Age:
-        type: integer
-        nullable: false
-        description: ''
-      Height:
-        type: float
-        nullable: false
-        description: ''
-      Weight:
-        type: float
-        nullable: false
-        description: ''
-      Duration:
-        type: float
-        nullable: false
-        description: ''
-      Heart_Rate:
-        type: float
-        nullable: false
-        description: ''
-      Body_Temp:
-        type: float
-        nullable: false
-        description: ''
-      Calories:
-        type: float
-        nullable: false
-        description: ''
-    numerical_columns:
+  db_schema: raw
+  table_name: calories
+  # Bổ sung đường dẫn file external source tại đây
+  source_path: "D:/NutritionAI_V1/Data/raw/calories.csv" 
+  columns:
+    User_ID:
+      type: integer
+      nullable: false
+      description: ''
+    Gender:
+      type: categorical
+      nullable: false
+      description: ''
+    Age:
+      type: integer
+      nullable: false
+      description: ''
+    Height:
+      type: float
+      nullable: false
+      description: ''
+    Weight:
+      type: float
+      nullable: false
+      description: ''
+    Duration:
+      type: float
+      nullable: false
+      description: ''
+    Heart_Rate:
+      type: float
+      nullable: false
+      description: ''
+    Body_Temp:
+      type: float
+      nullable: false
+      description: ''
+    Calories:
+      type: float
+      nullable: false
+      description: ''
+  numerical_columns:
     - User_ID
     - Age
     - Height
@@ -50,5 +49,5 @@ calories:
     - Heart_Rate
     - Body_Temp
     - Calories
-    categorical_columns:
+  categorical_columns:
     - Gender
