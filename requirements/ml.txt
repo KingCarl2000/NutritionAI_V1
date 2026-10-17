@@ -24,3 +24,7 @@ apache-airflow>=2.9.0
 # hugging face
 datasets
 
+# Validation
+pandera
+
+
