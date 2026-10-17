@@ -63,12 +63,13 @@ class PostgresBulkLoader:
                 row_count = cur.rowcount
             finally:
                 cur.close()
+
+            # SỬA LẠI PHẦN NÀY: Thực hiện commit trực tiếp trên raw_conn
+            if hasattr(raw_conn, "commit"):
+                raw_conn.commit()
             
-            # Thực hiện commit
-            if hasattr(connection, "commit"):
-                connection.commit() # Dành cho SQLAlchemy Connection
-            else:
-                raw_conn.commit()   # Dành cho psycopg DBAPI raw connection
+            logger.info(f"Đã commit thành công {row_count} dòng.")
+            # ... (phần dưới giữ nguyên)
 
             execution_time = time.time() - start_time
             logger.info(f"Thành công! Đã nạp {row_count} dòng vào {full_table_name} trong {execution_time:.2f} giây.")
