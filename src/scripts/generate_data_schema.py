@@ -141,5 +141,46 @@ def generate_schemas():
         logger.info(f"Đã lưu thay đổi vào: {yaml_path}")
 
 
+import pandera.pandas as pa
+# ... (Giữ nguyên các import và phần code ở trên của bạn) ...
+
+def generate_pandera_ml_schema():
+    """Hàm bổ sung để tạo calories_schema.py cho Pandera Validation từ train.csv"""
+    logger.info("=== Bắt đầu tạo Pandera Schema cho ML Pipeline ===")
+    
+    # 1. Trỏ đường dẫn đến file train.csv trong thư mục processed dựa theo hình ảnh hiện tại
+    ref_data_path = PROJECT_ROOT / "Artifacts" / "data" / "ml_calories" / "processed" / "train.csv"
+    
+    if not ref_data_path.exists():
+        logger.error(f"Không tìm thấy dữ liệu mẫu tại {ref_data_path}. Vui lòng chạy bước tạo dữ liệu trước.")
+        return
+
+    try:
+        # 2. Đọc dữ liệu train và suy luận tự động schema
+        df = pd.read_csv(ref_data_path)
+        
+        schema = pa.infer_schema(df)
+        
+        # Bật các chế độ mặc định để an toàn cho pipeline
+        schema.coerce = True  # Bật tự động ép kiểu
+        schema.strict = True  # Báo lỗi nếu xuất hiện cột lạ không có trong schema
+        
+        # 3. Xuất ra tệp .py đúng vị trí cấu hình trong data_val.yaml
+        output_py_dir = PROJECT_ROOT / "config" / "pipelines" / "ml_calories"
+        output_py_dir.mkdir(parents=True, exist_ok=True) # Đảm bảo thư mục tồn tại
+        
+        output_py_path = output_py_dir / "calories_schema.py"
+        
+        schema.to_script(
+            str(output_py_path),
+            minimal=True,
+            script_type="schema"
+        )
+        logger.info(f"✅ Đã xuất thành công Pandera Schema tại: {output_py_path}")
+        
+    except Exception as e:
+        logger.error(f"Lỗi khi tạo Pandera schema: {e}")
+
 if __name__ == "__main__":
-    generate_schemas()
+    generate_schemas()          # Chạy hàm tạo YAML cho Database cũ của bạn
+    generate_pandera_ml_schema() # Chạy thêm hàm này để tạo script Schema cho luồng ML Validation

@@ -6,6 +6,10 @@ NutritionAI_V1.egg-info/SOURCES.txt
 NutritionAI_V1.egg-info/dependency_links.txt
 NutritionAI_V1.egg-info/requires.txt
 NutritionAI_V1.egg-info/top_level.txt
+config/__init__.py
+config/pipelines/__init__.py
+config/pipelines/ml_calories/__init__.py
+config/pipelines/ml_calories/calories_schema.py
 src/__init__.py
 src/api/__init__.py
 src/api/dependencies.py
@@ -36,6 +40,7 @@ src/nutrition_core/logging/mlflow_tracker.py
 src/nutrition_core/validation/__init__.py
 src/nutrition_core/validation/config.py
 src/nutrition_core/validation/decorators.py
+src/nutrition_core/validation/evidently_engine.py
 src/nutrition_core/validation/backends/__init__.py
 src/nutrition_core/validation/backends/pandas_executor.py
 src/nutrition_core/validation/engines/__init__.py
@@ -58,6 +63,8 @@ src/pipelines/ml_pipelines/calories_pred/__init__.py
 src/pipelines/ml_pipelines/calories_pred/data_ingest.py
 src/pipelines/ml_pipelines/calories_pred/data_trans.py
 src/pipelines/ml_pipelines/calories_pred/data_val.py
+src/pipelines/ml_pipelines/calories_pred/eval_drift.py
+src/pipelines/ml_pipelines/calories_pred/trigger_retrain.py
 src/pipelines/ml_pipelines/clustering_customer/__init__.py
 src/pipelines/ml_pipelines/clustering_customer/data_evaluate.py
 src/pipelines/ml_pipelines/clustering_customer/data_ingestion.py

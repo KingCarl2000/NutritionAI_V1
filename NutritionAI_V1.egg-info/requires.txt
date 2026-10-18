@@ -30,6 +30,7 @@ bentoml>=1.2.0
 apache-airflow>=2.9.0
 datasets
 pandera
+black
 evidently
 langchain
 langchain-community
@@ -57,4 +58,5 @@ bentoml>=1.2.0
 apache-airflow>=2.9.0
 datasets
 pandera
+black
 evidently
