@@ -29,6 +29,8 @@ torch
 bentoml>=1.2.0
 apache-airflow>=2.9.0
 datasets
+pandera
+evidently
 langchain
 langchain-community
 tiktoken
@@ -54,3 +56,5 @@ torch
 bentoml>=1.2.0
 apache-airflow>=2.9.0
 datasets
+pandera
+evidently

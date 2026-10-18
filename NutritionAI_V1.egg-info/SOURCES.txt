@@ -1,6 +1,5 @@
 README.md
 setup.py
-Alembic/__init__.py
 Alembic/env.py
 NutritionAI_V1.egg-info/PKG-INFO
 NutritionAI_V1.egg-info/SOURCES.txt
@@ -22,6 +21,7 @@ src/data_io/base_extractor.py
 src/data_io/base_trans.py
 src/data_io/bulk_loader.py
 src/data_io/dvc_handler.py
+src/data_io/schema_io.py
 src/nutrition_core/__init__.py
 src/nutrition_core/config/__init__.py
 src/nutrition_core/database/__init__.py
@@ -29,9 +29,17 @@ src/nutrition_core/database/models.py
 src/nutrition_core/database/session.py
 src/nutrition_core/exception/__init__.py
 src/nutrition_core/exception/exception.py
+src/nutrition_core/exception/val_exception.py
 src/nutrition_core/logging/__init__.py
 src/nutrition_core/logging/logger.py
 src/nutrition_core/logging/mlflow_tracker.py
+src/nutrition_core/validation/__init__.py
+src/nutrition_core/validation/config.py
+src/nutrition_core/validation/decorators.py
+src/nutrition_core/validation/backends/__init__.py
+src/nutrition_core/validation/backends/pandas_executor.py
+src/nutrition_core/validation/engines/__init__.py
+src/nutrition_core/validation/engines/nutrition_dtypes.py
 src/pipelines/__init__.py
 src/pipelines/llm_pipelines/__init__.py
 src/pipelines/llm_pipelines/schemas.py
@@ -46,6 +54,10 @@ src/pipelines/ml_pipelines/calorie_prediction/data_transformation.py
 src/pipelines/ml_pipelines/calorie_prediction/data_validation.py
 src/pipelines/ml_pipelines/calorie_prediction/database_inference.py
 src/pipelines/ml_pipelines/calorie_prediction/model_trainer.py
+src/pipelines/ml_pipelines/calories_pred/__init__.py
+src/pipelines/ml_pipelines/calories_pred/data_ingest.py
+src/pipelines/ml_pipelines/calories_pred/data_trans.py
+src/pipelines/ml_pipelines/calories_pred/data_val.py
 src/pipelines/ml_pipelines/clustering_customer/__init__.py
 src/pipelines/ml_pipelines/clustering_customer/data_evaluate.py
 src/pipelines/ml_pipelines/clustering_customer/data_ingestion.py
