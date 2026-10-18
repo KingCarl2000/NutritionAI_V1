@@ -1,5 +1,5 @@
 services:
-  # 1. Cơ sở dữ liệu PostgreSQL (Dùng chung cho cả Metadata của AI và Evidently)
+  # 1. Cơ sở dữ liệu PostgreSQL (Dùng chung cho cả Metadata của AI và các dịch vụ khác)
   postgres:
     image: pgvector/pgvector:pg18-trixie
     container_name: nutrition_postgres
@@ -16,7 +16,6 @@ services:
       - POSTGRES_HOST_AUTH_METHOD=${POSTGRES_HOST_AUTH_METHOD}
     command: postgres -c config_file=/etc/postgresql/postgresql.conf
     volumes:
-      # ĐÃ SỬA: Mount vào /var/lib/postgresql thay vì /var/lib/postgresql/data
       - pg_data:/var/lib/postgresql
       - ./db_postgres/init_vector_db.sql:/docker-entrypoint-initdb.d/01_init_vector_db.sql:ro
       - ./db_postgres/postgresql.conf:/etc/postgresql/postgresql.conf:ro
@@ -27,32 +26,6 @@ services:
       retries: 5
     networks:
       - nutrition_net
-
-  # 2. Dịch vụ Evidently UI Service (Thêm mới)
-  evidently-service:
-    image: evidently/evidently-service:latest
-    container_name: evidently-service
-    restart: always
-    depends_on:
-      postgres:
-        condition: service_healthy
-    ports:
-      - "8000:8000"
-    networks:
-      - nutrition_net
-    volumes:
-      # Sửa đường dẫn lùi lại 1 cấp (../) vì docker-compose đang nằm trong infra/
-      - ../config/monitoring/postgres_config.yaml:/app/config.yaml:ro
-      - ../workspace:/app/workspace
-    command: ["--port", "8000", "--conf-path", "/app/config.yaml"]
-    environment:
-      EVIDENTLY_DEBUG: 1
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/version')"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
 
 volumes:
   pg_data:
