@@ -4,7 +4,7 @@ database:
   # Không cần connection string/source nữa vì BasePostgresExtractor đã gọi get_connection() tự động
 
 feature_store:
-  file_path: "Artifacts/choose_features/ml_calories/calories_features.csv"
+  file_path: "Artifacts/data/ml_calories/processed/calories_features.csv"
   dvc_tracked: true
 
 target_column:
