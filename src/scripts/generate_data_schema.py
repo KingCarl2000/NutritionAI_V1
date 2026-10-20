@@ -174,7 +174,7 @@ def generate_pandera_ml_schema():
         schema.to_script(
             str(output_py_path),
             minimal=True,
-            script_type="schema"
+            script_type="model"
         )
         logger.info(f"✅ Đã xuất thành công Pandera Schema tại: {output_py_path}")
         

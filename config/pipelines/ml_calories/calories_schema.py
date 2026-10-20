@@ -1,106 +1,20 @@
-from pandera import DataFrameSchema, Column, Check, Index, MultiIndex
+import pandas as pd
+import pandera.pandas as pa
+from pandera.typing import Series
 
-schema = DataFrameSchema(
-    columns={
-        "User_ID": Column(
-            dtype="int64",
-            checks=[
-                Check.greater_than_or_equal_to(
-                    min_value=10001159.0, raise_warning=False, ignore_na=True
-                ),
-                Check.less_than_or_equal_to(
-                    max_value=19999394.0, raise_warning=False, ignore_na=True
-                ),
-            ],
-        ),
-        "Gender": Column(dtype="object"),
-        "Age": Column(
-            dtype="int64",
-            checks=[
-                Check.greater_than_or_equal_to(
-                    min_value=20.0, raise_warning=False, ignore_na=True
-                ),
-                Check.less_than_or_equal_to(
-                    max_value=79.0, raise_warning=False, ignore_na=True
-                ),
-            ],
-        ),
-        "Height": Column(
-            dtype="float64",
-            checks=[
-                Check.greater_than_or_equal_to(
-                    min_value=123.0, raise_warning=False, ignore_na=True
-                ),
-                Check.less_than_or_equal_to(
-                    max_value=218.0, raise_warning=False, ignore_na=True
-                ),
-            ],
-        ),
-        "Weight": Column(
-            dtype="float64",
-            checks=[
-                Check.greater_than_or_equal_to(
-                    min_value=36.0, raise_warning=False, ignore_na=True
-                ),
-                Check.less_than_or_equal_to(
-                    max_value=132.0, raise_warning=False, ignore_na=True
-                ),
-            ],
-        ),
-        "Duration": Column(
-            dtype="float64",
-            checks=[
-                Check.greater_than_or_equal_to(
-                    min_value=1.0, raise_warning=False, ignore_na=True
-                ),
-                Check.less_than_or_equal_to(
-                    max_value=30.0, raise_warning=False, ignore_na=True
-                ),
-            ],
-        ),
-        "Heart_Rate": Column(
-            dtype="float64",
-            checks=[
-                Check.greater_than_or_equal_to(
-                    min_value=67.0, raise_warning=False, ignore_na=True
-                ),
-                Check.less_than_or_equal_to(
-                    max_value=128.0, raise_warning=False, ignore_na=True
-                ),
-            ],
-        ),
-        "Body_Temp": Column(
-            dtype="float64",
-            checks=[
-                Check.greater_than_or_equal_to(
-                    min_value=37.1, raise_warning=False, ignore_na=True
-                ),
-                Check.less_than_or_equal_to(
-                    max_value=41.5, raise_warning=False, ignore_na=True
-                ),
-            ],
-        ),
-        "Calories": Column(
-            dtype="float64",
-            checks=[
-                Check.greater_than_or_equal_to(
-                    min_value=1.0, raise_warning=False, ignore_na=True
-                ),
-                Check.less_than_or_equal_to(
-                    max_value=314.0, raise_warning=False, ignore_na=True
-                ),
-            ],
-        ),
-    },
-    index=Index(
-        dtype="int64",
-        checks=None,
-        nullable=False,
-        coerce=False,
-        name=None,
-        description=None,
-        title=None,
-    ),
-    coerce=True,
-    strict=True,
-)
+
+class GeneratedModel(pa.DataFrameModel):
+
+    class Config:
+        coerce = True
+        strict = True
+
+    User_ID: Series[int] = pa.Field(ge=10001159.0, le=19999394.0)
+    Gender: Series[str]
+    Age: Series[int] = pa.Field(ge=20.0, le=79.0)
+    Height: Series[float] = pa.Field(ge=123.0, le=218.0)
+    Weight: Series[float] = pa.Field(ge=36.0, le=132.0)
+    Duration: Series[float] = pa.Field(ge=1.0, le=30.0)
+    Heart_Rate: Series[float] = pa.Field(ge=67.0, le=128.0)
+    Body_Temp: Series[float] = pa.Field(ge=37.1, le=41.5)
+    Calories: Series[float] = pa.Field(ge=1.0, le=314.0)
