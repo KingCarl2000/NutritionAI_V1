@@ -3,7 +3,7 @@ import pandera.pandas as pa
 from pandera.typing import Series
 
 
-class GeneratedModel(pa.DataFrameModel):
+class MlCaloriesInputSchema(pa.DataFrameModel):
 
     class Config:
         coerce = True
@@ -17,4 +17,9 @@ class GeneratedModel(pa.DataFrameModel):
     Duration: Series[float] = pa.Field(ge=1.0, le=30.0)
     Heart_Rate: Series[float] = pa.Field(ge=67.0, le=128.0)
     Body_Temp: Series[float] = pa.Field(ge=37.1, le=41.5)
+
+
+
+class MlCaloriesTrainingSchema(MlCaloriesInputSchema):
+    """Schema dành riêng cho Training Pipeline (Kế thừa Input Schema + Cột Target)."""
     Calories: Series[float] = pa.Field(ge=1.0, le=314.0)
