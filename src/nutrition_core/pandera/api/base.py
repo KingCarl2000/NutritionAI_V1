@@ -2,18 +2,20 @@
 Module base định nghĩa các lớp cơ sở (Base Schemas) và tiện ích kiểm định dữ liệu (Data Validation)
 sử dụng Pandera API cho dự án NutritionAI_V1.
 """
-
 from typing import Any, Dict, Optional, Type, TypeVar, Union
-import logging
 import pandas as pd
 import pandera.pandas as pa
 from pandera.errors import SchemaError, SchemaErrors
 
-logger = logging.getLogger(__name__)
+# Import custom logger và MLOpsTracker
+from src.nutrition_core.logging.logger import logger
+from src.nutrition_core.logging.mlflow_tracker import MLOpsTracker
+
+# Khởi tạo MLOpsTracker (bạn có thể đưa experiment_name ra file config nếu cần)
+mlflow_tracker = MLOpsTracker(experiment_name="Data_Validation_Pipeline")
 
 # Type hint chung cho các Class kế thừa từ pa.DataFrameModel
 SchemaModelT = TypeVar("SchemaModelT", bound=pa.DataFrameModel)
-
 
 class BaseSchema(pa.DataFrameModel):
     """
@@ -28,33 +30,37 @@ class BaseSchema(pa.DataFrameModel):
 
     @classmethod
     def validate_df(
-        cls: Type[SchemaModelT], 
-        df: pd.DataFrame, 
+        cls: Type[SchemaModelT],
+        df: pd.DataFrame,
         lazy: bool = True
     ) -> pd.DataFrame:
         """
         Thực thi kiểm định một Pandas DataFrame theo Schema.
-
-        Args:
-            df (pd.DataFrame): DataFrame đầu vào cần kiểm định.
-            lazy (bool): Nếu True, sẽ gom tất cả các lỗi vi phạm rồi mới báo ngoại lệ
-                        thay vì dừng ngay ở lỗi đầu tiên.
-
-        Returns:
-            pd.DataFrame: DataFrame đã được kiểm định và ép kiểu (coerce).
-
-        Raises:
-            SchemaError / SchemaErrors: Khi dữ liệu không vượt qua các quy tắc kiểm định.
         """
+        schema_name = cls.__name__
         try:
-            logger.info(f"[Pandera] Bắt đầu kiểm định DataFrame với Schema '{cls.__name__}'...")
+            logger.info(f"[Pandera] Bắt đầu kiểm định DataFrame với Schema '{schema_name}'...")
             validated_df = cls.validate(df, lazy=lazy)
-            logger.info(f"[Pandera] Kiểm định dữ liệu thành công cho Schema '{cls.__name__}'.")
+            logger.info(f"[Pandera] Kiểm định dữ liệu thành công cho Schema '{schema_name}'.")
+            
+            # Ghi log metrics vào MLflow thông qua MLOpsTracker
+            mlflow_tracker.log_params_and_metrics(
+                params={"validation_schema": schema_name, "validation_status": "success"},
+                metrics={f"validated_{schema_name}_rows": len(validated_df)}
+            )
+            
             return validated_df
-        except (SchemaError, SchemaErrors) as err:
-            logger.error(f"[Pandera] Kiểm định dữ liệu thất bại tại '{cls.__name__}': {err}")
-            raise err
 
+        except (SchemaError, SchemaErrors) as err:
+            error_msg = f"[Pandera] Kiểm định dữ liệu thất bại tại '{schema_name}': {err}"
+            
+            # Ghi log lỗi vào file (logger.py) và push error tag lên MLflow
+            mlflow_tracker.log_error_and_tag(
+                error_msg=error_msg,
+                tags={"validation_schema": schema_name, "stage": "pandera_validation"}
+            )
+            
+            raise err
 
 def build_dataframe_schema(
     columns: Dict[str, pa.Column],
@@ -63,19 +69,7 @@ def build_dataframe_schema(
     name: Optional[str] = None,
     **kwargs: Any,
 ) -> pa.DataFrameSchema:
-    """
-    Hàm khởi tạo linh hoạt cho Object-based Schema (DataFrameSchema)
-    khi cần tạo quy tắc kiểm định theo phương thức imperative.
-
-    Args:
-        columns (Dict[str, pa.Column]): Dictionary cấu hình các cột và quy tắc kiểm tra.
-        coerce (bool): Tự động ép kiểu dữ liệu.
-        strict (bool): Bắt buộc chỉ cho phép các cột đã khai báo.
-        name (Optional[str]): Tên nhận diện của Schema.
-
-    Returns:
-        pa.DataFrameSchema: Đối tượng schema đã được khởi tạo.
-    """
+    """Hàm khởi tạo linh hoạt cho Object-based Schema (DataFrameSchema)."""
     return pa.DataFrameSchema(
         columns=columns,
         coerce=coerce,
@@ -84,17 +78,15 @@ def build_dataframe_schema(
         **kwargs
     )
 
-
-# Custom Base Checks thường dùng cho dữ liệu Dinh dưỡng & ML
 class CommonChecks:
     """Các hàm kiểm tra bổ trợ dùng chung cho các đường ống kiểm định dữ liệu."""
 
     @staticmethod
     def is_non_negative(series: pd.Series) -> pd.Series:
-        """Kiểm tra giá trị số không âm (>= 0), phù hợp cho calories, weight, height, v.v."""
+        """Kiểm tra giá trị số không âm (>= 0)."""
         return series >= 0
 
     @staticmethod
     def is_valid_percentage(series: pd.Series) -> pd.Series:
-        """Kiểm tra tỷ lệ phần trăm (từ 0.0 đến 100.0 hoặc 0.0 đến 1.0)."""
+        """Kiểm tra tỷ lệ phần trăm (từ 0.0 đến 100.0)."""
         return (series >= 0.0) & (series <= 100.0)
