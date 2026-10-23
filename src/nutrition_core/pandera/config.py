@@ -1,58 +1,49 @@
 """
 Module cấu hình toàn cục cho Pandera trong hệ thống NutritionAI_V1.
-Quản lý các mức độ kiểm định (ValidationDepth) dựa trên môi trường triển khai.
+Quản lý các mức độ kiểm định (ValidationDepth) dựa trên môi trường triển khai,
+đồng thời tích hợp theo dõi hiệu năng và ghi log cấu hình lên MLflow.
 """
+
 import os
 import pandera as pa
 from pandera.config import ValidationDepth, config_context
-from src.nutrition_core.logging.logger import logger
+from typing import Optional
 
-def setup_pandera_validation():
+from src.nutrition_core.logging.logger import logger, monitor_performance
+from src.nutrition_core.logging.mlflow_tracker import MLOpsTracker
+
+@monitor_performance(time_limit=2.0)
+def setup_pandera_validation(mlflow_tracker: Optional[MLOpsTracker] = None) -> config_context:
     """
     Khởi tạo mức độ kiểm định toàn cục từ biến môi trường.
-    Được gọi một lần tại điểm khởi chạy ứng dụng (ví dụ: src/api/main.py).
+    Được gọi một lần tại điểm khởi chạy ứng dụng (ví dụ: data validation pipeline).
     
-    Các mức độ hỗ trợ (PANDERA_VALIDATION_DEPTH):
-    - SCHEMA_ONLY: Chỉ kiểm tra cấu trúc (nhanh, dùng cho lazy data/schema validation).
-    - DATA_ONLY: Chỉ kiểm tra logic nội dung (bỏ qua dtype/cột).
-    - SCHEMA_AND_DATA: Kiểm tra toàn diện (Mặc định).
+    Args:
+        mlflow_tracker: Instance của MLOpsTracker để ghi nhận tham số cấu hình (tùy chọn).
     """
-    val_depth_str = os.getenv("PANDERA_VALIDATION_DEPTH", "SCHEMA_AND_DATA").upper()
-
+    # Lấy cấu hình từ biến môi trường, mặc định là SCHEMA_AND_DATA cho môi trường dev/staging
+    env_depth = os.getenv("PANDERA_VALIDATION_DEPTH", "SCHEMA_AND_DATA").upper()
+    
+    # Map giá trị môi trường sang Enum của Pandera
     depth_mapping = {
         "SCHEMA_ONLY": ValidationDepth.SCHEMA_ONLY,
         "DATA_ONLY": ValidationDepth.DATA_ONLY,
         "SCHEMA_AND_DATA": ValidationDepth.SCHEMA_AND_DATA
     }
-
-    if val_depth_str not in depth_mapping:
-        logger.warning(
-            f"[Pandera Config] Giá trị '{val_depth_str}' không hợp lệ. "
-            "Tự động Fallback về mặc định an toàn: SCHEMA_AND_DATA."
-        )
-        val_depth_str = "SCHEMA_AND_DATA"
-
-    # Thiết lập cấu hình toàn cục
-    pa.set_config(validation_depth=depth_mapping[val_depth_str])
-    logger.info(f"[Pandera Config] Đã thiết lập validation_depth toàn cục ở mức: {val_depth_str}")
-
-
-def override_validation_context(depth: str):
-    """
-    Context manager để tạm thời ghi đè độ sâu kiểm định cho một luồng pipeline cụ thể 
-    mà không làm thay đổi cấu hình toàn cục.
     
-    Args:
-        depth (str): "SCHEMA_ONLY", "DATA_ONLY", hoặc "SCHEMA_AND_DATA"
-        
-    Example:
-        with override_validation_context("SCHEMA_ONLY"):
-            # Chạy kiểm tra nhanh cấu trúc cho file nháp
-            validate_df(df_draft)
-    """
-    depth_upper = depth.upper()
-    try:
-        selected_depth = ValidationDepth[depth_upper]
-        return config_context(validation_depth=selected_depth)
-    except KeyError:
-        raise ValueError(f"Độ sâu kiểm định '{depth}' không hợp lệ. Hãy chọn SCHEMA_ONLY, DATA_ONLY, hoặc SCHEMA_AND_DATA.")
+    validation_depth = depth_mapping.get(env_depth, ValidationDepth.SCHEMA_AND_DATA)
+    
+    logger.info(f"Khởi tạo cấu hình Pandera. Mức độ kiểm định: {validation_depth.name}")
+    
+    # Ghi log tham số cấu hình lên MLflow nếu có tracker
+    if mlflow_tracker:
+        try:
+            mlflow_tracker.log_params_and_metrics(params={
+                "pandera_validation_depth": validation_depth.name
+            })
+            logger.info("Đã ghi log cấu hình Pandera lên MLflow.")
+        except Exception as e:
+            logger.error(f"Lỗi khi ghi log cấu hình Pandera lên MLflow: {e}")
+            
+    # Áp dụng cấu hình
+    return config_context(validation_depth=validation_depth)
