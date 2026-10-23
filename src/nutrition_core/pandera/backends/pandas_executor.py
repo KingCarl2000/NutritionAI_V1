@@ -13,7 +13,7 @@ from pandera.engines import pandas_engine
 # Import logger từ hệ thống
 from src.nutrition_core.logging.logger import logger
 # Import DataValidationError để chuẩn hóa đầu ra lỗi
-from src.nutrition_core.exception.val_exception import DataValidationError
+from src.nutrition_core.exception.val_exception import DataValidationError, PanderaErrorHandler
 
 
 class NutritionPandasBackend:
@@ -61,11 +61,12 @@ class NutritionPandasBackend:
 
     def _execute_vectorized_checks(self, df: pd.DataFrame) -> pd.Series:
         try:
-            self.schema.validate(df, lazy=self.lazy)
+            validated_df = self.schema.validate(df, lazy=self.lazy)
             return pd.Series(True, index=df.index)
         except SchemaErrors as err:
-            for _, row in err.failure_cases.iterrows():
-                self._record_error(row.get('column', 'N/A'), row.get('failure_case', 'N/A'), row.get('index'))
+            # GỌI TRỰC TIẾP HANDLER TỪ val_exception.py
+            parsed_errors = PanderaErrorHandler.parse_lazy_errors(err)
+            self.failure_cases.extend(parsed_errors)
             
             valid_mask = pd.Series(True, index=df.index)
             if 'index' in err.failure_cases:
@@ -92,13 +93,14 @@ class NutritionPandasBackend:
         else:
             df_final = df_preprocessed
 
-        # Thay vì dùng SchemaError thuần, sử dụng DataValidationError để đồng bộ với logger decorator
+        # Aggregation: Quản lý lỗi ném ra hoặc gom lại
         if self.failure_cases and not self.lazy:
+            # SỬ DỤNG CUSTOM EXCEPTION ĐÃ ĐỊNH NGHĨA
             raise DataValidationError(
-                message=f"Kiểm định thất bại nhanh (lazy=False) tại cột '{self.failure_cases[0]['column']}'.",
-                errors=self.failure_cases
+                message="Kiểm định thất bại nhanh (lazy=False)",
+                errors=[self.failure_cases[0]] # Lấy lỗi đầu tiên
             )
-
+        
         return df_final, self.failure_cases
 
 def validate_with_pandas_backend(schema: pa.DataFrameSchema, df: pd.DataFrame, **kwargs) -> pd.DataFrame:
