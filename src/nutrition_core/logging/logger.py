@@ -147,3 +147,46 @@ def dvc_error_handler(max_retries: int = 3, retry_delay: int = 2, fallback_func=
                     raise DataPipelineException(f"Lỗi DVC nội bộ: {e}")
         return wrapper
     return decorator
+
+# ==========================================
+# CÁC HÀM XỬ LÝ LỖI DATA VALIDATION (PANDERA)
+# ==========================================
+
+def validation_error_handler():
+    """
+    Decorator xử lý lỗi tập trung cho quá trình Data Validation (Pandera).
+    Tự động ghi log chi tiết các dòng dữ liệu hỏng vào error_logs trước khi ngắt luồng.
+    """
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            try:
+                return func(*args, **kwargs)
+            except Exception as e:
+                # Import bên trong (local import) để tránh lỗi Circular Import 
+                # do logger.py được import ở rất nhiều nơi
+                from src.nutrition_core.exception.val_exception import DataValidationError
+                from pandera.errors import SchemaError, SchemaErrors
+                
+                func_name = func.__name__
+
+                if isinstance(e, DataValidationError):
+                    # Lỗi đã được parse qua val_exception.py
+                    logger.error(f"[VALIDATION FAILED] Hàm '{func_name}' - {str(e)} | Chi tiết lỗi: {e.errors}")
+                
+                elif isinstance(e, SchemaErrors):
+                    # Lỗi Lazy Validation chưa được parse
+                    logger.error(f"[PANDERA LAZY ERROR] Hàm '{func_name}' phát hiện {len(e.failure_cases)} vi phạm cấu trúc.")
+                
+                elif isinstance(e, SchemaError):
+                    # Lỗi Eager Validation chưa được parse
+                    logger.error(f"[PANDERA EAGER ERROR] Hàm '{func_name}' thất bại tại cột '{getattr(e, 'column', 'unknown')}'. Lý do: {e.check}")
+                
+                else:
+                    # Lỗi hệ thống/code không mong đợi trong lúc validation
+                    logger.error(f"[UNEXPECTED ERROR] Lỗi không xác định trong hàm '{func_name}': {str(e)}")
+                
+                # Vẫn phải raise lỗi ra ngoài để luồng chính (FastAPI / MLflow Pipeline) biết mà ngưng chạy
+                raise e
+        return wrapper
+    return decorator

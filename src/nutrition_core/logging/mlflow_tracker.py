@@ -1,4 +1,5 @@
 import os
+import json
 from pathlib import Path
 import pandas as pd
 import mlflow
@@ -56,7 +57,8 @@ class MLOpsTracker:
 
     def log_dataset_lineage(self, df: pd.DataFrame, dataset_name: str, source_uri: str):
         try:
-            dataset = mlflow.data.from_pandas(df, name=dataset_name, source=source_uri)
+            from_pandas = getattr(mlflow.data, "from_pandas")
+            dataset = from_pandas(df, name=dataset_name, source=source_uri)
             mlflow.log_input(dataset, context="training")
         except Exception as e:
             logger.error(f"Không thể log dataset lineage: {e}")
@@ -122,6 +124,35 @@ class MLOpsTracker:
         except Exception as e:
             logger.error(f"Lỗi khi đóng gói mô hình: {e}")
 
+    def log_validation_errors(self, schema_name: str, errors: List[Dict[str, Any]]):
+        """
+        Lưu danh sách lỗi Validation thành file JSON cục bộ tại thư mục Artifacts,
+        sau đó đẩy lên MLflow để tracking.
+        """
+        if not errors:
+            return
+
+        try:
+            # 1. Xác định đường dẫn thư mục Artifacts nội bộ
+            # PROJECT_ROOT đã được khai báo ở đầu file mlflow_tracker.py
+            validation_dir = os.path.join(PROJECT_ROOT, "Artifacts", "reports", "ml_calories", "validation")
+            os.makedirs(validation_dir, exist_ok=True)
+            
+            # Đặt tên file (ví dụ: CaloriesSchema_val_report.json)
+            local_val_report_path = os.path.join(validation_dir, f"{schema_name}_val_report.json")
+
+            # 2. Lưu file JSON cục bộ
+            with open(local_val_report_path, 'w', encoding='utf-8') as f:
+                json.dump(errors, f, ensure_ascii=False, indent=4)
+            
+            logger.info(f"Đã lưu báo cáo lỗi cục bộ tại: {local_val_report_path}")
+
+            # 3. Đồng bộ file nội bộ này lên MLflow Artifacts
+            mlflow.log_artifact(local_val_report_path, artifact_path=f"validation_reports/{schema_name}")
+            logger.info(f"Đã đồng bộ báo cáo lỗi '{schema_name}' lên MLflow Artifacts.")
+            
+        except Exception as e:
+            logger.error(f"Lỗi khi lưu/upload validation report: {e}")
 """
     @staticmethod
     def enable_llm_tracing(framework: str = "openai"):
