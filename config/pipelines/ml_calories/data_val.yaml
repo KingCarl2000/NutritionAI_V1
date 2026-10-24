@@ -8,7 +8,7 @@ data_validation:
   evidently_ai_profile_path: "config/pipelines/ml_calories/evidently_profile.yaml"
 
   # 3. Reference Data Path: Dữ liệu mốc dùng để so sánh Drift
-  reference_data_path: "Artifacts/data/ml_calories/monitor/train_reference.csv"
+  reference_data_path: "Artifacts/data/ml_calories/processed/train.csv"
 
   # 4. Output Artifact Path: Phân bổ lưu trữ tạo tác đầu ra (DVC tracked cho data, MLflow/Git tracked cho reports)
   output_artifact_path:
