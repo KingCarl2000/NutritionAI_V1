@@ -1,117 +1,130 @@
 import os
 import pandas as pd
 import pandera as pa
+from pandera.typing import Series
 from pandera.errors import SchemaErrors
 
-# 1. Tận dụng Core Logging & Decorator từ kiến trúc NutritionAI_V1
+# Tận dụng các module Core đã được định nghĩa trong dự án
 from src.nutrition_core.logging.logger import logger
-from src.nutrition_core.pandera.decorators import nutrition_check_io
+from src.nutrition_core.logging.mlflow_tracker import MLOpsTracker
 
-# 2. Tận dụng Pandera Core API (đã định nghĩa sẵn)
-from src.nutrition_core.pandera.api.base import BaseSchema
-from src.nutrition_core.pandera.api.check import GenericCheckFactory
-# 3. Tận dụng Exception Handle chuẩn của project
-from src.nutrition_core.exception.val_exception import DataValidationError
+# =============================================================================
+# 1 & 2. ĐỊNH NGHĨA SCHEMA VÀ RÀNG BUỘC (PHYSIOLOGICAL BOUNDS)
+# =============================================================================
 
-# Cấu hình đường dẫn lưu Quarantine Data (Tham chiếu theo project_tree.md)
-QUARANTINE_DIR = "Artifacts/reports/ml_calories/validation/quarantine"
-os.makedirs(QUARANTINE_DIR, exist_ok=True)
-
-# ---------------------------------------------------------
-# Định nghĩa Schema (Kế thừa từ API core)
-# ---------------------------------------------------------
-class CaloriesInferenceSchema(BaseSchema):
+class InferenceSchema(pa.DataFrameModel):
+    """
+    Nhiệm vụ 2: Schema cho tập Inference (8 trường dữ liệu đầu vào).
+    Loại bỏ hoàn toàn cột nhãn `Calories`.
+    """
     class Config:
-        coerce = True
-        strict = False
+        strict = True
+        coerce = True  # Ép kiểu tự động (VD: int -> str cho User_ID)
 
-    Age: pa.typing.Series[int] = pa.Field(ge=1, coerce=True)
-    Height: pa.typing.Series[float] = pa.Field(ge=0.0, coerce=True)
-    Weight: pa.typing.Series[float] = pa.Field(ge=0.0, coerce=True)
-    Duration: pa.typing.Series[float] = pa.Field(gt=0.0, coerce=True)
-    Heart_Rate: pa.typing.Series[float] = pa.Field(ge=40.0, le=220.0, coerce=True)
+    # Đặc trưng định danh và phân loại
+    User_ID: Series[str]  # Xử lý dưới dạng chuỗi để tránh bị hiểu là số học
+    Gender: Series[str] = pa.Field(isin=["Nam", "Nữ", "Male", "Female"])
 
-    class Config:
-        coerce = True
-        strict = False  # Cho phép các cột phụ như User_ID, Gender đi qua
+    # Kiểm tra giới hạn sinh lý cơ bản (Baseline BMI metrics)
+    Age: Series[int] = pa.Field(ge=0, le=150)
+    Height: Series[float] = pa.Field(ge=120.0, le=220.0)
+    Weight: Series[float] = pa.Field(ge=30.0, le=200.0)
+    Duration: Series[float] = pa.Field(ge=0.0)
 
-    # Tận dụng các Custom Check đa cột đã viết trong src/nutrition_core/pandera/api/check.py
-    @pa.dataframe_check
-    def validate_physiology(cls, df: pd.DataFrame) -> pa.typing.Series[bool]:
-        return GenericCheckFactory.check_physiological_limits(df)
-
-    @pa.dataframe_check
-    def validate_macronutrients(cls, df: pd.DataFrame) -> pa.typing.Series[bool]:
-        # Tự động gọi check tương quan vĩ mô nếu dataset có chứa cột liên quan
-        return check_macronutrients_correlation(df)
+    # Kiểm tra giới hạn y khoa thực tế
+    Heart_Rate: Series[float] = pa.Field(ge=50.0, le=220.0)
+    Body_Temp: Series[float] = pa.Field(ge=36.0, le=40.0)
 
 
-class CaloriesTrainingSchema(CaloriesInferenceSchema):
+class TrainingSchema(InferenceSchema):
     """
-    Schema kiểm tra dữ liệu huấn luyện. 
-    Kế thừa CaloriesInferenceSchema và bổ sung nhãn mục tiêu.
+    Nhiệm vụ 1: Schema cho tập Training (9 trường dữ liệu).
+    Kế thừa toàn bộ đặc trưng từ InferenceSchema và bổ sung nhãn mục tiêu.
     """
-    Calories: pa.typing.Series[float] = pa.Field(gt=0.0, nullable=False, coerce=True)
+    Calories: Series[float] = pa.Field(ge=0.0)
 
 
-# ---------------------------------------------------------
-# Xử lý Lỗi và Cô lập Dữ liệu Hỏng (Quarantine Data)
-# ---------------------------------------------------------
-def _quarantine_invalid_data(e: SchemaErrors, df: pd.DataFrame, context: str) -> pd.DataFrame:
+# =============================================================================
+# 3. MLOPS PIPELINE: VALIDATION, QUARANTINE ROUTING & ALERTING
+# =============================================================================
+
+def run_validation_pipeline(
+    df: pd.DataFrame, 
+    mode: str = "train", 
+    tracker: MLOpsTracker = None
+) -> pd.DataFrame:
     """
-    Trích xuất failure_cases, ghi log, xuất tệp Quarantine và loại bỏ dòng lỗi.
+    Thực thi Data Validation, phân tách dữ liệu lỗi (Quarantine) và kích hoạt Alert.
+    
+    Args:
+        df: DataFrame cần kiểm tra.
+        mode: 'train' (sử dụng TrainingSchema) hoặc 'inference' (sử dụng InferenceSchema).
+        tracker: Đối tượng MLOpsTracker để ghi nhận metrics lên MLflow.
+        
+    Returns:
+        pd.DataFrame: Tập dữ liệu Valid Data đã được làm sạch.
     """
-    failures = e.failure_cases
-    logger.error(f"[{context}] Phát hiện {len(failures)} lỗi vi phạm Schema. Trích xuất failure_cases...")
-
-    # Tìm index dòng vi phạm
-    invalid_indices = failures['index'].dropna().unique()
-    invalid_df = df.loc[invalid_indices]
-
-    # Ghi file CSV Quarantine
-    quarantine_file = os.path.join(QUARANTINE_DIR, f"{context}_invalid_rows.csv")
-    invalid_df.to_csv(quarantine_file, index=False)
-    logger.warning(f"[{context}] Đã cách ly {len(invalid_df)} dòng hỏng tại: {quarantine_file}")
-
-    # Làm sạch: Drop invalid rows
-    clean_df = df.drop(index=invalid_indices)
-    logger.info(f"[{context}] Đã tự động loại bỏ lỗi. Kích thước tập dữ liệu sạch: {clean_df.shape}")
-
-    return clean_df
-
-
-# ---------------------------------------------------------
-# Entry Points cho Pipeline
-# ---------------------------------------------------------
-
-# Tận dụng decorator @nutrition_check_io để validate input/output logging
-@nutrition_check_io(head=5, tail=5)
-def validate_training_data(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Kiểm tra tập dữ liệu huấn luyện (yêu cầu cột Calories).
-    """
-    logger.info("[Validation] Bắt đầu quét tập dữ liệu Training với lazy=True...")
+    logger.info(f"Bắt đầu quá trình Data Validation (Chế độ: {mode.upper()})...")
+    
+    # Lựa chọn Schema dựa trên mode
+    schema = TrainingSchema if mode == "train" else InferenceSchema
+    
     try:
-        clean_df = CaloriesTrainingSchema.validate(df, lazy=True)
-        logger.info("[Validation] Training Data hợp lệ 100%.")
-        return clean_df
-    except SchemaErrors as e:
-        return _quarantine_invalid_data(e, df, context="training_calories")
-    except Exception as e:
-        raise DataValidationError(f"Lỗi hệ thống khi validate Training Data: {str(e)}") from e
+        # A. Kích hoạt Lazy Validation để bắt toàn bộ lỗi
+        valid_df = schema.validate(df, lazy=True)
+        
+        logger.info(f"Validation thành công 100%. {len(valid_df)} bản ghi hợp lệ.")
+        if tracker:
+            tracker.log_params_and_metrics(metrics={f"val_{mode}_error_rate": 0.0})
+            
+        return valid_df
 
+    except SchemaErrors as err:
+        # B. Quy trình Cô lập Dữ liệu (Quarantine Routing)
+        failure_indices = err.failure_cases['index'].dropna().unique()
+        
+        # Phân tách 2 luồng: Valid và Invalid
+        invalid_df = df.loc[failure_indices]
+        valid_df = df.drop(index=failure_indices)
+        
+        total_records = len(df)
+        invalid_count = len(invalid_df)
+        error_rate = invalid_count / total_records
+        
+        logger.warning(
+            f"Phát hiện {invalid_count}/{total_records} bản ghi vi phạm logic "
+            f"(Tỷ lệ lỗi: {error_rate:.2%})."
+        )
+        
+        if tracker:
+            tracker.log_params_and_metrics(
+                metrics={
+                    f"val_{mode}_error_rate": error_rate,
+                    f"val_{mode}_invalid_count": invalid_count
+                }
+            )
 
-@nutrition_check_io(head=5, tail=5)
-def validate_inference_data(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Kiểm tra tập dữ liệu dự đoán thực tế (không có cột Calories).
-    """
-    logger.info("[Validation] Bắt đầu quét tập dữ liệu Inference với lazy=True...")
-    try:
-        clean_df = CaloriesInferenceSchema.validate(df, lazy=True)
-        logger.info("[Validation] Inference Data hợp lệ 100%.")
-        return clean_df
-    except SchemaErrors as e:
-        return _quarantine_invalid_data(e, df, context="inference_calories")
-    except Exception as e:
-        raise DataValidationError(f"Lỗi hệ thống khi validate Inference Data: {str(e)}") from e
+        # Định tuyến lưu trữ vào vùng cách ly
+        quarantine_dir = os.path.join("Artifacts", "reports", "ml_calories", "validation")
+        os.makedirs(quarantine_dir, exist_ok=True)
+        
+        # C. Xuất báo cáo tổng hợp các trường hợp vi phạm
+        quarantine_data_path = os.path.join(quarantine_dir, f"quarantine_{mode}_data.csv")
+        report_path = os.path.join(quarantine_dir, f"val_{mode}_report.csv")
+        
+        invalid_df.to_csv(quarantine_data_path, index=False)
+        err.failure_cases.to_csv(report_path, index=False)
+        
+        logger.info(f"[Quarantine] Dữ liệu hỏng đã được cách ly tại: {quarantine_data_path}")
+        logger.info(f"[Report] Báo cáo chi tiết nguyên nhân lưu tại: {report_path}")
+
+        # C. Cảnh báo (Alerting) với ngưỡng 5%
+        if error_rate > 0.05:
+            logger.critical(
+                f"[CRITICAL ALERT] Tỷ lệ dữ liệu hỏng ({error_rate:.2%}) vượt ngưỡng an toàn 5%. "
+                f"Chất lượng dữ liệu đầu vào đang suy giảm nghiêm trọng!"
+            )
+            # Tùy thuộc vào thiết kế, có thể sử dụng 'raise' tại đây để ngắt cứng Pipeline
+            # raise ValueError("Validation Error Rate exceeded Critical Threshold (5%).")
+        
+        return valid_df
