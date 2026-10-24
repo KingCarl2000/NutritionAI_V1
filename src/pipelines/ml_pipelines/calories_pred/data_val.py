@@ -128,3 +128,22 @@ def run_validation_pipeline(
             # raise ValueError("Validation Error Rate exceeded Critical Threshold (5%).")
         
         return valid_df
+
+if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--input_path", type=str, required=True)
+    parser.add_argument("--output_path", type=str, required=True)
+    parser.add_argument("--mode", type=str, default="train")
+    args = parser.parse_args()
+
+    # Khởi tạo MLflow tracker
+    tracker = MLOpsTracker(experiment_name="calories_prediction")
+    tracker.start_run(run_name=f"data_validation_{args.mode}")
+
+    # Đọc dữ liệu, chạy validation và lưu kết quả
+    df = pd.read_csv(args.input_path)
+    valid_df = run_validation_pipeline(df, mode=args.mode, tracker=tracker)
+    valid_df.to_csv(args.output_path, index=False)
+    
+    tracker.end_run()

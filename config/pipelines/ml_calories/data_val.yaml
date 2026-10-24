@@ -1,21 +1,40 @@
 # config/pipelines/ml_calories/data_val.yaml
 
-data_validation:
-  # 1. Pandera Schema Path: Cấu hình/kịch bản Schema cho Pandera
+# =========================================================================
+# BẢNG TRA CỨU API (API REGISTRY) - NUTRITION PANDERA CORE
+# Mục đích: Tra cứu nhanh đường dẫn các hàm/class cơ sở dùng chung cho pipeline.
+# =========================================================================
+core_api_references:
+  # 1. Base Schema (base.py)
+  base_schema: "src.nutrition_core.pandera.api.base.BaseDataFrameModel" 
+  # Lớp cơ sở cấu hình strict, coerce và lazy_eval cho toàn dự án.
+  validate_df: "src.nutrition_core.pandera.api.base.BaseDataFrameModel.validate_df" 
+  # Các quy tắc kiểm định khung cho tất cả mô hình dữ liệu về Nutrition.
+
+  # 2. Custom Checks (check.py)
+  numeric_range_check: "src.nutrition_core.pandera.api.check.is_in_numeric_range" 
+  # Kiểm tra một cột số nằm trong khoảng sinh lý cho phép [min, max].
+  string_length_check: "src.nutrition_core.pandera.api.check.is_valid_string_length" 
+  # Kiểm tra độ dài định dạng chuỗi (VD: User_ID).
+
+  # 3. Exceptions & Error Handling (val_exception.py)
+  data_validation_error: "src.nutrition_core.exception.val_exception.DataValidationError" 
+  # Quản lý và tùy chỉnh ngoại lệ khi vi phạm Schema.
+
+  # 4. Decorators & Tracking (logger.py & mlflow_tracker.py)
+  validation_handler: "src.nutrition_core.logging.logger.validation_error_handler" 
+  # Decorator bọc các hàm validate để tự động bắt lỗi và định tuyến cách ly (Quarantine).
+  mlops_tracker: "src.nutrition_core.logging.mlflow_tracker.MLOpsTracker" 
+  # Tích hợp MLflow để ghi nhận tỷ lệ dữ liệu hỏng.
+
+# =========================================================================
+# PIPELINE ARTIFACT PATHS (Dùng cho DVC & evidently)
+# =========================================================================
+pipeline_paths:
   pandera_schema_path: "config/pipelines/ml_calories/calories_schema.py"
-
-  # 2. Evidently AI Profile Path: Cấu hình tham số cho Data Drift
   evidently_ai_profile_path: "config/pipelines/ml_calories/evidently_profile.yaml"
-
-  # 3. Reference Data Path: Dữ liệu mốc dùng để so sánh Drift
   reference_data_path: "Artifacts/data/ml_calories/processed/train.csv"
-
-  # 4. Output Artifact Path: Phân bổ lưu trữ tạo tác đầu ra (DVC tracked cho data, MLflow/Git tracked cho reports)
-  output_artifact_path:
-    # Dữ liệu hợp lệ sau khi qua bước Pandera Validation
-    valid_train_data: "Artifacts/data/ml_calories/processed/valid_train.csv"
-    valid_test_data: "Artifacts/data/ml_calories/processed/valid_test.csv"
-    
-    # Báo cáo kết quả kiểm định
-    validation_report: "Artifacts/reports/ml_calories/validation/validation_report.json"
-    drift_report: "Artifacts/reports/ml_calories/evidently/drift_report.html"
+  valid_train_data: "Artifacts/data/ml_calories/processed/valid_train.csv"
+  valid_test_data: "Artifacts/data/ml_calories/processed/valid_test.csv"
+  validation_report: "Artifacts/reports/ml_calories/validation/validation_report.json"
+  drift_report: "Artifacts/reports/ml_calories/evidently/drift_report.html"
