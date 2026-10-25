@@ -1,15 +1,14 @@
 # =============================================================================
 # EVIDENTLY AI PROFILE CONFIGURATION - ML CALORIES PIPELINE
-# Đường dẫn: config/pipelines/ml_calories/evidently_profile.yaml
 # =============================================================================
 
-# 1. Định dạng dữ liệu đầu vào
+# 1. Định dạng dữ liệu đầu vào (Giữ nguyên)
 data_format:
   separator: ","
   header: true
   date_column: null
 
-# 2. Ánh xạ vai trò các cột (Đặc thù của dataset ml_calories)
+# 2. Ánh xạ vai trò các cột (Giữ nguyên)
 column_mapping:
   target: "Calories"
   prediction: "prediction"
@@ -28,15 +27,22 @@ column_mapping:
 profile_sections:
   - data_drift
 
-# Ghi chú: Phần 'options' (drift_share, confidence, nbinsx) đã được lược bỏ 
-# để hệ thống tự động kế thừa từ file global.yaml hoặc dùng mặc định của Evidently AI.
+# 4. Cấu hình chi tiết phần phân tích trôi dạt (Chỉ thêm các thông số còn thiếu)
+options:
+  data_drift:
+    # Lựa chọn StatTest do kích thước dữ liệu lớn (10,000 dòng)
+    num_stat_test: "wasserstein"      # Đo khoảng cách phân phối cho toàn bộ cột số
+    cat_stat_test: "jensenshannon"    # Đo khoảng cách cho cột phân loại (Gender)
+    
+    # LƯU Ý: Các thông số dưới đây ĐÃ BỎ QUA để kế thừa từ global.yaml:
+    # - drift_share (kế thừa dataset_drift_share: 0.5)
+    # - threshold (kế thừa psi_warning: 0.10 / p_value_alpha: 0.05)
 
-# 4. Cấu hình lấy mẫu dữ liệu
+# 5. Cấu hình lấy mẫu dữ liệu
 sampling:
   reference:
     type: "none"
   current:
     type: "none"
 
-# 5. Định dạng
 pretty_print: true
