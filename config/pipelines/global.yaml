@@ -20,3 +20,26 @@ mlops_thresholds:
   validation_sla:
     online_latency_max_ms: 50           # Tối đa 50ms cho bước validation trên API Serving
     batch_time_max_percentage: 0.10     # Tối đa chiếm 10% tổng thời gian xử lý ETL Batch
+
+  # 2. Ngưỡng Trạng thái Khả dụng (Availability / Health) - Tương đương metric 'up'
+  service_availability:
+    max_consecutive_failures: 3     # Tương đương 'for: 5m' trong Prometheus, đợi 3 lần check fail liên tiếp mới báo lỗi (tránh flapping)
+    healthcheck_interval_sec: 60    # Tần suất ping kiểm tra sức khỏe
+
+  # 3. Ngưỡng Tỷ lệ Lỗi API (Error Rate) - Tương đương 'rate(http_requests_total)'
+  api_error_rate:
+    http_5xx_warning_ratio: 0.01    # Tỷ lệ lỗi 5xx vượt 1% -> Warning
+    http_5xx_critical_ratio: 0.05   # Tỷ lệ lỗi 5xx vượt 5% -> Critical
+    min_requests_to_evaluate: 10    # Yêu cầu tối thiểu 10 request để bắt đầu đánh giá tỷ lệ (Tránh cảnh báo ảo khi traffic thấp)
+
+  # 4. Ngưỡng Độ trễ Dịch vụ (Latency Thresholds) - Tương đương 'histogram_quantile'
+  service_latency:
+    online_p50_max_ms: 50           # Độ trễ trung vị (Median/P50) không quá 50ms
+    online_p95_max_ms: 200          # 95% số request (P95) phải được xử lý dưới 200ms
+    batch_time_max_percentage: 0.10 # Tối đa chiếm 10% tổng thời gian ETL Batch
+
+  # 5. Ngưỡng Bão hòa & Dự báo Tài nguyên (Saturation & Prediction) - Tương đương 'predict_linear'
+  resource_saturation:
+    disk_usage_warning_percent: 0.85 # Cảnh báo khi ổ đĩa thực tế đầy 85%
+    ram_usage_warning_percent: 0.85  # Cảnh báo khi RAM thực tế đầy 85%
+    prediction_horizon_hours: 4      # Đánh giá xu hướng tuyến tính: liệu tài nguyên có cạn kiệt trong 4 giờ tới không?
