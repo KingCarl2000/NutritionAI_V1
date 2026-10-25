@@ -1,25 +1,20 @@
-import pandas as pd
 import pandera.pandas as pa
 from pandera.typing import Series
 
-
 class MlCaloriesInputSchema(pa.DataFrameModel):
-
     class Config:
+        """Khung Schema sinh tự động từ EDA. CẦN CẬP NHẬT NGƯỠNG SINH HỌC."""
         coerce = True
         strict = True
 
-    User_ID: Series[int] = pa.Field(ge=10001159.0, le=19999394.0)
-    Gender: Series[str]
-    Age: Series[int] = pa.Field(ge=20.0, le=79.0)
-    Height: Series[float] = pa.Field(ge=123.0, le=218.0)
-    Weight: Series[float] = pa.Field(ge=36.0, le=132.0)
-    Duration: Series[float] = pa.Field(ge=1.0, le=30.0)
-    Heart_Rate: Series[float] = pa.Field(ge=67.0, le=128.0)
-    Body_Temp: Series[float] = pa.Field(ge=37.1, le=41.5)
-
-
+    User_ID: Series[int] = pa.Field(nullable=False)  # TODO: Xác nhận lại kiểu (int/float) và cập nhật ngưỡng
+    Age: Series[int] = pa.Field(nullable=False)  # TODO: Xác nhận lại kiểu (int/float) và cập nhật ngưỡng
+    Height: Series[float] = pa.Field(nullable=False)  # TODO: Xác nhận lại kiểu (int/float) và cập nhật ngưỡng
+    Weight: Series[float] = pa.Field(nullable=False)  # TODO: Xác nhận lại kiểu (int/float) và cập nhật ngưỡng
+    Duration: Series[float] = pa.Field(nullable=False)  # TODO: Xác nhận lại kiểu (int/float) và cập nhật ngưỡng
+    Heart_Rate: Series[float] = pa.Field(nullable=False)  # TODO: Xác nhận lại kiểu (int/float) và cập nhật ngưỡng
+    Body_Temp: Series[float] = pa.Field(nullable=False)  # TODO: Xác nhận lại kiểu (int/float) và cập nhật ngưỡng
+    Gender: Series[str] = pa.Field(nullable=False)  # TODO: Cập nhật danh sách isin=[...]
 
 class MlCaloriesTrainingSchema(MlCaloriesInputSchema):
-    """Schema dành riêng cho Training Pipeline (Kế thừa Input Schema + Cột Target)."""
-    Calories: Series[float] = pa.Field(ge=1.0, le=314.0)
+    Calories: Series[float] = pa.Field(nullable=False)  # TODO: Cập nhật ngưỡng cho Target
