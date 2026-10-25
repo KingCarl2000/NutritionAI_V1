@@ -4,42 +4,90 @@
 # =============================================================================
 
 mlops_thresholds:
-  # A. Ngưỡng Tỷ lệ Vi phạm Dữ liệu (Data Failure Rate)
+  # 1. Ngưỡng Tỷ lệ Vi phạm Dữ liệu (Data Failure Rate)
   data_failure_rate:
     info_threshold: 0.01      # Dưới 1%: Tự động loại bỏ dòng hỏng, tiếp tục chạy
     warning_threshold: 0.05   # Từ 1% - 5%: Ghi log cảnh báo, đưa vào vùng Quarantine
     # Trên 5% (vượt warning_threshold): Ngắt khẩn cấp Pipeline (Fail-Fast)
 
-  # B. Ngưỡng Trôi lệch Phân phối & Thống kê (Data & Feature Drift)
+  # 2. Ngưỡng Trôi lệch Phân phối & Thống kê (Data & Feature Drift)
   data_drift:
     psi_warning: 0.10         # PSI > 0.10: Trôi lệch trung bình (Gửi cảnh báo)
     psi_critical: 0.25        # PSI > 0.25: Trôi lệch nghiêm trọng (Yêu cầu Retrain)
     p_value_alpha: 0.05       # Mức ý nghĩa thống kê cho kiểm định Hypothesis (t-test, KS-test)
 
-  # C. Ngưỡng Độ trễ & SLA Kiểm định (Validation SLA & Performance)
+  # 3. Ngưỡng Độ trễ & SLA Kiểm định (Validation SLA & Performance)
   validation_sla:
     online_latency_max_ms: 50           # Tối đa 50ms cho bước validation trên API Serving
     batch_time_max_percentage: 0.10     # Tối đa chiếm 10% tổng thời gian xử lý ETL Batch
 
-  # 2. Ngưỡng Trạng thái Khả dụng (Availability / Health) - Tương đương metric 'up'
+  # 4. Ngưỡng Trạng thái Khả dụng (Availability / Health) - Tương đương metric 'up'
   service_availability:
     max_consecutive_failures: 3     # Tương đương 'for: 5m' trong Prometheus, đợi 3 lần check fail liên tiếp mới báo lỗi (tránh flapping)
     healthcheck_interval_sec: 60    # Tần suất ping kiểm tra sức khỏe
 
-  # 3. Ngưỡng Tỷ lệ Lỗi API (Error Rate) - Tương đương 'rate(http_requests_total)'
+  # 5. Ngưỡng Tỷ lệ Lỗi API (Error Rate) - Tương đương 'rate(http_requests_total)'
   api_error_rate:
     http_5xx_warning_ratio: 0.01    # Tỷ lệ lỗi 5xx vượt 1% -> Warning
     http_5xx_critical_ratio: 0.05   # Tỷ lệ lỗi 5xx vượt 5% -> Critical
     min_requests_to_evaluate: 10    # Yêu cầu tối thiểu 10 request để bắt đầu đánh giá tỷ lệ (Tránh cảnh báo ảo khi traffic thấp)
 
-  # 4. Ngưỡng Độ trễ Dịch vụ (Latency Thresholds) - Tương đương 'histogram_quantile'
+  # 6. Ngưỡng Độ trễ Dịch vụ (Latency Thresholds) - Tương đương 'histogram_quantile'
   service_latency:
     online_p50_max_ms: 50           # Độ trễ trung vị (Median/P50) không quá 50ms
     online_p95_max_ms: 200          # 95% số request (P95) phải được xử lý dưới 200ms
     batch_time_max_percentage: 0.10 # Tối đa chiếm 10% tổng thời gian ETL Batch
 
-  # 5. Ngưỡng Bão hòa & Dự báo Tài nguyên (Saturation & Prediction) - Tương đương 'predict_linear'
+  # 7. Ngưỡng Bão hòa & Dự báo Tài nguyên (Saturation & Prediction) - Tương đương 'predict_linear'
   resource_saturation:
     disk_usage_warning_percent: 0.85 # Cảnh báo khi ổ đĩa thực tế đầy 85%
     ram_usage_warning_percent: 0.85  # Cảnh báo khi RAM thực tế đầy 85%
     prediction_horizon_hours: 4      # Đánh giá xu hướng tuyến tính: liệu tài nguyên có cạn kiệt trong 4 giờ tới không?
+  
+  # 8. Ngưỡng Phát hiện Lệch Dữ liệu (Data & Feature Drift - Tích hợp Evidently AI)
+  data_drift:
+    # --- 8.1 Ngưỡng Tổng thể (Dataset Drift) ---
+    dataset_drift_share: 0.5              # Tập dữ liệu bị coi là drift nếu >= 50% số cột bị drift
+    test_share_of_drifted_columns_lt: 0.3 # Test Suite Đạt (Pass) nếu < 30% số cột bị drift
+    
+    # --- 8.2 Dữ liệu Số (Numerical Features) ---
+    numerical:
+      ks_test_p_value: 0.05           # K-S test: Áp dụng tự động khi <= 1000 dòng
+      wasserstein_distance: 0.1       # Wasserstein (Normed): Áp dụng tự động khi > 1000 dòng
+      psi_threshold: 0.1              # Population Stability Index
+      anderson_darling: 0.1           # Anderson-Darling threshold
+      cramer_von_mises: 0.1           # Cramér-von Mises threshold
+      energy_distance: 0.1            # Energy Distance threshold
+      epps_singleton_p_value: 0.05    # Epps-Singleton test
+      mann_whitney_p_value: 0.05      # Mann-Whitney U-test
+      t_test_p_value: 0.05            # t-test p-value
+      empirical_mmd: 0.1              # Empirical MMD threshold
+
+    # --- 8.3 Dữ liệu Phân loại (Categorical Features) ---
+    categorical:
+      chi_square_p_value: 0.05        # Chi-square: Dùng khi <= 1000 dòng & > 2 danh mục
+      z_test_p_value: 0.05            # Z-test: Dùng cho dữ liệu nhị phân (2 danh mục)
+      jensen_shannon: 0.1             # Jensen-Shannon Distance: Dùng khi > 1000 dòng
+      fisher_exact_p_value: 0.1       # Fisher's Exact Test
+      g_test_p_value: 0.1             # G-test p-value
+      hellinger_distance: 0.1         # Hellinger Distance
+      tvd_threshold: 0.1              # Total Variation Distance (TVD)
+
+    # --- 8.4 Dữ liệu Văn bản (Text Content Drift) ---
+    text:
+      percentile_drift: 0.95          # Percentile Text Content Drift
+      absolute_drift: 0.55            # Absolute Text Content Drift
+
+    # --- 8.5 Dữ liệu Embeddings (Embeddings Drift) ---
+    embeddings:
+      distance_drift: 0.2             # Khoảng cách Euclidean/Cosine
+      model_drift_roc_auc: 0.55       # Phân loại bằng Classifier ROC-AUC
+      ratio_component_threshold: 0.1  # Ngưỡng từng phần cho Ratio Drift
+      ratio_total_threshold: 0.2      # Ngưỡng tổng thể cho Ratio Drift
+      mmd_drift: 0.015                # MMD Drift threshold
+
+  # 9. Ngưỡng Chất lượng Dữ liệu & Dự đoán Mô hình (Data Quality & Model Thresholds)
+  data_quality_and_model:
+    binary_classification_probas: 0.5 # Ngưỡng xác suất phân loại lớp nhãn tích cực
+    almost_constant_columns: 0.95     # Phát hiện cột gần như hằng số (95% giá trị trùng nhau)
+    confidence_level: 0.95            # Độ tin cậy thống kê mặc định (Tương đương Alpha = 0.05)
