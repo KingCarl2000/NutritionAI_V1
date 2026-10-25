@@ -1,0 +1,22 @@
+# =============================================================================
+# GLOBAL MLOPS THRESHOLDS & CONFIGURATIONS
+# Cấu hình dùng chung cho toàn bộ các pipelines trong hệ thống
+# =============================================================================
+
+mlops_thresholds:
+  # A. Ngưỡng Tỷ lệ Vi phạm Dữ liệu (Data Failure Rate)
+  data_failure_rate:
+    info_threshold: 0.01      # Dưới 1%: Tự động loại bỏ dòng hỏng, tiếp tục chạy
+    warning_threshold: 0.05   # Từ 1% - 5%: Ghi log cảnh báo, đưa vào vùng Quarantine
+    # Trên 5% (vượt warning_threshold): Ngắt khẩn cấp Pipeline (Fail-Fast)
+
+  # B. Ngưỡng Trôi lệch Phân phối & Thống kê (Data & Feature Drift)
+  data_drift:
+    psi_warning: 0.10         # PSI > 0.10: Trôi lệch trung bình (Gửi cảnh báo)
+    psi_critical: 0.25        # PSI > 0.25: Trôi lệch nghiêm trọng (Yêu cầu Retrain)
+    p_value_alpha: 0.05       # Mức ý nghĩa thống kê cho kiểm định Hypothesis (t-test, KS-test)
+
+  # C. Ngưỡng Độ trễ & SLA Kiểm định (Validation SLA & Performance)
+  validation_sla:
+    online_latency_max_ms: 50           # Tối đa 50ms cho bước validation trên API Serving
+    batch_time_max_percentage: 0.10     # Tối đa chiếm 10% tổng thời gian xử lý ETL Batch
