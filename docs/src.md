@@ -35,14 +35,42 @@ Phân hệ chịu trách nhiệm trích xuất, biến đổi, nạp dữ liệu
 - *Pydantic Metrics Schemas*: Định nghĩa các cấu trúc chuẩn hóa cho chỉ số đánh giá (ví dụ: `GlobalSummaryMetrics`, `EpochMetrics`, `DVCMetricsNormalizedSchema`) để đảm bảo tính nhất quán.
 - *DVCHandler*: Lớp Adapter ẩn đi sự phức tạp của DVC, cung cấp giao diện chuẩn để tương tác, ghi nhận và quản lý phiên bản của các metrics/metadata trong quá trình huấn luyện mô hình.
 
-## 3. Quản Lý Ngoại Lệ (Exception Handling)
+## 3. Hệ thống Artifacts & Reports (Các file sinh ra tự động)
+
+Trong quá trình vận hành luồng MLOps và ETL, hệ thống tự động kết xuất ra các tài nguyên báo cáo, hồ sơ dữ liệu (profile) và dữ liệu cách ly. Dưới đây là sơ đồ quản lý các file sinh ra tự động:
+
+### A. Phân tích Khám phá & Hồ sơ dữ liệu (Data Profiling)
+
+* **`Artifacts/EDA_reports/calories_metrics.json`** & **`calories_dataset_schema.html`**
+  * *Nguồn gốc:* Khởi chạy từ `src/scripts/eda_report.py`.
+  * *Ý nghĩa:* Báo cáo Exploratory Data Analysis (EDA). File `.html` cung cấp biểu đồ trực quan cho con người, còn file `.json` lưu các số liệu định lượng (min, max, missing rate) phục vụ hệ thống máy móc theo dõi.
+* **`config/pipelines/ml_calories/calories_data_schema.json`**
+  * *Nguồn gốc:* Khởi chạy từ `src/scripts/generate_data_schema.py` kết hợp điều phối bởi `src/scripts/create_schema_pipelines.py`.
+  * *Ý nghĩa:* Đóng vai trò là "Data Profile", ghi nhận cấu trúc thực tế và các phân phối của dataset tại thời điểm lấy mẫu để làm Baseline (Reference Data) cho việc phát hiện Data Drift sau này.
+
+### B. Hạ tầng Database (Infrastructure & ETL)
+
+* **`docs/architecture/tables_created_report.yaml`**
+  * *Nguồn gốc:* Khởi chạy từ `src/scripts/create_tables.py`.
+  * *Ý nghĩa:* Log xác nhận tự động danh sách các bảng (tables) cùng cấu trúc tương ứng đã được ánh xạ và khởi tạo thành công vào CSDL PostgreSQL.
+
+### C. Giai đoạn Kiểm định & Giám sát (Validation & Monitoring)
+
+* **`Artifacts/reports/ml_calories/validation/quarantine_data.csv`** & **`val_report.json`**
+  * *Nguồn gốc:* Quá trình thực thi `src/pipelines/ml_pipelines/calories_pred/data_val.py`.
+  * *Ý nghĩa:* Vùng cách ly (Quarantine). Chứa các bản ghi vi phạm giới hạn sinh lý thực tế được định nghĩa bằng Pandera và báo cáo chi tiết về nguyên nhân thất bại của từng dòng.
+* **`Artifacts/reports/ml_calories/evidently/drift_metrics.json`** & **`drift_report.html`**
+  * *Nguồn gốc:* Sinh ra từ các tác vụ thuộc nhóm Evidently AI.
+  * *Ý nghĩa:* Báo cáo so sánh sự sai lệch phân phối (Data Drift) giữa dữ liệu nạp mới và dữ liệu tham chiếu gốc, giúp kích hoạt các cơ chế huấn luyện lại mô hình (retrain) nếu cần thiết.
+
+## 4. Quản Lý Ngoại Lệ (Exception Handling)
 
 **File:** `src/nutrition_core/exception/exception.py` & `val_exception.py`
 
 * **`NutritionBaseException`**: Ngoại lệ gốc, tự động bắt Traceback.
 * **`DataPipelineException`, `DataValidationError`**: Các ngoại lệ cho Pipeline và Pandera validation.
 
-## 4. Tương Tác PostgreSQL (Core & Monitoring)
+## 5. Tương Tác PostgreSQL (Core & Monitoring)
 
 **File:** `src/postgres/core/connection.py`
 
@@ -52,14 +80,14 @@ Phân hệ chịu trách nhiệm trích xuất, biến đổi, nạp dữ liệu
 
 * **`analyze_query_performance(query: str)`:** Hàm tự động chèn cú pháp `EXPLAIN (ANALYZE, FORMAT JSON)` vào truy vấn.
 
-## 5. Feature Store Engine
+## 6. Feature Store Engine
 
 **File:** `src/postgres/feature_store/engine.py`
 
 * **`FeatureStoreEngine(conn_info)`:** Khởi tạo engine quản lý kho đặc trưng với chuỗi kết nối PostgreSQL.
 * **`copy_from_csv(table_name, file_path)`:** Nạp dữ liệu trực tiếp từ file CSV phía Client lên máy chủ thông qua giao thức `COPY FROM STDIN`.
 
-## 6. ML Pipelines (Data Ingestion)
+## 7. ML Pipelines (Data Ingestion)
 
 **File:** `src/pipelines/ml_pipelines/calories_pred/data_ingest.py`
 
@@ -67,7 +95,7 @@ Phân hệ chịu trách nhiệm trích xuất, biến đổi, nạp dữ liệu
 * **`extract_data_from_postgresql()`:** Hàm trích xuất dữ liệu thô.
 * **`process_and_split_data(df)`:** Bước tiền xử lý, tự động loại bỏ các đặc trưng không cần thiết.
 
-## 7. Data Validation (Hệ sinh thái Pandera)
+## 8. Data Validation (Hệ sinh thái Pandera)
 
 **File:** [`src/nutrition_core/pandera/api/base.py`](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/nutrition_core/pandera/api/base.py)
 
