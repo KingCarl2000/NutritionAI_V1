@@ -27,19 +27,20 @@ class EvidentlyDriftEngine:
     Engine thực thi kiểm định trôi lệch dữ liệu (Drift Detection) 
     và đồng bộ với MLOps Infrastructure.
     """
-
+    
     def __init__(
         self,
-        artifact_dir: str = "Artifacts/reports/ml_calories/evidently",
-        evidently_workspace_url: Optional[str] = "http://localhost:8000",
-        project_name: str = "NutritionAI_MLOps_Pipeline",
+        artifact_dir: str,          # Bắt buộc truyền từ pipeline
+        project_name: str,          # Bắt buộc truyền từ pipeline
+        evidently_workspace_url: Optional[str] = None,
         mlops_tracker: Optional[MLOpsTracker] = None,
     ):
         self.artifact_dir = artifact_dir
-        self.evidently_workspace_url = evidently_workspace_url
         self.project_name = project_name
+        self.evidently_workspace_url = evidently_workspace_url
         self.tracker = mlops_tracker
 
+        # Tự động tạo thư mục đích nếu chưa tồn tại (vd: Artifacts/reports/ml_calories/evidently)
         os.makedirs(self.artifact_dir, exist_ok=True)
 
     def validate_schema(
