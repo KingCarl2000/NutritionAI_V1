@@ -1,88 +1,107 @@
-import json
 import os
 import sys
 import yaml
 import pandas as pd
-from evidently import Report
-from evidently.core.datasets import Dataset, DataDefinition
-from evidently.presets import DataDriftPreset, DataSummaryPreset
 
-# Tích hợp Logger tùy chỉnh của NutritionAI_V1 
-# Sẽ tự động phân luồng vào oper_logs, warn_logs, hoặc error_logs
+# Import Logger và EvidentlyDriftEngine đã được định nghĩa trong hệ thống
 from src.nutrition_core.logging.logger import logger
+from src.nutrition_core.pandera.evidently_engine import EvidentlyDriftEngine
 
-def load_global_thresholds(config_path: str = "config/pipelines/global.yaml") -> dict:
-    """Đọc các ngưỡng cấu hình Drift động từ file YAML của dự án."""
+# Tùy thuộc vào kiến trúc, bạn import class kết nối DB (BasePostgresExtractor) hoặc get_engine
+# Giả định dùng session để lấy sqlalchemy engine hoặc BasePostgresExtractor theo docs/src.md
+try:
+    from src.nutrition_core.database.session import get_engine
+except ImportError:
+    # Nếu chưa có session.py, import thư viện để tạo engine tạm
+    from sqlalchemy import create_engine
+
+def load_yaml_config(config_path: str) -> dict:
+    """Đọc tệp cấu hình YAML."""
+    if not os.path.exists(config_path):
+        raise FileNotFoundError(f"Không tìm thấy cấu hình: {config_path}")
     with open(config_path, "r", encoding="utf-8") as f:
-        cfg = yaml.safe_load(f)
-    return cfg.get("mlops_thresholds", {}).get("data_drift", {})
+        return yaml.safe_load(f)
+
+def fetch_current_data_from_postgres(
+    db_config_path: str = "config/datasets/calories.yaml"
+) -> pd.DataFrame:
+    """
+    Trích xuất dữ liệu current từ PostgreSQL.
+    Theo image.png và calories.yaml, data nằm ở: DB nutrition_ai, schema raw, table calories.
+    """
+    logger.info("Đang kết nối PostgreSQL để lấy dữ liệu hiện tại (Current Data)...")
+    
+    # Lấy thông tin table/schema từ cấu hình dataset
+    dataset_cfg = load_yaml_config(db_config_path).get("calories", {})
+    schema = dataset_cfg.get("db_schema", "raw")
+    table = dataset_cfg.get("table_name", "calories")
+    
+    try:
+        # Sử dụng engine dùng chung của dự án (khuyến nghị)
+        engine = get_engine()
+    except NameError:
+        # Thay thế bằng URI kết nối thực tế của bạn nếu get_engine chưa sẵn sàng
+        db_url = "postgresql://username:password@localhost:5432/nutrition_ai"
+        engine = create_engine(db_url)
+        
+    query = f"SELECT * FROM {schema}.{table};"
+    
+    # Thực thi truy vấn lấy data bằng pandas
+    df = pd.read_sql(query, con=engine)
+    logger.info(f"📥 Đã lấy thành công {len(df)} bản ghi từ PostgreSQL ({schema}.{table})")
+    
+    return df
 
 def execute_data_drift_detection(
-    reference_path: str = "Artifacts/data/ml_calories/processed/train.csv",
-    current_path: str = "Artifacts/data/ml_calories/processed/current_data.csv",
-    output_dir: str = "Artifacts/reports/ml_calories/evidently",
-    config_path: str = "config/pipelines/global.yaml"
-) -> dict:
-    """Thực thi kiểm tra Data Drift và xuất báo cáo MLOps."""
+    reference_path: str = "Artifacts/data/reference_data.csv",
+    evidently_profile_path: str = "config/pipelines/ml_calories/evidently_profile.yaml",
+    artifact_dir: str = "Artifacts/reports/ml_calories/evidently",
+    project_name: str = "ml_calories"
+):
+    """Thực thi kiểm tra Data Drift dùng EvidentlyDriftEngine và cấu hình profile riêng."""
+    logger.info("--- BẮT ĐẦU ĐÁNH GIÁ DATA DRIFT TỪ POSTGRES ---")
+
+    # 1. Đọc cấu hình evidently_profile.yaml của pipeline hiện tại
+    evidently_cfg = load_yaml_config(evidently_profile_path)
+    logger.info(f"Đã nạp cấu hình evidently profile từ: {evidently_profile_path}")
     
-    # 1. Đọc ngưỡng cấu hình linh hoạt từ global.yaml
-    drift_cfg = load_global_thresholds(config_path)
-    p_value_alpha = drift_cfg.get("p_value_alpha", 0.05)
-    drift_share_threshold = drift_cfg.get("psi_critical", 0.25)
+    # Lấy ra các tham số column mapping từ cấu hình (thay đổi key tùy theo file yaml của bạn)
+    column_mapping_cfg = evidently_cfg.get("column_mapping", {})
 
-    logger.info("--- BẮT ĐẦU ĐÁNH GIÁ DATA DRIFT ---")
-
-    # 2. Đọc và nạp dữ liệu Tham chiếu / Hiện tại
-    if not os.path.exists(reference_path) or not os.path.exists(current_path):
-        err_msg = f"Không tìm thấy tệp dữ liệu đầu vào: '{reference_path}' hoặc '{current_path}'"
-        logger.error(err_msg)
-        raise FileNotFoundError(err_msg)
-
+    # 2. Đọc dữ liệu Reference từ tệp (DVC artifact)
+    if not os.path.exists(reference_path):
+        logger.error(f"Không tìm thấy reference data: {reference_path}")
+        raise FileNotFoundError(f"Missing reference data: {reference_path}")
+    
     logger.info(f"📥 Đang tải tập dữ liệu tham chiếu (Reference): {reference_path}")
     reference_df = pd.read_csv(reference_path)
-    logger.info(f"📥 Đang tải tập dữ liệu hiện tại (Current): {current_path}")
-    current_df = pd.read_csv(current_path)
 
-    # Đảm bảo thư mục Artifacts của DVC tồn tại
-    os.makedirs(output_dir, exist_ok=True)
+    # 3. Đọc dữ liệu Current trực tiếp từ DB PostgreSQL thay vì CSV
+    current_df = fetch_current_data_from_postgres()
 
-    # 3. Định nghĩa Lược đồ Dữ liệu (Có thể đồng bộ tiếp với schema.yaml sau này)
-    num_cols = reference_df.select_dtypes(include=["int64", "float64"]).columns.tolist()
-    cat_cols = reference_df.select_dtypes(include=["object", "category"]).columns.tolist()
-
-    data_def = DataDefinition(
-        numerical_columns=num_cols, 
-        categorical_columns=cat_cols
-    )
-    ref_dataset = Dataset.from_pandas(reference_df, data_definition=data_def)
-    curr_dataset = Dataset.from_pandas(current_df, data_definition=data_def)
-
-    # 4. Khởi tạo & Kích hoạt Báo cáo DataDriftPreset
-    logger.info("⚙️ Đang kích hoạt mô-đun Evidently Data Drift Engine...")
-    drift_report = Report(metrics=[
-        DataSummaryPreset(),
-        DataDriftPreset(
-            drift_share=drift_share_threshold, 
-            threshold=p_value_alpha,           
-            num_method="wasserstein",          
-            cat_method="chisquare"             
-        )
-    ])
-
-    snapshot = drift_report.run(
-        current_data=curr_dataset, 
-        reference_data=ref_dataset
+    # 4. Khởi tạo EvidentlyDriftEngine
+    drift_engine = EvidentlyDriftEngine(
+        artifact_dir=artifact_dir,
+        project_name=project_name
     )
 
-    # 5. Xuất Báo cáo & Lưu Artifacts chuẩn cấu trúc DVC
-    html_out = os.path.join(output_dir, "drift_report.html")
-    json_out = os.path.join(output_dir, "drift_metrics.json")
-
-    snapshot.save_html(html_out)
-    json_data = snapshot.json()
+    # 5. Thực thi phát hiện Drift thông qua Engine tích hợp sẵn
+    logger.info("⚙️ Đang kích hoạt EvidentlyDriftEngine.run_drift_detection()...")
     
-    with open(json_out, "w", encoding="utf-8") as f:
-        f.write(json_data)
+    # Lưu ý: Phương thức run_drift_detection đã bao gồm việc lưu HTML, JSON và đẩy lên MLflow
+    # nếu mlops_tracker được tích hợp.
+    result = drift_engine.run_drift_detection(
+        current_df=current_df,
+        reference_df=reference_df,
+        column_mapping_cfg=column_mapping_cfg
+    )
+    
+    logger.info("✅ Hoàn tất đánh giá Data Drift Pipeline.")
+    return result
 
-    logger.info(f"✓ Báo cáo trực quan HTML đã lưu tại: {html_out}")
-    logger.info(f"✓ Dữ liệu báo cáo JSON đã lưu tại: {json_out}")
+if __name__ == "__main__":
+    try:
+        execute_data_drift_detection()
+    except Exception as e:
+        logger.error(f"❌ Lỗi trong quá trình chạy eval_drift.py: {e}")
+        sys.exit(1)
