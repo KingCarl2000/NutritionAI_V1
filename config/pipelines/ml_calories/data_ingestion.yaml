@@ -1,23 +1,23 @@
+# config/pipelines/ml_calories/data_ingestion.yaml
+
 database:
-  schema_name: "raw"
-  table_name: "calories"
-  # Không cần connection string/source nữa vì BasePostgresExtractor đã gọi get_connection() tự động
-
-feature_store:
-  file_path: "Artifacts/data/ml_calories/processed/calories_features.csv"
-  dvc_tracked: true
-
-target_column:
-  name: "Calories"
-  type: "float"
-
-data_split:
-  train_ratio: 0.8
-  test_ratio: 0.1
-  validation_ratio: 0.1
-
-output:
-  data_version: "v1.0.0"
+  schema_name: "raw"          # Hoặc "raw" tùy thuộc vào schema chứa dữ liệu hiện tại của bạn
+  table_name: "calories"         # Tên bảng cần trích xuất
 
 schema:
-  json_schema_file: "config/pipelines/ml_calories/calories_data_schema.json"
+  # Vẫn giữ đường dẫn JSON schema để đồng bộ với Database Models như bạn đang code
+  json_schema_file: "Artifacts/reports/ml_calories/ingestion/calories_data_schema.json"
+  
+  # Khuyến nghị: Chuyển cấu hình loại bỏ cột ra YAML để dễ cấu hình ETL hơn
+  columns_to_drop:
+    - "User_ID"
+    # - "col_name_khac"
+
+data_split:
+  train_ratio: 0.70              # 70% dữ liệu dùng để train
+  test_ratio: 0.15               # 15% dữ liệu dùng để test
+  validation_ratio: 0.15         # 15% dữ liệu dùng để validation
+
+feature_store:
+  dvc_tracked: true              # Kích hoạt track DVC khi xuất file
+  export_dir: "Artifacts/data/ml_calories/processed" # Thư mục xuất các tập dataframe
