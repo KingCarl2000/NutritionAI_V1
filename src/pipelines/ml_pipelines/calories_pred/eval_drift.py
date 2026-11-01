@@ -3,17 +3,29 @@ import sys
 import yaml
 import pandas as pd
 
-# Import Logger và EvidentlyDriftEngine đã được định nghĩa trong hệ thống
+# Import chuẩn theo kiến trúc từ docs/src.md
 from src.nutrition_core.logging.logger import logger
 from src.nutrition_core.pandera.evidently_engine import EvidentlyDriftEngine
+from src.nutrition_core.database.session import get_engine
+from src.data_io.base_extractor import BasePostgresExtractor
 
-# Tùy thuộc vào kiến trúc, bạn import class kết nối DB (BasePostgresExtractor) hoặc get_engine
-# Giả định dùng session để lấy sqlalchemy engine hoặc BasePostgresExtractor theo docs/src.md
-try:
-    from src.nutrition_core.database.session import get_engine
-except ImportError:
-    # Nếu chưa có session.py, import thư viện để tạo engine tạm
-    from sqlalchemy import create_engine
+# Vì BasePostgresExtractor là Abstract Base Class (ABC) theo docs/src.md,
+# ta định nghĩa một lớp con cụ thể để thực thi cho bảng calories.
+class CaloriesExtractor(BasePostgresExtractor):
+    def __init__(self, engine, schema: str, table: str):
+        self.engine = engine
+        self.schema = schema
+        self.table = table
+        
+    def extract(self) -> pd.DataFrame:
+        """Trích xuất và phẳng hóa dữ liệu JSON/JSONB nếu có."""
+        query = f"SELECT * FROM {self.schema}.{self.table};"
+        df = pd.read_sql(query, con=self.engine)
+        
+        # Tận dụng hàm _convert_data_types() từ class cha để flatten JSON (như thiết kế trong src.md)
+        if hasattr(self, '_convert_data_types'):
+            df = self._convert_data_types(df)
+        return df
 
 def load_yaml_config(config_path: str) -> dict:
     """Đọc tệp cấu hình YAML."""
@@ -22,86 +34,65 @@ def load_yaml_config(config_path: str) -> dict:
     with open(config_path, "r", encoding="utf-8") as f:
         return yaml.safe_load(f)
 
-def fetch_current_data_from_postgres(
-    db_config_path: str = "config/datasets/calories.yaml"
-) -> pd.DataFrame:
+def fetch_current_data_from_postgres(schema: str, table: str) -> pd.DataFrame:
     """
-    Trích xuất dữ liệu current từ PostgreSQL.
-    Theo image.png và calories.yaml, data nằm ở: DB nutrition_ai, schema raw, table calories.
+    Trích xuất dữ liệu Current từ PostgreSQL thông qua session chuẩn và Extractor.
     """
-    logger.info("Đang kết nối PostgreSQL để lấy dữ liệu hiện tại (Current Data)...")
+    logger.info(f"Đang kết nối PostgreSQL để lấy dữ liệu đánh giá từ {schema}.{table}...")
     
-    # Lấy thông tin table/schema từ cấu hình dataset
-    dataset_cfg = load_yaml_config(db_config_path).get("calories", {})
-    schema = dataset_cfg.get("db_schema", "raw")
-    table = dataset_cfg.get("table_name", "calories")
+    # 1. Sử dụng engine chuẩn từ session.py (Không hardcode credentials)
+    engine = get_engine()
     
-    try:
-        # Sử dụng engine dùng chung của dự án (khuyến nghị)
-        engine = get_engine()
-    except NameError:
-        # Thay thế bằng URI kết nối thực tế của bạn nếu get_engine chưa sẵn sàng
-        db_url = "postgresql://username:password@localhost:5432/nutrition_ai"
-        engine = create_engine(db_url)
-        
-    query = f"SELECT * FROM {schema}.{table};"
+    # 2. Sử dụng Extractor để đảm bảo dữ liệu qua các bước tiền xử lý đồng nhất
+    extractor = CaloriesExtractor(engine=engine, schema=schema, table=table)
+    df = extractor.extract() 
     
-    # Thực thi truy vấn lấy data bằng pandas
-    df = pd.read_sql(query, con=engine)
     logger.info(f"📥 Đã lấy thành công {len(df)} bản ghi từ PostgreSQL ({schema}.{table})")
-    
     return df
 
 def execute_data_drift_detection(
-    reference_path: str = "Artifacts/data/reference_data.csv",
-    evidently_profile_path: str = "config/pipelines/ml_calories/evidently_profile.yaml",
-    artifact_dir: str = "Artifacts/reports/ml_calories/evidently",
-    project_name: str = "ml_calories"
+    profile_path: str = "config/pipelines/ml_calories/evidently_profile.yaml"
 ):
-    """Thực thi kiểm tra Data Drift dùng EvidentlyDriftEngine và cấu hình profile riêng."""
-    logger.info("--- BẮT ĐẦU ĐÁNH GIÁ DATA DRIFT TỪ POSTGRES ---")
-
-    # 1. Đọc cấu hình evidently_profile.yaml của pipeline hiện tại
-    evidently_cfg = load_yaml_config(evidently_profile_path)
-    logger.info(f"Đã nạp cấu hình evidently profile từ: {evidently_profile_path}")
+    """Thực thi kiểm tra Data Drift dùng EvidentlyDriftEngine."""
+    logger.info("--- BẮT ĐẦU ĐÁNH GIÁ DATA DRIFT ---")
     
-    # Lấy ra các tham số column mapping từ cấu hình (thay đổi key tùy theo file yaml của bạn)
-    column_mapping_cfg = evidently_cfg.get("column_mapping", {})
-
-    # 2. Đọc dữ liệu Reference từ tệp (DVC artifact)
+    # 1. Đọc cấu hình evidently_profile.yaml
+    profile_cfg = load_yaml_config(profile_path)
+    paths_cfg = profile_cfg.get("paths", {})
+    current_data_cfg = profile_cfg.get("current_data", {})
+    
+    logger.info(f"Đã nạp cấu hình evidently profile từ: {profile_path}")
+    
+    # 2. Khởi tạo đường dẫn từ YAML
+    reference_path = paths_cfg.get("reference_data", "Artifacts/data/ml_calories/processed/train.csv")
+    artifact_dir = paths_cfg.get("artifact_dir", "Artifacts/reports/ml_calories/evidently")
+    project_name = paths_cfg.get("project_name", "ml_calories")
+    
+    # 3. Lấy thông tin Schema và Table cho Current Data
+    eval_schema = current_data_cfg.get("db_schema", "raw")
+    eval_table = current_data_cfg.get("table_name", "calories")
+    
+    # 4. Trích xuất dữ liệu Current và đọc Reference data
+    current_df = fetch_current_data_from_postgres(schema=eval_schema, table=eval_table)
+    
     if not os.path.exists(reference_path):
-        logger.error(f"Không tìm thấy reference data: {reference_path}")
-        raise FileNotFoundError(f"Missing reference data: {reference_path}")
-    
-    logger.info(f"📥 Đang tải tập dữ liệu tham chiếu (Reference): {reference_path}")
+        raise FileNotFoundError(f"Không tìm thấy file reference_data tại: {reference_path}")
     reference_df = pd.read_csv(reference_path)
-
-    # 3. Đọc dữ liệu Current trực tiếp từ DB PostgreSQL thay vì CSV
-    current_df = fetch_current_data_from_postgres()
-
-    # 4. Khởi tạo EvidentlyDriftEngine
+    
+    # 5. Khởi tạo Engine và chạy Drift Detection
     drift_engine = EvidentlyDriftEngine(
-        artifact_dir=artifact_dir,
+        artifact_dir=artifact_dir, 
         project_name=project_name
     )
-
-    # 5. Thực thi phát hiện Drift thông qua Engine tích hợp sẵn
-    logger.info("⚙️ Đang kích hoạt EvidentlyDriftEngine.run_drift_detection()...")
     
-    # Lưu ý: Phương thức run_drift_detection đã bao gồm việc lưu HTML, JSON và đẩy lên MLflow
-    # nếu mlops_tracker được tích hợp.
-    result = drift_engine.run_drift_detection(
-        current_df=current_df,
+    # Truyền toàn bộ profile_config để Evidently ánh xạ cột (column_mapping) và thresholds
+    drift_engine.run_drift_detection(
+        current_df=current_df, 
         reference_df=reference_df,
-        column_mapping_cfg=column_mapping_cfg
+        profile_config=profile_cfg 
     )
-    
-    logger.info("✅ Hoàn tất đánh giá Data Drift Pipeline.")
-    return result
+    logger.info("--- HOÀN TẤT ĐÁNH GIÁ DATA DRIFT ---")
 
 if __name__ == "__main__":
-    try:
-        execute_data_drift_detection()
-    except Exception as e:
-        logger.error(f"❌ Lỗi trong quá trình chạy eval_drift.py: {e}")
-        sys.exit(1)
+    # Điểm entry-point chạy script độc lập
+    execute_data_drift_detection()
