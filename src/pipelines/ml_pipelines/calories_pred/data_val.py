@@ -88,6 +88,12 @@ class CaloriesDataValidationPipeline:
         self.api_registry = config_data["core_api_references"]
         self.paths = config_data["pipeline_paths"]
         self.params = config_data["validation_params"]
+
+        # Load các class phụ thuộc từ API registry thay vì truy cập thuộc tính chưa khai báo.
+        self.train_schema = load_class_from_registry(self.api_registry["train_schema"])
+        self.infer_schema = load_class_from_registry(self.api_registry["infer_schema"])
+        tracker = load_class_from_registry(self.api_registry["tracker"])
+        self.tracker = tracker() if isinstance(tracker, type) else tracker
         
         # 2. Extract paths chuẩn xác từ YAML
         self.ingest_dir = self.paths["ingest_dir"]
@@ -137,9 +143,11 @@ class CaloriesDataValidationPipeline:
                 logger.info("Bắt đầu Evidently AI Drift Detection...")
                 df_ref = pd.read_csv(self.ref_data_path)
                 
-                drift_metrics, drift_report_path = CaloriesDriftEvaluator(
-                    reference_data=df_ref, 
-                    current_data=valid_train, 
+                drift_evaluator = CaloriesDriftEvaluator()
+                evaluate_drift = getattr(drift_evaluator, "evaluate")
+                drift_metrics, drift_report_path = evaluate_drift(
+                    reference_data=df_ref,
+                    current_data=valid_train,
                     output_dir=os.path.dirname(self.drift_report)
                 )
                 self.tracker.log_params_and_metrics(metrics=drift_metrics)
