@@ -86,23 +86,26 @@ def execute_data_drift_detection(
     reference_df = pd.read_csv(reference_path)
     
     # 4. Thực thi Engine
-    # Khởi tạo MLOpsTracker để tự động ghi log các drift metrics, parameters lên MLflow
-    mlops_tracker = MLOpsTracker()
+    mlops_tracker = MLOpsTracker(experiment_name=project_name)
     
-    # Khởi tạo EvidentlyDriftEngine và tiêm mlops_tracker vào
     drift_engine = EvidentlyDriftEngine(
         artifact_dir=artifact_dir, 
         project_name=project_name,
         mlops_tracker=mlops_tracker
     )
     
-    # Chạy Drift Detection với toàn bộ cấu hình đã được xử lý
+    # Bóc tách cấu hình mapping và drift từ file YAML
+    column_mapping_cfg = profile_cfg.get("column_mapping", {})
+    drift_options_cfg = profile_cfg.get("data_drift", {})
+    
+    # Chạy Drift Detection truyền đúng các tham số theo khai báo của evidently_engine.py
     drift_engine.run_drift_detection(
         current_df=current_df, 
         reference_df=reference_df,
-        profile_config=profile_cfg 
+        column_mapping_cfg=column_mapping_cfg,
+        drift_options_cfg=drift_options_cfg
     )
-    
+
     logger.info("--- HOÀN TẤT ĐÁNH GIÁ DATA DRIFT ---")
 
 if __name__ == "__main__":
