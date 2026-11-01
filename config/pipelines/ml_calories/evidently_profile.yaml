@@ -1,48 +1,50 @@
-# =============================================================================
-# EVIDENTLY AI PROFILE CONFIGURATION - ML CALORIES PIPELINE
-# =============================================================================
+# config/pipelines/ml_calories/evidently_profile.yaml
 
-# 1. Định dạng dữ liệu đầu vào (Giữ nguyên)
-data_format:
-  separator: ","
-  header: true
-  date_column: null
+# 1. Cấu hình I/O Paths (Thay thế các đường dẫn hardcode trong eval_drift.py)
+paths:
+  reference_data: "Artifacts/data/ml_calories/processed/train.csv"
+  artifact_dir: "Artifacts/reports/ml_calories/evidently"
+  project_name: "ml_calories"
 
-# 2. Ánh xạ vai trò các cột (Giữ nguyên)
+# Thêm cấu hình nguồn dữ liệu đánh giá (Current Data)
+current_data:
+  source: "postgresql"
+  db_schema: "raw"
+  table_name: "calories"
+
+# 2. Ánh xạ dữ liệu (Column Mapping) cho Evidently
 column_mapping:
-  target: "Calories"
-  prediction: "prediction"
-  id: "User_ID"
+  target: "calories"        # Biến mục tiêu
+  prediction: null          # Đặt null nếu chỉ đánh giá Data Drift (chưa có suy luận)
+  datetime: "created_at"    # Cột thời gian (nếu có) để phân tích xu hướng
   numerical_features:
-    - "Age"
-    - "Height"
-    - "Weight"
-    - "Duration"
-    - "Heart_Rate"
-    - "Body_Temp"
+    - "age"
+    - "weight"
+    - "height"
+    - "duration"
+    - "heart_rate"
+    - "body_temp"
   categorical_features:
-    - "Gender"
+    - "gender"
 
-# 3. Kích hoạt phân hệ báo cáo
-profile_sections:
-  - data_drift
-
-# 4. Cấu hình chi tiết phần phân tích trôi dạt (Chỉ thêm các thông số còn thiếu)
-options:
-  data_drift:
-    # Lựa chọn StatTest do kích thước dữ liệu lớn (10,000 dòng)
-    num_stat_test: "wasserstein"      # Đo khoảng cách phân phối cho toàn bộ cột số
-    cat_stat_test: "jensenshannon"    # Đo khoảng cách cho cột phân loại (Gender)
-    
-    # LƯU Ý: Các thông số dưới đây ĐÃ BỎ QUA để kế thừa từ global.yaml:
-    # - drift_share (kế thừa dataset_drift_share: 0.5)
-    # - threshold (kế thừa psi_warning: 0.10 / p_value_alpha: 0.05)
-
-# 5. Cấu hình lấy mẫu dữ liệu
-sampling:
-  reference:
-    type: "none"
-  current:
-    type: "none"
-
-pretty_print: true
+# 3. Cấu hình Data Drift Thresholds & Statistical Tests
+data_drift:
+  # Ngưỡng tỷ lệ cột thay đổi để kết luận toàn bộ tập dữ liệu bị drift (0.5 = 50%)
+  dataset_drift_share: 0.5 
+  
+  # Cấu hình kiểm định thống kê mặc định cho dữ liệu số (Numerical)
+  num_stattest: "wasserstein"
+  num_stattest_threshold: 0.1
+  
+  # Cấu hình kiểm định thống kê mặc định cho dữ liệu phân loại (Categorical)
+  cat_stattest: "jensenshannon"
+  cat_stattest_threshold: 0.1
+  
+  # (Tùy chọn) Ghi đè phương pháp kiểm định cho từng cột đặc thù
+  per_column_options:
+    age:
+      stattest: "ks"          # Sử dụng Kolmogorov-Smirnov cho tuổi
+      threshold: 0.05
+    gender:
+      stattest: "psi"         # Sử dụng Population Stability Index
+      threshold: 0.1
