@@ -85,7 +85,7 @@ class CaloriesDataIngestion(BasePostgresExtractor):
     @monitor_performance()
     def export_to_feature_store(self, df: pd.DataFrame, train_df: pd.DataFrame, val_df: pd.DataFrame, test_df: pd.DataFrame):
         # MỚI: Lấy cấu hình xuất file từ YAML
-        export_dir = self.config['feature_store'].get('export_dir', 'Artifacts/data/ml_calories/processed')
+        export_dir = self.config['feature_store'].get('export_dir', True)
         dvc_tracked = self.config['feature_store'].get('dvc_tracked', True)
 
         os.makedirs(export_dir, exist_ok=True)
