@@ -10,15 +10,14 @@ from src.data_io.base_extractor import BasePostgresExtractor
 from src.data_io.dvc_handler import DVCHandler
 
 class CaloriesDataIngestion(BasePostgresExtractor):
-    def __init__(self, config: dict):
+    def __init__(self, config: dict, tracker: MLOpsTracker = None):
         super().__init__()
         self.config = config
         self.dvc = DVCHandler()
         
-        # Khởi tạo MLflow Tracker
-        self.tracker = MLOpsTracker(experiment_name="calories_pred")
-        
-        # Đọc file JSON schema ngay khi khởi tạo để đồng bộ 100% với Database Models
+        # Nhận tracker từ Orchestrator để đồng bộ run_id, nếu không có mới tự tạo
+        self.tracker = tracker if tracker else MLOpsTracker(experiment_name="calories_pred")
+
         self.json_schema = self._load_json_schema()
 
     def _load_json_schema(self) -> dict:
@@ -64,12 +63,14 @@ class CaloriesDataIngestion(BasePostgresExtractor):
     def process_and_split_data(self, df: pd.DataFrame):
         logger.info("Bước 2 & 3: Lọc features và chia tách dữ liệu Train/Test/Validation")
         
-        # Lấy danh sách cột cần loại bỏ (như 'User_ID') từ JSON Schema
-        cols_to_drop = self.json_schema.get('columns_to_drop', [])
+        # MỚI: Lấy danh sách cột cần loại bỏ từ YAML Config thay vì JSON
+        cols_to_drop = self.config['schema'].get('columns_to_drop', [])
+        
         if cols_to_drop:
             logger.info(f"Tiến hành loại bỏ các cột: {cols_to_drop}")
             df = df.drop(columns=[col for col in cols_to_drop if col in df.columns], errors='ignore')
 
+        # ... (Phần chia tách train/test/val giữ nguyên vì đã lấy đúng từ self.config['data_split'])
         train_ratio = self.config['data_split']['train_ratio']
         test_ratio = self.config['data_split']['test_ratio']
         val_ratio = self.config['data_split']['validation_ratio']
@@ -81,21 +82,33 @@ class CaloriesDataIngestion(BasePostgresExtractor):
         
         return df, train_df, val_df, test_df
 
-    def export_to_feature_store(self, full_df: pd.DataFrame, train_df: pd.DataFrame, val_df: pd.DataFrame, test_df: pd.DataFrame):
-        feature_path = self.config['feature_store']['file_path']
-        logger.info(f"Bước 4: Xuất dữ liệu ra Artifacts ({feature_path})")
+    @monitor_performance()
+    def export_to_feature_store(self, df: pd.DataFrame, train_df: pd.DataFrame, val_df: pd.DataFrame, test_df: pd.DataFrame):
+        # MỚI: Lấy cấu hình xuất file từ YAML
+        export_dir = self.config['feature_store'].get('export_dir', 'Artifacts/data/ml_calories/processed')
+        dvc_tracked = self.config['feature_store'].get('dvc_tracked', True)
+
+        os.makedirs(export_dir, exist_ok=True)
         
-        base_dir = os.path.dirname(feature_path)
-        os.makedirs(base_dir, exist_ok=True)
-        
-        full_df.to_csv(feature_path, index=False)
-        train_df.to_csv(os.path.join(base_dir, 'train.csv'), index=False)
-        val_df.to_csv(os.path.join(base_dir, 'validation.csv'), index=False)
-        test_df.to_csv(os.path.join(base_dir, 'test.csv'), index=False)
-        
-        if self.config['feature_store'].get('dvc_tracked', True):
-            logger.info("Đang track dữ liệu qua DVC...")
-            # self.dvc.add_data(base_dir)
+        # Định nghĩa các đường dẫn
+        files = {
+            "current_data.csv": df,
+            "train.csv": train_df,
+            "val.csv": val_df,
+            "test.csv": test_df
+        }
+
+        # Lưu file
+        for file_name, dataset in files.items():
+            file_path = os.path.join(export_dir, file_name)
+            dataset.to_csv(file_path, index=False)
+            logger.info(f"Đã lưu: {file_path}")
+            
+            # Khai báo DVC nếu được bật trong YAML
+            if dvc_tracked:
+                self.dvc.add_data(file_path)
+
+        logger.info("Hoàn tất xuất dữ liệu ra Feature Store.")
 
     def extract(self) -> pd.DataFrame:
         """Implement the abstract method required by BasePostgresExtractor."""
