@@ -3,8 +3,9 @@ import json
 from pathlib import Path
 import pandas as pd
 import mlflow
-import mlflow.data
+from mlflow import data, xgboost, pytorch, sklearn
 from typing import Dict, Any, Optional, List
+
 
 # Kế thừa logger hiện tại và các đường dẫn file log từ logger.py
 from src.nutrition_core.logging.logger import logger, OPER_LOG_FILE_PATH, ERROR_LOG_FILE_PATH
@@ -42,13 +43,13 @@ class MLOpsTracker:
         except Exception as e:
             logger.error(f"Lỗi khi upload log lên MLflow: {e}")
 
-    def log_params_and_metrics(self, params: Dict[str, Any] = None, metrics: Dict[str, float] = None, step: int = None):
+    def log_params_and_metrics(self, params: Optional[Dict[str, Any]] = None, metrics: Optional[Dict[str, float]] = None, step: Optional[int] = None):
         if params:
             mlflow.log_params(params)
         if metrics:
             mlflow.log_metrics(metrics, step=step)
 
-    def log_error_and_tag(self, error_msg: str, tags: Dict[str, str] = None):
+    def log_error_and_tag(self, error_msg: str, tags: Optional[Dict[str, str]] = None):
         logger.error(error_msg)
         if tags:
             mlflow.set_tags(tags)
@@ -57,7 +58,7 @@ class MLOpsTracker:
 
     def log_dataset_lineage(self, df: pd.DataFrame, dataset_name: str, source_uri: str):
         try:
-            from_pandas = getattr(mlflow.data, "from_pandas")
+            from_pandas = getattr(data, "from_pandas")
             dataset = from_pandas(df, name=dataset_name, source=source_uri)
             mlflow.log_input(dataset, context="training")
         except Exception as e:
@@ -111,14 +112,11 @@ class MLOpsTracker:
         
         try:
             if framework == "sklearn":
-                import mlflow.sklearn
-                mlflow.sklearn.log_model(model, artifact_path, pip_requirements=pip_reqs)
+                sklearn.log_model(model, artifact_path, pip_requirements=pip_reqs)
             elif framework == "xgboost":
-                import mlflow.xgboost
-                mlflow.xgboost.log_model(model, artifact_path, pip_requirements=pip_reqs)
+                xgboost.log_model(model, artifact_path, pip_requirements=pip_reqs)
             elif framework == "pytorch":
-                import mlflow.pytorch
-                mlflow.pytorch.log_model(model, artifact_path, pip_requirements=pip_reqs)
+                pytorch.log_model(model, artifact_path, pip_requirements=pip_reqs)
             
             logger.info(f"Đã đóng gói mô hình vào '{artifact_path}' kèm môi trường chuẩn từ requirements ({len(pip_reqs)} packages).")
         except Exception as e:

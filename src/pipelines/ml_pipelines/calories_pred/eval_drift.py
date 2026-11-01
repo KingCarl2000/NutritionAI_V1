@@ -6,6 +6,8 @@ from src.nutrition_core.logging.logger import logger
 from src.nutrition_core.pandera.evidently_engine import EvidentlyDriftEngine
 from src.nutrition_core.database.session import get_engine
 from src.data_io.base_extractor import BasePostgresExtractor
+# Bổ sung MLOpsTracker theo kiến trúc của hệ thống
+from src.nutrition_core.logging.mlflow_tracker import MLOpsTracker
 
 class CaloriesExtractor(BasePostgresExtractor):
     def __init__(self, engine, schema: str, table: str):
@@ -84,16 +86,23 @@ def execute_data_drift_detection(
     reference_df = pd.read_csv(reference_path)
     
     # 4. Thực thi Engine
+    # Khởi tạo MLOpsTracker để tự động ghi log các drift metrics, parameters lên MLflow
+    mlops_tracker = MLOpsTracker()
+    
+    # Khởi tạo EvidentlyDriftEngine và tiêm mlops_tracker vào
     drift_engine = EvidentlyDriftEngine(
         artifact_dir=artifact_dir, 
-        project_name=project_name
+        project_name=project_name,
+        mlops_tracker=mlops_tracker
     )
     
+    # Chạy Drift Detection với toàn bộ cấu hình đã được xử lý
     drift_engine.run_drift_detection(
         current_df=current_df, 
         reference_df=reference_df,
         profile_config=profile_cfg 
     )
+    
     logger.info("--- HOÀN TẤT ĐÁNH GIÁ DATA DRIFT ---")
 
 if __name__ == "__main__":
