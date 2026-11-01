@@ -1,31 +1,27 @@
 # config/pipelines/ml_calories/data_val.yaml
-
 # =========================================================================
 # BẢNG TRA CỨU API (API REGISTRY) - NUTRITION PANDERA CORE
 # Mục đích: Tra cứu nhanh đường dẫn các hàm/class cơ sở dùng chung cho pipeline.
 # =========================================================================
 core_api_references:
   # 1. Base Schema (base.py)
-  base_schema: "src.nutrition_core.pandera.api.base.BaseDataFrameModel" 
-  # Lớp cơ sở cấu hình strict, coerce và lazy_eval cho toàn dự án.
-  validate_df: "src.nutrition_core.pandera.api.base.BaseDataFrameModel.validate_df" 
-  # Các quy tắc kiểm định khung cho tất cả mô hình dữ liệu về Nutrition.
+  base_schema: "src.nutrition_core.pandera.api.base.BaseDataFrameModel"
+  validate_df: "src.nutrition_core.pandera.api.base.BaseDataFrameModel.validate_df"
 
   # 2. Custom Checks (check.py)
-  numeric_range_check: "src.nutrition_core.pandera.api.check.is_in_numeric_range" 
-  # Kiểm tra một cột số nằm trong khoảng sinh lý cho phép [min, max].
-  string_length_check: "src.nutrition_core.pandera.api.check.is_valid_string_length" 
-  # Kiểm tra độ dài định dạng chuỗi (VD: User_ID).
+  numeric_range_check: "src.nutrition_core.pandera.api.check.is_in_numeric_range"
+  string_length_check: "src.nutrition_core.pandera.api.check.is_valid_string_length"
 
   # 3. Exceptions & Error Handling (val_exception.py)
-  data_validation_error: "src.nutrition_core.exception.val_exception.DataValidationError" 
-  # Quản lý và tùy chỉnh ngoại lệ khi vi phạm Schema.
+  data_validation_error: "src.nutrition_core.exception.val_exception.DataValidationError"
 
   # 4. Decorators & Tracking (logger.py & mlflow_tracker.py)
-  validation_handler: "src.nutrition_core.logging.logger.validation_error_handler" 
-  # Decorator bọc các hàm validate để tự động bắt lỗi và định tuyến cách ly (Quarantine).
-  mlops_tracker: "src.nutrition_core.logging.mlflow_tracker.MLOpsTracker" 
-  # Tích hợp MLflow để ghi nhận tỷ lệ dữ liệu hỏng.
+  validation_handler: "src.nutrition_core.logging.logger.validation_error_handler"
+  mlops_tracker: "src.nutrition_core.logging.mlflow_tracker.MLOpsTracker"
+
+  # 5. Schema Classes (Dynamic Import cho Pipeline)
+  train_schema: "config.pipelines.ml_calories.calories_schema.MlCaloriesTrainingSchema"
+  inference_schema: "config.pipelines.ml_calories.calories_schema.MlCaloriesInputSchema"
 
 # =========================================================================
 # PIPELINE ARTIFACT PATHS (Dùng cho DVC & evidently)
@@ -33,9 +29,24 @@ core_api_references:
 pipeline_paths:
   pandera_schema_path: "config/pipelines/ml_calories/calories_schema.py"
   evidently_ai_profile_path: "config/pipelines/ml_calories/evidently_profile.yaml"
+  
+  # Thư mục chứa dữ liệu thô / đã ingest
+  ingest_dir: "Artifacts/data/ml_calories/processed"
+  
+  # Reference data cho Drift Detection (dữ liệu train gốc)
   reference_data_path: "Artifacts/data/ml_calories/processed/train.csv"
+  
+  # Dữ liệu xuất ra sau khi qua Validation (Valid Artifacts)
   valid_train_data: "Artifacts/data/ml_calories/processed/valid_train.csv"
   valid_test_data: "Artifacts/data/ml_calories/processed/valid_test.csv"
-  validation_report: "Artifacts/reports/ml_calories/validation/validation_report.json"
+  
+  # Báo cáo đầu ra (Khớp với project_tree.md)
+  validation_report: "Artifacts/reports/ml_calories/validation/val_report.json"
   drift_report: "Artifacts/reports/ml_calories/evidently/drift_report.html"
-  ingest_dir: "Artifacts/data/ml_calories/processed"
+
+# =========================================================================
+# THÔNG SỐ CẤU HÌNH PIPELINE VALIDATION
+# =========================================================================
+validation_params:
+  # Ngưỡng tỷ lệ lỗi dữ liệu tối đa cho phép trước khi dừng pipeline (5%)
+  error_threshold: 0.05

@@ -1,22 +1,21 @@
 # config/pipelines/ml_calories/evidently_profile.yaml
 
-# 1. Cấu hình I/O Paths (Thay thế các đường dẫn hardcode trong eval_drift.py)
-paths:
-  reference_data: "Artifacts/data/ml_calories/processed/train.csv"
+# config/pipelines/ml_calories/evidently_profile.yaml
+# =========================================================================
+# EVIDENTLY AI PROFILE CONFIGURATION
+# =========================================================================
+
+# 1. Tham số khởi tạo EvidentlyDriftEngine (__init__)
+engine_config:
+  project_name: "Calories_Prediction_Drift_Monitoring"
   artifact_dir: "Artifacts/reports/ml_calories/evidently"
-  project_name: "ml_calories"
+  evidently_workspace_url: null
 
-# Thêm cấu hình nguồn dữ liệu đánh giá (Current Data)
-current_data:
-  source: "postgresql"
-  db_schema: "raw"
-  table_name: "calories"
-
-# 2. Ánh xạ dữ liệu (Column Mapping) cho Evidently
+# 2. Tham số truyền vào hàm run_drift_detection
 column_mapping:
-  target: "calories"        # Biến mục tiêu
-  prediction: null          # Đặt null nếu chỉ đánh giá Data Drift (chưa có suy luận)
-  datetime: "created_at"    # Cột thời gian (nếu có) để phân tích xu hướng
+  target: "calories"
+  prediction: null
+  datetime: "created_at"
   numerical_features:
     - "age"
     - "weight"
@@ -26,6 +25,14 @@ column_mapping:
     - "body_temp"
   categorical_features:
     - "gender"
+
+
+# Thêm cấu hình nguồn dữ liệu đánh giá (Current Data)
+current_data:
+  source: "postgresql"
+  db_schema: "raw"
+  table_name: "calories"
+
 
 # 3. Cấu hình Data Drift Thresholds & Statistical Tests
 data_drift:
