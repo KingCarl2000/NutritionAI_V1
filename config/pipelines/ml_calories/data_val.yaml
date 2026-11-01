@@ -38,4 +38,4 @@ pipeline_paths:
   valid_test_data: "Artifacts/data/ml_calories/processed/valid_test.csv"
   validation_report: "Artifacts/reports/ml_calories/validation/validation_report.json"
   drift_report: "Artifacts/reports/ml_calories/evidently/drift_report.html"
-  ingest_dir: "Data/raw/calories.csv"
+  ingest_dir: "Artifacts/data/ml_calories/processed"
