@@ -69,14 +69,18 @@ class CaloriesDriftEvaluator:
         
         # Khởi tạo core engine của Evidently (tuân thủ API Registry)
         engine = EvidentlyDriftEngine(
-            reference_data=reference_df,
-            current_data=current_df,
-            column_mapping=self.column_mapping
+            artifact_dir=self.artifact_dir,
+            project_name=self.evidently_config.get("project_name", "Calories Drift Evaluation")
         )
+
+        run_drift_report = getattr(engine, "run_drift_report")
         
         # Chạy report kết hợp truyền tham số p_value từ global.yaml
-        drift_metrics = engine.run_drift_report(
-            report_path=report_path, 
+        drift_metrics = run_drift_report(
+            reference_data=reference_df,
+            current_data=current_df,
+            column_mapping=self.column_mapping,
+            report_path=report_path,
             metrics_path=metrics_path,
             p_value=self.p_value_alpha
         )
@@ -100,7 +104,7 @@ class CaloriesDriftEvaluator:
 # =============================================================================
 # WRAPPER FUNCTION
 # =============================================================================
-def run_drift_detection(reference_data: pd.DataFrame, current_data: pd.DataFrame, output_dir: str = None) -> Tuple[Dict, str]:
+def run_drift_detection(reference_data: pd.DataFrame, current_data: pd.DataFrame, output_dir: Optional[str] = None) -> Tuple[Dict, str]:
     """
     Hàm Wrapper dùng để Data Validation Pipeline gọi thẳng vào mà không cần quan tâm chi tiết.
     """
