@@ -67,7 +67,7 @@ Phân hệ chịu trách nhiệm trích xuất, biến đổi, nạp dữ liệu
 * **`extract_data_from_postgresql()`:** Hàm trích xuất dữ liệu thô.
 * **`process_and_split_data(df)`:** Bước tiền xử lý, tự động loại bỏ các đặc trưng không cần thiết.
 
-## 7. Data Validation (Hệ sinh thái Pandera)
+## 7. Data Validation (Hệ sinh thái Pandera & evidently AI)
 
 **File:** [`src/nutrition_core/pandera/api/base.py`](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/nutrition_core/pandera/api/base.py)
 
@@ -91,3 +91,26 @@ Phân hệ chịu trách nhiệm trích xuất, biến đổi, nạp dữ liệu
 **File:** [`src/nutrition_core/pandera/config.py`](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/nutrition_core/pandera/config.py)
 
 * Chứa các cấu hình toàn cục (global configuration) cho toàn bộ tiến trình kiểm định dữ liệu.
+
+*File:* [`src/nutrition_core/pandera/evidently_engine.py`]
+- `EvidentlyDriftEngine` (Class): Engine lõi tích hợp Pandera Schema Validation, Evidently AI Data Drift, quản lý Artifact bằng DVC và MLflow.
+- `validate_schema(df, schema_model)`: Thực thi kiểm tra lược đồ dữ liệu động (Pandera Schema Validation) [Giai đoạn 1].
+- `run_drift_detection(current_df, reference_df, ...)`: Phát hiện trôi dạt dữ liệu bằng Evidently AI dựa trên cấu hình (dataset_drift_share, method, thresholds...), đồng thời tạo snapshot và báo cáo HTML/JSON [Giai đoạn 2].
+
+## 8. Database & CRUD ( src/nutrition_core/database )
+Phân hệ quản lý kết nối cơ sở dữ liệu, khai báo mô hình (ORM) và các thao tác truy vấn (CRUD).
+
+*File:* [`src/nutrition_core/database/session.py`]
+- Cung cấp `Base` (declarative_base) và quản lý session của SQLAlchemy.
+- Thiết lập connection pool để tương tác với cơ sở dữ liệu PostgreSQL.
+
+*File:* [`src/nutrition_core/database/models.py`]
+- `build_model_from_yaml(yaml_filename)`: Đọc tệp cấu hình YAML (từ `config/datasets/`) và tự động đăng ký Model động vào `Base.metadata`. Hàm này hỗ trợ ánh xạ tự động các kiểu dữ liệu cơ bản (integer, string, float, date...) từ cấu hình YAML sang SQLAlchemy Types.
+
+*Thư mục:* [`src/nutrition_core/database/crud/`]
+- Chứa các module xử lý thao tác Create, Read, Update, Delete.
+- Gồm các tệp chuyên biệt như `user_crud.py` (quản lý người dùng) và `vector_crud.py` (quản lý cơ sở dữ liệu vector/RAG).
+
+
+## 9. API Framework ( src/api )
+
