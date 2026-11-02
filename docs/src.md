@@ -4,36 +4,73 @@ Tài liệu này tổng hợp danh sách các class, hàm và decorator thuộc 
 
 ## 1. Logging & MLOps Tracking
 
-**File:** `src/nutrition_core/logging/logger.py`
+Phân hệ này chịu trách nhiệm quản lý nhật ký hệ thống (system logs) nhiều cấp độ và tự động hóa việc theo dõi vòng đời dữ liệu/mô hình thông qua MLflow.
 
-* **`logger` (Instance):** Đối tượng logging chính của hệ thống.
-* **`monitor_performance(time_limit=5.0)`:** Decorator giám sát thời gian thực thi của hàm.
+### A. System Logging (Ghi nhận nhật ký hệ thống)
+*Mã nguồn:* [src/nutrition_core/logging/logger.py](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/nutrition_core/logging/logger.py)
 
-**File:** `src/nutrition_core/logging/mlflow_tracker.py`
+- **`logger` (Instance)**: Đối tượng logging lõi của dự án (`NutritionAI`). Được cấu hình để tự động phân luồng nhật ký theo định dạng thời gian thực và ghi ra 3 thư mục cách ly:
+  - `oper_logs`: Lưu toàn bộ tiến trình hệ thống từ mức `INFO` trở lên.
+  - `warm_logs`: Lưu các cảnh báo từ mức `WARNING` trở lên.
+  - `error_logs`: Cách ly các lỗi nghiêm trọng ở mức `ERROR` và `CRITICAL`.
+- **`@monitor_performance(time_limit=5.0)`**: Decorator dùng để bao bọc các hàm xử lý dữ liệu nặng. Tự động đo lường thời gian thực thi và xuất cảnh báo (Warning) vào log nếu vượt quá ngưỡng `time_limit` (tính bằng giây).
+- **`@validation_error_handler()`**: Decorator chuyên dụng để bắt và bọc các lỗi ngoại lệ (đặc biệt là `SchemaErrors` sinh ra từ Pandera), chuẩn hóa thông điệp lỗi hệ thống trước khi ngắt tiến trình.
 
-* **`MLOpsTracker`:** Lớp quản lý MLflow Tracking, tự động ghi nhận system metrics.
-* **`start_run`, `upload_system_logs`, `log_params_and_metrics`, `log_error_and_tag`:** Các phương thức thao tác vòng đời MLflow.
+### B. MLOps Tracking (Giám sát vòng đời học máy)
+*Mã nguồn:* [src/nutrition_core/logging/mlflow_tracker.py](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/nutrition_core/logging/mlflow_tracker.py)
+
+- **`MLOpsTracker` (Class)**: Lớp điều phối trung tâm giao tiếp với MLflow server (mặc định qua SQLite `mlflow.db`). Tự động kích hoạt tính năng theo dõi tài nguyên phần cứng (CPU, GPU, RAM) khi khởi tạo.
+  - **`start_run(run_name)`**: Bắt đầu một phiên theo dõi (Run) mới trên MLflow.
+  - **`log_params_and_metrics(params, metrics, step)`**: Ghi nhận danh sách các cấu hình/tham số (Params) và các chỉ số đo lường (Metrics) của mô hình hoặc độ trôi dữ liệu.
+  - **`log_dataset_lineage(df, dataset_name, source_uri)`**: Tạo liên kết nguồn gốc dữ liệu (Data Lineage) cho Pandas DataFrame, cho phép theo dõi chính xác phiên bản dữ liệu nào đã được dùng để huấn luyện.
+  - **`log_error_and_tag(error_msg, tags)`**: Đánh dấu Run hiện tại là `FAILED` và đính kèm trực tiếp thông điệp lỗi (error message) cùng các thẻ (tags) phân loại lên giao diện MLflow UI.
+  - **`log_artifact_file(local_path, artifact_path)`**: Hỗ trợ tải các file cục bộ (như biểu đồ, báo cáo Evidently HTML, file dữ liệu quarantine) lên kho lưu trữ Artifacts của Run.
+  - **`upload_system_logs()`**: Đọc tự động các file log mới nhất từ `oper_logs` và `error_logs` của hệ thống và đẩy lên mục `system_logs` trong MLflow Artifacts.
+  - **`end_run(status="FINISHED")`**: Đóng phiên theo dõi, tự động kích hoạt `upload_system_logs()` trước khi thoát và chốt trạng thái cuối cùng của luồng làm việc.
 
 ## 2. Data Input/Output (`src/data_io`)
 
 Phân hệ chịu trách nhiệm trích xuất, biến đổi, nạp dữ liệu (ETL) và quản lý phiên bản dữ liệu/metrics.
 
-*File:* [base_extractor.py](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/data_io/base_extractor.py)
+*File:* [src/data_io/base_extractor.py](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/data_io/base_extractor.py)
 
-- *BasePostgresExtractor* *(ABC)*: Lớp cơ sở trừu tượng quản lý kết nối và trích xuất dữ liệu từ PostgreSQL. Cung cấp phương thức `_convert_data_types()` để phẳng hóa (flatten) các trường dữ liệu JSON/JSONB lồng nhau thành các cột Pandas DataFrame riêng biệt.
+- **`BasePostgresExtractor` (ABC)**: Lớp cơ sở (Abstract Base Class) chịu trách nhiệm quản lý kết nối và trích xuất dữ liệu từ PostgreSQL. Hệ thống hóa quá trình đóng gói bản ghi (Record Packaging) và ánh xạ kiểu dữ liệu (Data Type Mapping) một cách an toàn.
+  - **`_get_connection()`**: Trích xuất kết nối từ Pool cơ sở dữ liệu (`src.postgres.core.connection`). Tự động bắt lỗi và ném ngoại lệ `DatabaseConnectionError` nếu không thể kết nối, giúp pipeline dừng an toàn.
+  - **`_convert_data_types(df, schema_mapping, flatten_json_cols)`**: Phương thức lõi xử lý kiểu dữ liệu từ PostgreSQL sang định dạng chuẩn của Pandas/NumPy. Bao gồm 3 luồng xử lý:
+    1. **Flatten JSON/JSONB**: Tự động phẳng hóa (flatten) các trường JSON lồng nhau thành các cột độc lập (đặt tên theo định dạng `cột_subcol`).
+    2. **Auto Casting**: Xử lý tự động các kiểu thô từ `psycopg3` (VD: `decimal.Decimal` chuyển thành `float64`, kiểu `bool` sang `pd.BooleanDtype`, và đặc biệt ép kiểu PostgreSQL Array thành `numpy.array` để phục vụ trực tiếp cho pgvector/embeddings).
+    3. **Explicit Mapping**: Ép kiểu tường minh dựa trên cấu hình `schema_mapping` truyền vào (hỗ trợ xử lý an toàn các cột `datetime64`).
+  - **`fetch_as_dataframe(query, params, index_col, ...)`**: Thực thi truy vấn SQL (`cursor.execute`), lấy dữ liệu (`fetchall`), đóng gói thành DataFrame, tự động gọi hàm chuyển đổi kiểu dữ liệu ở trên và thiết lập cột Index (`set_index`) nếu được yêu cầu. Hỗ trợ ghi nhận Data Lineage trực tiếp nếu được truyền đối tượng MLflow Tracker.
 
-*File:* [base_trans.py](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/data_io/base_trans.py)
+*File:* [src/data_io/base_trans.py](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/data_io/base_trans.py)
 
-- *BaseTransformer* *(ABC)*: Lớp cơ sở cho các tác vụ Data Transformation (làm sạch và chuẩn hóa). Tích hợp đối tượng `MLOpsTracker` để theo dõi. Cung cấp hàm `fit_transform()` được gắn decorator `@monitor_performance` để tự động đo lường thời gian thực thi và đồng bộ lên MLflow.
+- **`BaseTransformer` (ABC)**: Lớp cơ sở trừu tượng cho tất cả các tác vụ Data Transformation (làm sạch, chuẩn hóa, và bảo mật dữ liệu). Tích hợp sẵn `MLOpsTracker` để tự động ghi nhận các chỉ số hiệu năng và lỗi.
+  - **`fit(X, y)` / `transform(df)`**: Giao diện tiêu chuẩn hóa (tương tự scikit-learn) yêu cầu các lớp con (subclasses) phải triển khai logic biến đổi dữ liệu cụ thể cho từng pipeline.
+  - **`fit_transform(df, y)`**: Thực thi tuần tự luồng `fit` và `transform`. Được tích hợp sẵn decorator `@monitor_performance(time_limit=10.0)`. Tự động tính toán thời gian chạy, đẩy metric `{step_name}_exec_time_seconds` lên MLflow, đồng thời tự động bắt/ghi log khi xảy ra ngoại lệ `DataTransformationError`.
+  - **`normalize_column_names(df)`**: Tiện ích chuẩn hóa toàn bộ tên cột của DataFrame. Xử lý an toàn các ký tự Unicode, loại bỏ dấu, và chuyển đổi chuỗi sang định dạng tiêu chuẩn `snake_case` (chữ thường, cách nhau bằng gạch dưới) bằng Regex.
+  - **`drop_duplicates_by_key(df, subset, sort_col, keep)`**: Loại bỏ các bản ghi trùng lặp theo khóa. Tự động đếm số lượng bản ghi bị xóa và đẩy chỉ số `{class_name}_dropped_duplicates` lên MLflow, giúp kỹ sư dữ liệu theo dõi tỷ lệ hao hụt dữ liệu qua từng bước.
+  - **`hash_pii_columns(df, columns)`**: Tiện ích bảo mật dữ liệu. Chuyển đổi một chiều (băm) các cột chứa thông tin nhạy cảm/định danh cá nhân (PII) bằng thuật toán mã hóa `SHA-256`, đảm bảo tuân thủ quy định bảo mật trước khi lưu trữ hoặc đưa vào huấn luyện mô hình.
 
-*File:* [bulk_loader.py](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/data_io/bulk_loader.py)
+*File:* [src/data_io/bulk_loader.py](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/data_io/bulk_loader.py)
 
-- *PostgresBulkLoader*: Lớp quản lý nạp dữ liệu lớn. Hàm cốt lõi `execute_bulk_load()` sử dụng lệnh `COPY` của PostgreSQL để nạp dữ liệu từ file (CSV/TEXT) vào database tốc độ cao, đồng thời kiểm soát Transaction (Commit/Rollback) và ghi nhận thông số tracking qua MLflow.
+- **`PostgresBulkLoader`**: Lớp chuyên trách xử lý tác vụ nạp dữ liệu khối lượng lớn (Bulk Ingestion) vào PostgreSQL. Được thiết kế để tối ưu hóa tài nguyên bằng cách nhận trực tiếp `connection` từ Connection Pool thay vì liên tục mở kết nối mới.
+  - **`execute_bulk_load(table_name, file_path_on_server, schema_name="raw", delimiter, format_type, has_header)`**: Phương thức cốt lõi thực thi luồng tải dữ liệu.
+    - **Cơ chế COPY Tốc độ cao**: Sử dụng câu lệnh `COPY` nguyên thủy của PostgreSQL để nạp trực tiếp file (hỗ trợ định dạng CSV/TEXT) từ server vào database, cho tốc độ vượt trội so với lệnh `INSERT` thông thường. Hỗ trợ ánh xạ linh hoạt vào các schema khác nhau (mặc định là `raw`).
+    - **Quản lý Transaction (ACID)**: Trích xuất an toàn Raw DBAPI connection từ SQLAlchemy để khởi tạo cursor. Tự động kiểm soát luồng Commit trực tiếp (`raw_conn.commit()`) và xử lý đóng kết nối an toàn trong khối `finally`, đảm bảo không bị treo trỏ (dangling cursors) khi pipeline gặp lỗi.
+    - **Giám sát & Tracking tự động**: Được bao bọc bởi decorator `@monitor_performance(time_limit=10.0)`. Tự động đo lường thời gian chạy (ETL execution time), đếm số lượng bản ghi đã nạp (`row_count`), xuất cảnh báo nếu quá trình nạp vượt ngưỡng 10 giây và đồng bộ nhật ký lên MLflow.
 
-*File:* [dvc_handler.py](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/data_io/dvc_handler.py)
+*File:* [src/data_io/dvc_handler.py](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/data_io/dvc_handler.py)
 
-- *Pydantic Metrics Schemas*: Định nghĩa các cấu trúc chuẩn hóa cho chỉ số đánh giá (ví dụ: `GlobalSummaryMetrics`, `EpochMetrics`, `DVCMetricsNormalizedSchema`) để đảm bảo tính nhất quán.
-- *DVCHandler*: Lớp Adapter ẩn đi sự phức tạp của DVC, cung cấp giao diện chuẩn để tương tác, ghi nhận và quản lý phiên bản của các metrics/metadata trong quá trình huấn luyện mô hình.
+- **Pydantic Schemas (Interface Adaptation)**: Bộ schema định nghĩa các cấu trúc chuẩn hóa (Type Hinting & Validation) cho chỉ số đánh giá mô hình, đảm bảo tính nhất quán trước khi lưu trữ hoặc đẩy lên MLflow:
+  - `GlobalSummaryMetrics`: Quản lý các chỉ số tổng quan (accuracy, f1_score, precision, recall, loss, roc_auc).
+  - `PerClassMetric`: Quản lý chỉ số chi tiết cho từng nhãn/class phân loại.
+  - `EpochMetrics`: Lưu vết các thông số theo quá trình huấn luyện (best_epoch, total_epochs, loss final).
+  - `ExecutionMetadata`: Lưu trữ siêu dữ liệu phiên chạy (thời gian thực thi, dataset version, framework sử dụng).
+  - `DVCMetricsNormalizedSchema`: Lớp schema bao ngoài (wrapper) gom cụm toàn bộ các sub-schema trên thành một cấu trúc JSON/Dict thống nhất.
+
+- **`DVCHandler`**: Lớp Adapter che giấu sự phức tạp khi tương tác với DVC (API/CLI). Được tích hợp Decorator xử lý lỗi tập trung (`@dvc_error_handler`).
+  - **`sync_data()`**: Kéo dữ liệu đồng bộ từ remote storage thông qua lệnh `subprocess.run(["dvc", "pull"])`. Tích hợp cơ chế tự động thử lại (Retry: max_retries=3, delay=2s) khi gặp sự cố mạng lưới.
+  - **`_fallback_local_dataset(data_path, format_type)`**: Cơ chế dự phòng (Fallback) thông minh. Nếu quá trình đồng bộ DVC thất bại, hệ thống sẽ tự động chuyển hướng tìm và đọc file dữ liệu trực tiếp từ bộ đệm cục bộ (`data/raw/`), đảm bảo pipeline không bị gián đoạn.
 
 ## 3. Quản Lý Ngoại Lệ (Exception Handling)
 
