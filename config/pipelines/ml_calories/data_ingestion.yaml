@@ -7,7 +7,7 @@ database:
 schema:
   # Vẫn giữ đường dẫn JSON schema để đồng bộ với Database Models như bạn đang code
   json_schema_file: "Artifacts/reports/ml_calories/ingestion/calories_data_schema.json"
-  
+  target_column: "Calories"     # BỔ SUNG: Khai báo rõ cột nhãn/mục tiêu
   # Khuyến nghị: Chuyển cấu hình loại bỏ cột ra YAML để dễ cấu hình ETL hơn
   columns_to_drop:
     - "User_ID"
@@ -17,7 +17,8 @@ data_split:
   train_ratio: 0.70              # 70% dữ liệu dùng để train
   test_ratio: 0.15               # 15% dữ liệu dùng để test
   validation_ratio: 0.15         # 15% dữ liệu dùng để validation
+  random_state: 42                # Đặt random_state để đảm bảo kết quả reproducible
 
 feature_store:
   dvc_tracked: true              # Kích hoạt track DVC khi xuất file
-  export_dir: "Artifacts/data/ml_calories/processed" # Thư mục xuất các tập dataframe
+  export_dir: "Artifacts/data/ml_calories/raw" # Thư mục xuất các tập dataframe

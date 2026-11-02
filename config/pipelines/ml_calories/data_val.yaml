@@ -31,14 +31,10 @@ pipeline_paths:
   evidently_ai_profile_path: "config/pipelines/ml_calories/evidently_profile.yaml"
   
   # Thư mục chứa dữ liệu thô / đã ingest
-  ingest_dir: "Artifacts/data/ml_calories/processed"
+  ingest_dir: "Artifacts/data/ml_calories/raw"
   
   # Reference data cho Drift Detection (dữ liệu train gốc)
-  reference_data_path: "Artifacts/data/ml_calories/processed/train.csv"
-  
-  # Dữ liệu xuất ra sau khi qua Validation (Valid Artifacts)
-  valid_train_data: "Artifacts/data/ml_calories/processed/valid_train.csv"
-  valid_test_data: "Artifacts/data/ml_calories/processed/valid_test.csv"
+  reference_data_path: "Artifacts/data/ml_calories/raw/train.csv"
   
   # Báo cáo đầu ra (Khớp với project_tree.md)
   validation_report: "Artifacts/reports/ml_calories/validation/val_report.json"
@@ -47,6 +43,12 @@ pipeline_paths:
 # =========================================================================
 # THÔNG SỐ CẤU HÌNH PIPELINE VALIDATION
 # =========================================================================
-validation_params:
-  # Ngưỡng tỷ lệ lỗi dữ liệu tối đa cho phép trước khi dừng pipeline (5%)
-  error_threshold: 0.05
+validation:
+  # Đường dẫn class schema để load động qua hàm load_class_from_registry
+  schema_class_path: "config.pipelines.ml_calories.calories_schema.CaloriesSchema"
+  error_threshold: 0.05 # Ngưỡng lỗi (ví dụ 5%), nếu lỗi vượt mức này sẽ raise Exception dừng pipeline
+  
+paths:
+  input_dir: "Artifacts/data/ml_calories/raw"
+  output_dir: "Artifacts/data/ml_calories/validated"
+  quarantine_dir: "Artifacts/data/ml_calories/quarantine"
