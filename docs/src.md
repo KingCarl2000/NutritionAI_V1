@@ -61,11 +61,20 @@ Phân hệ chịu trách nhiệm trích xuất, biến đổi, nạp dữ liệu
 
 ## 6. ML Pipelines (Data Ingestion)
 
-**File:** `src/pipelines/ml_pipelines/calories_pred/data_ingest.py`
+### 1. Calories Prediction ( src/pipelines/ml_pipelines/calories_pred )
 
-* **`CaloriesDataIngestion(BasePostgresExtractor)`:** Class phụ trách trích xuất dữ liệu, được tích hợp sẵn với `DVCHandler` và `MLOpsTracker`.
-* **`extract_data_from_postgresql()`:** Hàm trích xuất dữ liệu thô.
-* **`process_and_split_data(df)`:** Bước tiền xử lý, tự động loại bỏ các đặc trưng không cần thiết.
+Phân hệ này quản lý vòng đời dữ liệu đầu vào, kiểm định chất lượng và giám sát mô hình cho dự án NutritionAI_V1.
+
+*File:* [data_ingest.py](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/pipelines/ml_pipelines/calories_pred/data_ingest.py)
+- **`CaloriesDataIngestion`**: Lớp kế thừa từ `BasePostgresExtractor`, chịu trách nhiệm trích xuất dữ liệu trực tiếp từ PostgreSQL. Đọc linh hoạt tên bảng, lược đồ và danh sách cột loại bỏ (drop) từ cấu hình YAML thay vì hardcode. Tích hợp sẵn `DVCHandler` và `MLOpsTracker` để theo dõi dữ liệu, tự động chia tách tập Train/Test/Validation.
+
+*File:* [data_val.py](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/pipelines/ml_pipelines/calories_pred/data_val.py)
+- **`CaloriesDataValidationPipeline`**: Lớp điều phối quá trình kiểm định chất lượng dữ liệu. Sử dụng hàm `load_class_from_registry()` để nạp động các validation schema từ cấu hình YAML.
+- **`run_validation_pipeline()`**: Hàm thực thi kiểm định thông qua Pandera. Tự động định tuyến các bản ghi lỗi vào thư mục Quarantine, phát cảnh báo (Alert) và dừng pipeline nếu tỷ lệ lỗi vượt ngưỡng cho phép, đồng thời ghi nhận metrics lên MLflow.
+
+*File:* [eval_drift.py](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/pipelines/ml_pipelines/calories_pred/eval_drift.py)
+- **`CaloriesDriftEvaluator`**: Lớp đánh giá Data Drift (trôi lệch dữ liệu) tích hợp Evidently. Khởi tạo và trích xuất động các cấu hình đường dẫn và ngưỡng cảnh báo (như PSI warning, PSI critical, p-value alpha) từ `evidently_profile.yaml` và `global.yaml`.
+- **`evaluate_drift()`**: Phương thức đo lường độ trôi lệch của tập dữ liệu mới so với tập tham chiếu (reference). Được giám sát thời gian thực thi bởi decorator `@monitor_performance`.
 
 ## 7. Data Validation (Hệ sinh thái Pandera & evidently AI)
 
