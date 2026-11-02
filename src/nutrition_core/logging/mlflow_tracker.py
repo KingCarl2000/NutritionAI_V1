@@ -151,6 +151,31 @@ class MLOpsTracker:
             
         except Exception as e:
             logger.error(f"Lỗi khi lưu/upload validation report: {e}")
+
+    def end_run(self, status: str = "FINISHED"):
+        """
+        Kết thúc MLflow run hiện tại, đồng bộ log hệ thống và thiết lập trạng thái.
+        """
+        try:
+            # Tự động upload log file lên artifact trước khi đóng run
+            self.upload_system_logs()
+            
+            # Kết thúc run với trạng thái tương ứng (FINISHED, FAILED, KILLED)
+            mlflow.end_run(status=status)
+            logger.info(f"Đã kết thúc MLflow run với trạng thái: {status}")
+        except Exception as e:
+            logger.error(f"Lỗi khi kết thúc MLflow run: {e}")
+
+    def log_artifact_file(self, local_path: str, artifact_path: Optional[str] = None):
+        """Upload một file bất kỳ (như báo cáo, biểu đồ, file lỗi) lên MLflow."""
+        try:
+            if os.path.exists(local_path):
+                mlflow.log_artifact(local_path, artifact_path=artifact_path)
+                logger.info(f"Đã upload {local_path} lên MLflow Artifacts.")
+            else:
+                logger.warning(f"Không tìm thấy file để upload: {local_path}")
+        except Exception as e:
+            logger.error(f"Lỗi khi upload artifact {local_path}: {e}")
 """
     @staticmethod
     def enable_llm_tracing(framework: str = "openai"):

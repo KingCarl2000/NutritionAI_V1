@@ -7,7 +7,6 @@ from pandera.errors import SchemaErrors
 
 from src.nutrition_core.logging.logger import logger
 from src.nutrition_core.logging.mlflow_tracker import MLOpsTracker
-from src.pipelines.ml_pipelines.calories_pred.eval_drift import CaloriesDriftEvaluator
 
 # =============================================================================
 # HELPER: DYNAMIC IMPORT TỪ API REGISTRY
@@ -26,23 +25,40 @@ def run_validation_pipeline(
     schema_class, 
     mode: str, 
     tracker: MLOpsTracker, 
-    error_threshold: float,
-    quarantine_dir: str
+    error_threshold: float, 
+    quarantine_dir: str,
+    output_dir: str
 ) -> pd.DataFrame:
     """
-    Thực thi Data Validation bằng Pandera với mọi tham số được truyền động từ config.
+    Thực thi Data Validation bằng Pandera. Lọc dữ liệu lỗi vào quarantine_dir 
+    và lưu dữ liệu sạch vào output_dir.
     """
     logger.info(f"Bắt đầu quá trình Data Validation (Chế độ: {mode.upper()})...")
     
+    # Tạo sẵn các thư mục đầu ra
+    os.makedirs(output_dir, exist_ok=True)
+    os.makedirs(quarantine_dir, exist_ok=True)
+    
+    valid_data_path = os.path.join(output_dir, f"validated_{mode}.parquet")
+
     try:
+        # Lazy=True để Pandera quét toàn bộ lỗi thay vì dừng ở lỗi đầu tiên
         valid_df = schema_class.validate(df, lazy=True)
         logger.info(f"Validation thành công 100%. {len(valid_df)} bản ghi hợp lệ.")
+        
         if tracker:
             tracker.log_params_and_metrics(metrics={f"val_{mode}_error_rate": 0.0})
-        return valid_df
+            
+        # LƯU FILE SẠCH RA ĐĨA CHO BƯỚC TRANSFORMATION
+        valid_df.to_parquet(valid_data_path, index=False)
+        logger.info(f"Đã lưu dữ liệu hợp lệ tại {valid_data_path}")
         
+        return valid_df
+
     except SchemaErrors as err:
+        # Trích xuất index của các bản ghi lỗi
         failure_indices = err.failure_cases['index'].dropna().unique()
+        
         invalid_df = df.loc[failure_indices]
         valid_df = df.drop(index=failure_indices)
         
@@ -56,123 +72,103 @@ def run_validation_pipeline(
         )
         
         if tracker:
-            tracker.log_params_and_metrics(
-                metrics={
-                    f"val_{mode}_error_rate": error_rate,
-                    f"val_{mode}_invalid_count": invalid_count
-                }
-            )
-        
-        os.makedirs(quarantine_dir, exist_ok=True)
-        quarantine_data_path = os.path.join(quarantine_dir, f"quarantine_{mode}_data.csv")
+            tracker.log_params_and_metrics(metrics={
+                f"val_{mode}_error_rate": error_rate,
+                f"val_{mode}_invalid_count": invalid_count
+            })
+            
+        # Lưu dữ liệu lỗi (Quarantine) và Báo cáo lỗi chi tiết
+        quarantine_data_path = os.path.join(quarantine_dir, f"quarantine_{mode}.csv")
         invalid_df.to_csv(quarantine_data_path, index=False)
         
         report_path = os.path.join(quarantine_dir, f"error_report_{mode}.csv")
         err.failure_cases.to_csv(report_path, index=False)
         
-        logger.info(f"Đã lưu dữ liệu lỗi tại {quarantine_data_path} và báo cáo tại {report_path}")
+        logger.info(f"Đã cách ly dữ liệu lỗi tại {quarantine_data_path} và báo cáo tại {report_path}")
         
+        # Vẫn lưu phần dữ liệu đúng (cứu vãn) nếu có bản ghi hợp lệ
+        if not valid_df.empty:
+            valid_df.to_parquet(valid_data_path, index=False)
+            logger.info(f"Đã cứu vãn và lưu {len(valid_df)} dữ liệu hợp lệ tại {valid_data_path}")
+        
+        # Alert nếu lỗi vượt ngưỡng
         if error_rate > error_threshold:
             alert_msg = f"DATA ALERT: Tỷ lệ lỗi ({error_rate:.2%}) vượt ngưỡng cho phép ({error_threshold:.2%}). Dừng pipeline!"
             logger.error(alert_msg)
-            raise ValueError(alert_msg)
+            raise Exception(alert_msg)
             
         return valid_df
 
 # =============================================================================
-# DATA VALIDATION PIPELINE ORCHESTRATOR
+# LỚP ĐIỀU PHỐI (ORCHESTRATOR CLASS) CHO BƯỚC VALIDATION
 # =============================================================================
 class CaloriesDataValidationPipeline:
-    def __init__(self, config_data: dict):
-        # 1. Khởi tạo cấu hình
-        self.api_registry = config_data["core_api_references"]
-        self.paths = config_data["pipeline_paths"]
-        self.params = config_data["validation_params"]
-
-        # Load các class phụ thuộc từ API registry thay vì truy cập thuộc tính chưa khai báo.
-        self.train_schema = load_class_from_registry(self.api_registry["train_schema"])
-        self.infer_schema = load_class_from_registry(self.api_registry["infer_schema"])
-        tracker = load_class_from_registry(self.api_registry["tracker"])
-        self.tracker = tracker() if isinstance(tracker, type) else tracker
+    def __init__(self, config_path: str):
+        with open(config_path, "r", encoding="utf-8") as f:
+            self.config = yaml.safe_load(f)
+            
+        # Khớp chính xác với các key trong file data_val.yaml đã sửa
+        self.api_refs = self.config.get("core_api_references", {})
+        self.paths = self.config.get("pipeline_paths", {})
+        self.params = self.config.get("validation_params", {})
         
-        # 2. Extract paths chuẩn xác từ YAML
-        self.ingest_dir = self.paths["ingest_dir"]
-        self.valid_train_path = self.paths["valid_train_data"]
-        self.valid_test_path = self.paths["valid_test_data"]
-        self.ref_data_path = self.paths["reference_data_path"]
+        # Đường dẫn thư mục
+        self.input_dir = self.paths.get("input_dir", "Artifacts/data/ml_calories/raw")
+        self.output_dir = self.paths.get("output_dir", "Artifacts/data/ml_calories/validated")
+        self.quarantine_dir = self.paths.get("quarantine_dir", "Artifacts/data/ml_calories/quarantine")
         
-        # 3. Quản lý thư mục báo cáo & quarantine tự động
-        self.quarantine_dir = os.path.dirname(self.paths["validation_report"])
-        self.drift_report = self.paths["drift_report"]
-        self.error_threshold = self.params["error_threshold"]
-
+        # Tham số cấu hình
+        self.error_threshold = self.params.get("error_threshold", 0.05)
+        
+        # Khởi tạo MLflow Tracker
+        self.tracker = MLOpsTracker(experiment_name="calories_data_pipeline")
+        
     def run(self):
-        self.tracker.start_run()
+        logger.info("Khởi chạy Calories Data Validation Pipeline...")
+        # Bật tracking trên MLflow
+        self.tracker.start_run(run_name="data_validation_stage")
+        
         try:
-            train_path = os.path.join(self.ingest_dir, "train.csv")
-            test_path = os.path.join(self.ingest_dir, "test.csv")
+            # Load class schema động
+            schema_class_path = self.api_refs.get("train_schema", "config.pipelines.ml_calories.calories_schema.MlCaloriesTrainingSchema")
+            schema_class = load_class_from_registry(schema_class_path)
             
-            logger.info("Đọc dữ liệu train và test từ Ingestion Layer...")
-            df_train = pd.read_csv(train_path)
-            df_test = pd.read_csv(test_path)
-            
-            logger.info("Bắt đầu Pandera Schema Validation...")
-            valid_train = run_validation_pipeline(
-                df=df_train, 
-                schema_class=self.train_schema,  # Truyền class schema đã load động
-                mode="train", 
-                tracker=self.tracker, 
-                error_threshold=self.error_threshold,
-                quarantine_dir=self.quarantine_dir
-            )
-            
-            valid_test = run_validation_pipeline(
-                df=df_test, 
-                schema_class=self.infer_schema,  # Truyền class schema đã load động
-                mode="inference", 
-                tracker=self.tracker, 
-                error_threshold=self.error_threshold,
-                quarantine_dir=self.quarantine_dir
-            )
-            
-            valid_train.to_csv(self.valid_train_path, index=False)
-            valid_test.to_csv(self.valid_test_path, index=False)
-            logger.info(f"Đã lưu valid artifacts tại {self.valid_train_path} và {self.valid_test_path}.")
-            
-            if os.path.exists(self.ref_data_path):
-                logger.info("Bắt đầu Evidently AI Drift Detection...")
-                df_ref = pd.read_csv(self.ref_data_path)
+            # Quét và validate tất cả file .parquet trong thư mục raw (train, val, test)
+            if not os.path.exists(self.input_dir):
+                raise FileNotFoundError(f"Không tìm thấy thư mục input: {self.input_dir}")
                 
-                drift_evaluator = CaloriesDriftEvaluator()
-                evaluate_drift = getattr(drift_evaluator, "evaluate")
-                drift_metrics, drift_report_path = evaluate_drift(
-                    reference_data=df_ref,
-                    current_data=valid_train,
-                    output_dir=os.path.dirname(self.drift_report)
-                )
-                self.tracker.log_params_and_metrics(metrics=drift_metrics)
-                logger.info(f"Hoàn tất Drift Detection. Báo cáo lưu tại: {drift_report_path}")
-            else:
-                logger.warning(f"Không tìm thấy Reference Data tại {self.ref_data_path}. Bỏ qua Drift Detection.")
+            file_processed = 0
+            for file_name in os.listdir(self.input_dir):
+                if file_name.endswith(".parquet"):
+                    mode = file_name.replace(".parquet", "") # Lấy tên làm mode (train, test, val)
+                    file_path = os.path.join(self.input_dir, file_name)
+                    
+                    logger.info(f"Tiến hành đọc dữ liệu từ: {file_path}")
+                    df = pd.read_parquet(file_path)
+                    
+                    run_validation_pipeline(
+                        df=df,
+                        schema_class=schema_class,
+                        mode=mode,
+                        tracker=self.tracker,
+                        error_threshold=self.error_threshold,
+                        quarantine_dir=self.quarantine_dir,
+                        output_dir=self.output_dir
+                    )
+                    file_processed += 1
             
-            logger.info("Toàn bộ Data Validation Pipeline hoàn tất thành công.")
+            if file_processed == 0:
+                logger.warning(f"Không tìm thấy file .parquet nào trong {self.input_dir} để validate!")
+                
+            self.tracker.end_run()
+            logger.info("Hoàn tất Data Validation Pipeline.")
             
         except Exception as e:
-            self.tracker.log_error_and_tag(e)
-            logger.error(f"Data Validation Pipeline thất bại: {e}")
+            logger.error(f"Lỗi nghiêm trọng trong quá trình validation: {str(e)}")
+            self.tracker.end_run(status="FAILED")
             raise e
-        finally:
-            self.tracker.end_run()
 
 if __name__ == "__main__":
-    config_path = "config/pipelines/ml_calories/data_val.yaml"
-    
-    try:
-        with open(config_path, "r", encoding="utf-8") as f:
-            yaml_config = yaml.safe_load(f)
-    except FileNotFoundError:
-        logger.error(f"Không tìm thấy file cấu hình tại {config_path}")
-        yaml_config = {}
-        
-    pipeline = CaloriesDataValidationPipeline(config_data=yaml_config)
+    config_file = "config/pipelines/ml_calories/data_val.yaml"
+    pipeline = CaloriesDataValidationPipeline(config_file)
     pipeline.run()

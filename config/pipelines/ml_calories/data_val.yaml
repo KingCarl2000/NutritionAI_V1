@@ -1,54 +1,31 @@
-# config/pipelines/ml_calories/data_val.yaml
-# =========================================================================
-# BẢNG TRA CỨU API (API REGISTRY) - NUTRITION PANDERA CORE
-# Mục đích: Tra cứu nhanh đường dẫn các hàm/class cơ sở dùng chung cho pipeline.
-# =========================================================================
 core_api_references:
   # 1. Base Schema (base.py)
   base_schema: "src.nutrition_core.pandera.api.base.BaseDataFrameModel"
   validate_df: "src.nutrition_core.pandera.api.base.BaseDataFrameModel.validate_df"
-
+  
   # 2. Custom Checks (check.py)
   numeric_range_check: "src.nutrition_core.pandera.api.check.is_in_numeric_range"
   string_length_check: "src.nutrition_core.pandera.api.check.is_valid_string_length"
-
+  
   # 3. Exceptions & Error Handling (val_exception.py)
   data_validation_error: "src.nutrition_core.exception.val_exception.DataValidationError"
-
+  
   # 4. Decorators & Tracking (logger.py & mlflow_tracker.py)
   validation_handler: "src.nutrition_core.logging.logger.validation_error_handler"
   mlops_tracker: "src.nutrition_core.logging.mlflow_tracker.MLOpsTracker"
-
+  
   # 5. Schema Classes (Dynamic Import cho Pipeline)
   train_schema: "config.pipelines.ml_calories.calories_schema.MlCaloriesTrainingSchema"
   inference_schema: "config.pipelines.ml_calories.calories_schema.MlCaloriesInputSchema"
 
-# =========================================================================
-# PIPELINE ARTIFACT PATHS (Dùng cho DVC & evidently)
-# =========================================================================
 pipeline_paths:
   pandera_schema_path: "config/pipelines/ml_calories/calories_schema.py"
   evidently_ai_profile_path: "config/pipelines/ml_calories/evidently_profile.yaml"
-  
-  # Thư mục chứa dữ liệu thô / đã ingest
-  ingest_dir: "Artifacts/data/ml_calories/raw"
-  
-  # Reference data cho Drift Detection (dữ liệu train gốc)
-  reference_data_path: "Artifacts/data/ml_calories/raw/train.csv"
-  
-  # Báo cáo đầu ra (Khớp với project_tree.md)
-  validation_report: "Artifacts/reports/ml_calories/validation/val_report.json"
-  drift_report: "Artifacts/reports/ml_calories/evidently/drift_report.html"
-
-# =========================================================================
-# THÔNG SỐ CẤU HÌNH PIPELINE VALIDATION
-# =========================================================================
-validation:
-  # Đường dẫn class schema để load động qua hàm load_class_from_registry
-  schema_class_path: "config.pipelines.ml_calories.calories_schema.CaloriesSchema"
-  error_threshold: 0.05 # Ngưỡng lỗi (ví dụ 5%), nếu lỗi vượt mức này sẽ raise Exception dừng pipeline
-  
-paths:
+  # BỔ SUNG: Đường dẫn xử lý dữ liệu để đồng bộ với DVC
   input_dir: "Artifacts/data/ml_calories/raw"
   output_dir: "Artifacts/data/ml_calories/validated"
   quarantine_dir: "Artifacts/data/ml_calories/quarantine"
+
+# BỔ SUNG: Khối tham số cấu hình validation
+validation_params:
+  error_threshold: 0.05
