@@ -1,116 +1,77 @@
 import os
-import pandas as pd
-from typing import Dict, Any
-
+import yaml
 from src.nutrition_core.logging.logger import logger
 from src.nutrition_core.logging.mlflow_tracker import MLOpsTracker
 from src.pipelines.ml_pipelines.calories_pred.data_ingest import CaloriesDataIngestion
-from src.pipelines.ml_pipelines.calories_pred.data_val import run_validation_pipeline
-from src.pipelines.ml_pipelines.calories_pred.eval_drift import CaloriesDriftEvaluator
+from src.pipelines.ml_pipelines.calories_pred.data_val import CaloriesDataValidationPipeline
 
-class CaloriesPipelineOrchestrator:
-    def __init__(self, ingest_config: dict, drift_config: dict):
-        """
-        Khởi tạo Orchestrator cho Data Pipeline (Ingestion -> Validation -> Drift)
-        """
-        self.ingest_config = ingest_config
-        self.drift_config = drift_config
-        
-        # Khởi tạo MLflow tracker chung cho toàn bộ pipeline để duy trì cùng 1 run_id
-        self.tracker = MLOpsTracker(experiment_name="calories_pred")
-        
-    def run_pipeline(self):
-        logger.info("BẮT ĐẦU CHẠY PIPELINE: INGESTION -> VALIDATION -> DRIFT")
-        
-        # Bắt đầu MLflow run
-        self.tracker.start_run(run_name="data_pipeline_orchestration")
-        
-        try:
-            # ==========================================
-            # 1. DATA INGESTION
-            # ==========================================
-            logger.info("--- GIAI ĐOẠN 1: DATA INGESTION ---")
-            ingestor = CaloriesDataIngestion(config=self.ingest_config, tracker=self.tracker)
-            
-            # Trích xuất dữ liệu từ PostgreSQL
-            raw_df = ingestor.extract_data_from_postgresql()
-            
-            # (Giả định module ingestor có hàm split_and_save_data trả về các dataframe hoặc đường dẫn)
-            # Ở đây chúng ta chia train/test/val theo như thiết kế kiến trúc
-            train_df, test_df, val_df = ingestor.split_and_save_data(raw_df) 
-            logger.info("Data Ingestion hoàn tất.")
+def load_yaml_config(path: str) -> dict:
+    """Đọc file cấu hình YAML."""
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return yaml.safe_load(f)
+    except FileNotFoundError:
+        logger.error(f"Không tìm thấy file cấu hình tại {path}")
+        raise
 
-            # ==========================================
-            # 2. DATA VALIDATION (PANDERA)
-            # ==========================================
-            logger.info("--- GIAI ĐOẠN 2: DATA VALIDATION ---")
-            
-            # Validate tập Train
-            valid_train_df = run_validation_pipeline(
-                df=train_df, 
-                mode="train", 
-                tracker=self.tracker
-            )
-            
-            # Validate tập Test (Dùng schema input)
-            valid_test_df = run_validation_pipeline(
-                df=test_df, 
-                mode="test", 
-                tracker=self.tracker
-            )
+class CaloriesOrchestrator:
+    """
+    Nhạc trưởng điều phối luồng MLOps cho Calories Prediction.
+    Thực thi tuần tự các giai đoạn và chia sẻ chung MLOpsTracker.
+    """
+    def __init__(self, ingest_config_path: str, val_config_path: str):
+        logger.info("Khởi tạo CaloriesOrchestrator...")
+        self.ingest_config = load_yaml_config(ingest_config_path)
+        self.val_config = load_yaml_config(val_config_path)
+        
+        # Khởi tạo tracker duy nhất để đồng bộ run_id qua các bước
+        self.tracker = MLOpsTracker(experiment_name="calories_pred_pipeline")
 
-            # Validate tập Validation (Dùng schema input)
-            valid_val_df = run_validation_pipeline(
-                df=val_df, 
-                mode="val", 
-                tracker=self.tracker
-            )
-            logger.info("Data Validation hoàn tất.")
-
-            # ==========================================
-            # 3. DATA DRIFT DETECTION (EVIDENTLY AI)
-            # ==========================================
-            logger.info("--- GIAI ĐOẠN 3: DATA DRIFT DETECTION ---")
-            drift_evaluator = CaloriesDriftEvaluator(config=self.drift_config, tracker=self.tracker)
-            
-            # Đánh giá Drift giữa tập Train (Reference) và tập Test (Current)
-            is_drifted = drift_evaluator.evaluate_drift(
-                reference_df=valid_train_df,
-                current_df=valid_test_df
-            )
-            
-            if is_drifted:
-                logger.warning("CẢNH BÁO: Phát hiện Data Drift! Có thể cần trigger retrain.")
-                self.tracker.log_params_and_metrics(metrics={"data_drift_detected": 1})
-            else:
-                logger.info("Không phát hiện Data Drift nghiêm trọng.")
-                self.tracker.log_params_and_metrics(metrics={"data_drift_detected": 0})
+    def run_initial_stages(self):
+        """Chạy kiểm thử 2 giai đoạn đầu: Data Ingestion & Data Validation"""
+        logger.info("BẮT ĐẦU KIỂM THỬ: Ingestion -> Validation")
+        
+        with self.tracker.start_run(run_name="test_ingest_val_pipeline"):
+            try:
+                # ==========================================
+                # GIAI ĐOẠN 1: DATA INGESTION
+                # ==========================================
+                logger.info("=== GIAI ĐOẠN 1: DATA INGESTION (PostgreSQL) ===")
+                ingestion_pipeline = CaloriesDataIngestion(
+                    config=self.ingest_config, 
+                    tracker=self.tracker
+                )
+                # Thực thi trích xuất và lưu DVC Artifacts (train/test/val)
+                ingestion_pipeline.extract_data_from_postgresql()
                 
-            logger.info("Data Drift Detection hoàn tất.")
-            logger.info("PIPELINE HOÀN TẤT THÀNH CÔNG.")
-            
-        except Exception as e:
-            logger.error(f"Pipeline thất bại với lỗi: {str(e)}")
-            self.tracker.log_error_and_tag(error_msg=str(e))
-            raise e
-        finally:
-            # Tải log hệ thống lên MLflow và đóng run
-            self.tracker.upload_system_logs()
-            self.tracker.end_run()
+                # ==========================================
+                # GIAI ĐOẠN 2: DATA VALIDATION & DRIFT
+                # ==========================================
+                logger.info("=== GIAI ĐOẠN 2: DATA VALIDATION & DRIFT CHECK ===")
+                validation_pipeline = CaloriesDataValidationPipeline(
+                    # Truyền config hoặc các tham số cần thiết (tuỳ thuộc vào `__init__` hiện tại của bạn)
+                    # config=self.val_config, 
+                    # tracker=self.tracker 
+                )
+                # class ValidationPipeline sẽ tự động nạp Artifacts do Ingestion tạo ra và chạy
+                validation_pipeline.run()
+                
+                logger.info("KIỂM THỬ THÀNH CÔNG: Hoàn thành Ingestion và Validation.")
+                
+            except Exception as e:
+                logger.error(f"Lỗi nghiêm trọng trong quá trình Orchestration: {str(e)}")
+                self.tracker.log_error_and_tag(error=e, stage="orchestration_test")
+                raise
 
 if __name__ == "__main__":
-    import yaml
+    # Thay đổi đường dẫn config cho phù hợp với cấu trúc thư mục thực tế của bạn
+    INGEST_YAML = "config/pipelines/ml_calories/data_ingestion.yaml"
+    VAL_YAML = "config/pipelines/ml_calories/data_validation.yaml"
     
-    # Load configs
-    with open("config/pipelines/ml_calories/data_ingestion.yaml", "r") as f:
-        ingest_config = yaml.safe_load(f)
-        
-    with open("config/pipelines/ml_calories/evidently_profile.yaml", "r") as f:
-        drift_config = yaml.safe_load(f)
-        
-    # Chạy orchestrator
-    orchestrator = CaloriesPipelineOrchestrator(
-        ingest_config=ingest_config,
-        drift_config=drift_config
+    orchestrator = CaloriesOrchestrator(
+        ingest_config_path=INGEST_YAML,
+        val_config_path=VAL_YAML
     )
-    orchestrator.run_pipeline()
+    
+    # Kích hoạt chạy kiểm thử 2 bước
+    orchestrator.run_initial_stages()
