@@ -117,9 +117,31 @@ Phân hệ quản lý kết nối cơ sở dữ liệu, khai báo mô hình (ORM
 - `build_model_from_yaml(yaml_filename)`: Đọc tệp cấu hình YAML (từ `config/datasets/`) và tự động đăng ký Model động vào `Base.metadata`. Hàm này hỗ trợ ánh xạ tự động các kiểu dữ liệu cơ bản (integer, string, float, date...) từ cấu hình YAML sang SQLAlchemy Types.
 
 *Thư mục:* [`src/nutrition_core/database/crud/`]
+
 - Chứa các module xử lý thao tác Create, Read, Update, Delete.
 - Gồm các tệp chuyên biệt như `user_crud.py` (quản lý người dùng) và `vector_crud.py` (quản lý cơ sở dữ liệu vector/RAG).
 
+## 9. Database, EDA & Automation Scripts ( src/scripts )
 
-## 9. API Framework ( src/api )
+Phân hệ này chứa các đoạn mã chạy độc lập (standalone scripts) phục vụ cho việc tự động hóa cơ sở dữ liệu PostgreSQL, trích xuất báo cáo phân tích và sinh tự động các file cấu hình schema.
+
+*File:* [run_db_bulk_load.py](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/scripts/run_db_bulk_load.py)
+- **Chức năng**: Quản lý tiến trình nạp dữ liệu hàng loạt (bulk load) vào cơ sở dữ liệu PostgreSQL.
+- **Điểm nhấn kiến trúc**: Loại bỏ hoàn toàn việc mã hóa cứng (hardcode) đường dẫn. Được thiết kế để đọc siêu dữ liệu (metadata) và định nghĩa bảng trực tiếp từ cấu hình động `schema.yaml` và `docs/architecture/tables_created_report.yaml`.
+
+*File:* [create_tables.py](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/scripts/create_tables.py)
+- **Chức năng**: Khởi tạo tự động các bảng trong PostgreSQL thông qua SQLAlchemy dựa trên định nghĩa từ file YAML.
+- **Điểm nhấn kiến trúc**: Hàm `get_pg_data_type()` tự động ánh xạ các kiểu dữ liệu từ YAML (như `string`, `int`, `boolean`) sang kiểu chuẩn của PostgreSQL (như `VARCHAR(255)`, `BIGINT`, `BOOLEAN`).
+
+*File:* [create_schema_pipelines.py](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/scripts/create_schema_pipelines.py)
+- **Chức năng**: Đọc cấu hình từ `tables_created_report.yaml` để phân luồng và tạo tự động các cấu hình schema pipeline tương ứng cho từng bộ dữ liệu đặc thù.
+
+*File:* [eda_report.py](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/scripts/eda_report.py)
+- **Chức năng**: Trích xuất báo cáo phân tích dữ liệu khám phá (EDA) kết hợp sử dụng `ydata_profiling`.
+- **Điểm nhấn kiến trúc**: Tích hợp hàm `calculate_custom_metrics()` để đo lường chính xác các chỉ số từ table-level, numerical, categorical đến relationships. Luồng xử lý phân tích tuân thủ nghiêm ngặt nguyên tắc **không sử dụng IQR để loại bỏ outlier** nhằm bảo toàn tính toàn vẹn của các điểm bất thường (anomalies) có ý nghĩa thực tế trong dữ liệu sức khỏe và dinh dưỡng.
+
+*File:* [generate_data_schema.py](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/scripts/generate_data_schema.py)
+- **Chức năng**: Tự động sinh ra các bộ khung (skeleton) schema cho hệ sinh thái Pandera dựa trên file JSON Metrics được xuất ra từ quá trình chạy `eda_report.py`. Phục vụ trực tiếp cho lớp Data Validation.
+
+## 10. API Framework ( src/api )
 
