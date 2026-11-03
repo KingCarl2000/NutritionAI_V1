@@ -99,10 +99,14 @@ Phân hệ này quản lý các tác vụ liên quan đến cơ sở dữ liệu
 - [`src/postgres/core/db_config.py`](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/postgres/core/db_config.py)
 - [`src/postgres/core/connection.py`](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/postgres/core/connection.py)
 
-*   **`db_config.py`**: Chịu trách nhiệm load các biến môi trường cấu hình DB từ file `.env` (thông qua `load_dotenv`) và định nghĩa đường dẫn gốc của dự án (`PROJECT_ROOT`).
+*   **`db_config.py`**:
+    *   **Tự động định vị môi trường**: Sử dụng `pathlib.Path` để tự động xác định đường dẫn gốc của dự án (`PROJECT_ROOT`) và nạp file cấu hình `.env` thông qua thư viện `dotenv`.
+    *   **`DatabaseConfig` (Dataclass)**: Lớp lưu trữ cấu hình kết nối PostgreSQL. Tự động đọc và gán các giá trị từ biến môi trường (như `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`, v.v.) với các giá trị mặc định an toàn. Lớp này cung cấp hàm `get_sqlalchemy_url()` để xuất chuỗi kết nối đạt chuẩn.
 *   **`connection.py`**:
-    *   Sử dụng thư viện `psycopg` và `psycopg_pool.ConnectionPool` kết hợp cùng `SQLAlchemy`.
-    *   **`get_engine()`**: Khởi tạo và trả về đối tượng `SQLAlchemy Engine` theo mẫu thiết kế Singleton. Cung cấp cơ chế connection pooling với các tham số timeout an toàn. Tự động tích hợp với custom logger (`src.nutrition_core.logging.logger`) để ghi log trạng thái kết nối.
+    *   Tích hợp custom logger (`src.nutrition_core.logging.logger`) thay vì thư viện logging mặc định để đồng bộ chuẩn ghi nhật ký của hệ thống.
+    *   **`get_engine()`**: Hàm khởi tạo và trả về đối tượng SQLAlchemy Engine kết hợp thư viện `psycopg` mới nhất.
+        *   **Mẫu thiết kế Singleton**: Sử dụng biến global `_db_engine` để đảm bảo hệ thống chỉ duy trì một Engine duy nhất trong suốt vòng đời chạy ứng dụng, tránh rò rỉ tài nguyên bộ nhớ.
+        *   **Connection Pooling (Hồ bơi kết nối)**: Tối ưu hóa hiệu suất chịu tải với cấu hình an toàn chặt chẽ: `pool_size=5` (số kết nối thường trực), `max_overflow=10` (số kết nối tối đa mở rộng), `pool_timeout=30`, và `pool_recycle=1800` (làm mới kết nối sau mỗi 30 phút để tránh lỗi rớt mạng ngầm).
 
 ### B. Feature Store Engine (Quản lý luồng nạp đặc trưng)
 *Mã nguồn:* [`src/postgres/feature_store/engine.py`](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/postgres/feature_store/engine.py)
