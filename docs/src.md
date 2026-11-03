@@ -111,9 +111,9 @@ Phân hệ này quản lý các tác vụ liên quan đến cơ sở dữ liệu
 ### B. Feature Store Engine (Quản lý luồng nạp đặc trưng)
 *Mã nguồn:* [`src/postgres/feature_store/engine.py`](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/postgres/feature_store/engine.py)
 
-*   **`FeatureStoreEngine`**: Lớp điều khiển chính (Engine) cho việc tương tác và nạp dữ liệu vào Feature Store. Khởi tạo qua chuỗi kết nối `conn_info`.
-    *   **`copy_from_csv(table_name, file_path)`**: Phương thức tối ưu hóa để nạp dữ liệu số lượng lớn. Đọc trực tiếp từ file CSV và đẩy lên máy chủ PostgreSQL bằng lệnh `COPY FROM STDIN`. Giúp tránh nghẽn I/O khi khởi tạo Feature Store từ file thô.
-    *   **`stream_features_from_memory(table_name, columns, data_stream)`**: Phương thức cho phép stream dữ liệu trực tiếp từ Python (dưới dạng Generator/Iterator chứa các `Tuple`) vào Database, tối ưu cho các luồng xử lý dữ liệu động.
+*   **`FeatureStoreEngine`**: Lớp điều khiển chính (Engine) chịu trách nhiệm tương tác và nạp dữ liệu vào Feature Store. Được khởi tạo thông qua chuỗi kết nối cơ sở dữ liệu `conn_info`.
+    *   **`copy_from_csv(table_name, file_path)`**: Phương thức tối ưu hóa để nạp dữ liệu số lượng lớn từ file thô phía máy khách. Đọc trực tiếp từ file CSV và đẩy lên máy chủ PostgreSQL bằng lệnh `COPY FROM STDIN WITH (FORMAT CSV, HEADER true)`. Cách tiếp cận này giúp tránh nghẽn I/O hệ thống khi khởi tạo Feature Store lần đầu.
+    *   **`stream_features_from_memory(table_name, columns, data_stream)`**: Phương thức nâng cao cho phép đẩy trực tiếp dữ liệu đang nằm trên RAM (ví dụ: kết quả từ Pandas DataFrame trong pipeline MLOps đã được chuyển thành Generator/Iterator chứa các `Tuple`) vào Database. Sử dụng giao thức `COPY` thay vì lệnh `INSERT` từng dòng, giúp tối ưu hóa bộ nhớ và tăng tốc độ luân chuyển dữ liệu động.
 
 ### C. Monitoring (Giám sát truy vấn)
 *Mã nguồn:* [`src/postgres/monitoring/query_analyzer.py`](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/postgres/monitoring/query_analyzer.py)
