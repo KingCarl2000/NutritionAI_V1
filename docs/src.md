@@ -116,22 +116,38 @@ Phân hệ này quản lý các tác vụ liên quan đến cơ sở dữ liệu
 
 *   **`analyze_query_performance(query)`**: Công cụ phân tích và đo lường hiệu năng của các truy vấn gửi đến Feature Store. Hàm này tự động chèn tiền tố `EXPLAIN (ANALYZE, FORMAT JSON)` vào câu lệnh SQL nguyên bản, thực thi và trích xuất các thông tin quan trọng như thời gian thực thi thực tế, đồng thời giúp phát hiện các tình huống rủi ro như quét toàn bảng (Sequential Scan) làm chậm hệ thống.
 
-## 5. ML Pipelines (Data Ingestion)
+## 5. ML Pipelines
 
 ### 1. Calories Prediction ( src/pipelines/ml_pipelines/calories_pred )
 
 Phân hệ này quản lý vòng đời dữ liệu đầu vào, kiểm định chất lượng và giám sát mô hình cho dự án NutritionAI_V1.
 
 *File:* [data_ingest.py](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/pipelines/ml_pipelines/calories_pred/data_ingest.py)
-- **`CaloriesDataIngestion`**: Lớp kế thừa từ `BasePostgresExtractor`, chịu trách nhiệm trích xuất dữ liệu trực tiếp từ PostgreSQL. Đọc linh hoạt tên bảng, lược đồ và danh sách cột loại bỏ (drop) từ cấu hình YAML thay vì hardcode. Tích hợp sẵn `DVCHandler` và `MLOpsTracker` để theo dõi dữ liệu, tự động chia tách tập Train/Test/Validation.
+*   **`CaloriesDataIngestion`**: Lớp chịu trách nhiệm trích xuất, tiền xử lý cơ bản và chia tách dữ liệu cho bài toán phân tích/dự đoán Calories. Lớp này kế thừa từ `BasePostgresExtractor` nhằm kế thừa cơ chế kết nối DB và ép kiểu (auto casting), đồng thời tích hợp trực tiếp `DVCHandler` và `MLOpsTracker`.
+    *   **Thiết kế linh hoạt (YAML-Driven Config)**: Chuyển dịch thiết kế từ việc đọc cứng (hard-code) bằng JSON Schema sang đọc cấu hình động (tên DB/Schema, danh sách cột cần bỏ, cấu trúc chia tập) từ file YAML.
+    *   **`extract_data_from_postgresql()`**: Lấy tên bảng từ YAML (với fallback về `source_dataset` trong JSON), thực thi truy vấn SQL lấy toàn bộ dữ liệu, sau đó gọi `_convert_data_types` (của lớp cha) để làm phẳng JSON và chuẩn hóa kiểu dữ liệu.
+    *   **`process_and_split_data(df)`**: Tiến hành loại bỏ tự động các cột rác (được định nghĩa trong `columns_to_drop` của YAML). Sau đó thực hiện phân chia dữ liệu thành 3 tập: Train, Validation và Test dựa theo tỷ lệ cấu hình an toàn (random_state=42).
+    *   **`export_to_feature_store(...)`**: Xuất các DataFrames (Train/Val/Test/Current) ra định dạng `.csv` lưu vào thư mục Feature Store. Đặc biệt, nếu cấu hình `dvc_tracked` được kích hoạt, phương thức sẽ tự động gọi `self.dvc.add_data(file_path)` để phiên bản hóa dữ liệu ngay lúc lưu.
+    *   **`run()`**: Hàm entry point thực thi toàn bộ quy trình. Khởi động một phiên theo dõi trên MLflow bằng `self.tracker.start_run(run_name="data_ingestion")` để quản lý luồng dữ liệu.
+    *   *Giám sát hiệu năng:* Tất cả các phương thức cốt lõi (extract, process, export) đều được bọc bởi decorator `@monitor_performance()` nhằm ghi nhận thời gian chạy vào log hệ thống tự động.
 
 *File:* [data_val.py](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/pipelines/ml_pipelines/calories_pred/data_val.py)
-- **`CaloriesDataValidationPipeline`**: Lớp điều phối quá trình kiểm định chất lượng dữ liệu. Sử dụng hàm `load_class_from_registry()` để nạp động các validation schema từ cấu hình YAML.
-- **`run_validation_pipeline()`**: Hàm thực thi kiểm định thông qua Pandera. Tự động định tuyến các bản ghi lỗi vào thư mục Quarantine, phát cảnh báo (Alert) và dừng pipeline nếu tỷ lệ lỗi vượt ngưỡng cho phép, đồng thời ghi nhận metrics lên MLflow.
+*   **`load_class_from_registry(api_path: str)`**: Hàm tiện ích giúp nạp động (dynamic import) các lớp kiểm định (schema classes) dựa trên đường dẫn cấu hình trong file YAML. Cơ chế này giúp loại bỏ việc hard-code các import trực tiếp, tăng tính linh hoạt khi thay đổi rule kiểm định.
+*   **`run_validation_pipeline(...)`**: Hàm lõi thực thi quy trình kiểm định MLOps sử dụng Pandera (với cấu hình `lazy=True` để quét toàn bộ lỗi thay vì dừng ở lỗi đầu tiên).
+    *   **Cơ chế Quarantine & Rescue (Cách ly và Cứu vãn)**: Tự động tách các bản ghi vi phạm logic (failure_cases) lưu vào thư mục `quarantine_dir` cùng file báo cáo chi tiết. Phần dữ liệu hợp lệ (valid_df) vẫn được "cứu" và lưu trữ dưới dạng `.parquet` cho bước Transformation tiếp theo.
+    *   **Alerting & Thresholds**: Tính toán tỷ lệ lỗi (`error_rate`). Nếu tỷ lệ này vượt qua ngưỡng cho phép (`error_threshold`), hệ thống lập tức ghi log Error, phát cảnh báo và ngắt Pipeline bằng Exception.
+    *   **Tích hợp MLflow**: Tự động theo dõi các metrics liên quan đến chất lượng dữ liệu như `val_{mode}_error_rate` và `val_{mode}_invalid_count` (với mode là train, val, hoặc test) vào MLOpsTracker.
+*   **`CaloriesDataValidationPipeline`**: Lớp điều phối (Orchestrator) tổng thể. Chịu trách nhiệm nạp cấu hình từ `data_val.yaml`, khởi tạo các thư mục (input, output, quarantine), khởi chạy `MLOpsTracker` và duyệt qua toàn bộ các file `.parquet` thô để tiến hành kiểm định hàng loạt.
 
 *File:* [eval_drift.py](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/pipelines/ml_pipelines/calories_pred/eval_drift.py)
-- **`CaloriesDriftEvaluator`**: Lớp đánh giá Data Drift (trôi lệch dữ liệu) tích hợp Evidently. Khởi tạo và trích xuất động các cấu hình đường dẫn và ngưỡng cảnh báo (như PSI warning, PSI critical, p-value alpha) từ `evidently_profile.yaml` và `global.yaml`.
-- **`evaluate_drift()`**: Phương thức đo lường độ trôi lệch của tập dữ liệu mới so với tập tham chiếu (reference). Được giám sát thời gian thực thi bởi decorator `@monitor_performance`.
+*   **`load_yaml_config(path: str)`**: Hàm trợ giúp đọc file cấu hình YAML, tích hợp bắt lỗi và ghi log khi file không tồn tại.
+*   **`CaloriesDriftEvaluator`**: Lớp cốt lõi đánh giá độ trôi lệch dữ liệu (Data Drift), thiết kế đọc tham số động từ các file cấu hình `evidently_profile.yaml` và `global.yaml`.
+    *   **Khởi tạo (`__init__`)**: Tự động trích xuất các đường dẫn I/O (dữ liệu tham chiếu, thư mục xuất report), các ngưỡng cảnh báo MLOps (`psi_warning`, `psi_critical`, `p_value_alpha`) và ánh xạ cột (`column_mapping`).
+    *   **`evaluate_drift(current_df, reference_df)`**: Phương thức đo lường chính, được giám sát hiệu năng với decorator `@monitor_performance(time_limit=10.0)`. Sử dụng `EvidentlyDriftEngine` để xuất báo cáo HTML và JSON. Trích xuất tỷ lệ trôi lệch (`drift_share`) và đối chiếu với các Thresholds để phát ra cảnh báo:
+        *   **CRITICAL ALERT**: Vượt ngưỡng `psi_critical` (yêu cầu Retrain Model).
+        *   **WARNING**: Vượt ngưỡng `psi_warning` (cần theo dõi).
+        *   **INFO**: Dữ liệu ổn định.
+*   **`run_drift_detection(...)`**: Hàm Wrapper (đóng gói) tiện ích. Cho phép Data Validation Pipeline hoặc Orchestrator gọi thẳng vào quy trình đánh giá Drift một cách gọn gàng, ẩn đi các chi tiết khởi tạo class và cấu hình bên dưới.
 
 ## 6. Data Validation (Hệ sinh thái Pandera & evidently AI)
 
