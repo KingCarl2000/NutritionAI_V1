@@ -116,9 +116,13 @@ Phân hệ này quản lý các tác vụ liên quan đến cơ sở dữ liệu
     *   **`stream_features_from_memory(table_name, columns, data_stream)`**: Phương thức nâng cao cho phép đẩy trực tiếp dữ liệu đang nằm trên RAM (ví dụ: kết quả từ Pandas DataFrame trong pipeline MLOps đã được chuyển thành Generator/Iterator chứa các `Tuple`) vào Database. Sử dụng giao thức `COPY` thay vì lệnh `INSERT` từng dòng, giúp tối ưu hóa bộ nhớ và tăng tốc độ luân chuyển dữ liệu động.
 
 ### C. Monitoring (Giám sát truy vấn)
-*Mã nguồn:* [`src/postgres/monitoring/query_analyzer.py`](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/postgres/monitoring/query_analyzer.py)
+*Mã nguồn:* [src/postgres/monitoring/query_analyzer.py](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/postgres/monitoring/query_analyzer.py)
 
-*   **`analyze_query_performance(query)`**: Công cụ phân tích và đo lường hiệu năng của các truy vấn gửi đến Feature Store. Hàm này tự động chèn tiền tố `EXPLAIN (ANALYZE, FORMAT JSON)` vào câu lệnh SQL nguyên bản, thực thi và trích xuất các thông tin quan trọng như thời gian thực thi thực tế, đồng thời giúp phát hiện các tình huống rủi ro như quét toàn bảng (Sequential Scan) làm chậm hệ thống.
+*   **`analyze_query_performance(query: str)`**: Công cụ phân tích và đo lường hiệu năng của các câu lệnh SQL truy vấn vào Feature Store.
+    *   **Cơ chế hoạt động**: Tự động chèn tiền tố `EXPLAIN (ANALYZE, FORMAT JSON)` vào truy vấn nguyên bản để phân tích cấu trúc thực thi.
+    *   **Thực thi an toàn**: Quản lý truy vấn an toàn thông qua việc ép kiểu với `psycopg.sql.SQL` và `typing.LiteralString`, sử dụng luồng kết nối trực tiếp từ `get_connection()`.
+    *   **Giám sát hiệu suất**: Trích xuất kết quả phân tích (execution plan) dưới dạng JSON để lấy thông tin chi tiết về thời gian thực thi thực tế, đồng thời hỗ trợ phát hiện các tình huống rủi ro suy giảm hiệu suất của Database như quét toàn bảng (Sequential Scan / Seq Scan).
+    *   **Cảnh báo tự động**: Tích hợp custom logger để xuất thông báo (mức `warning`) nếu không thể trích xuất dữ liệu execution plan hợp lệ từ PostgreSQL.
 
 ## 5. ML Pipelines
 
