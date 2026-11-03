@@ -90,15 +90,31 @@ Phân hệ này cung cấp các lớp ngoại lệ tùy chỉnh và công cụ x
     *   **`MLPipelineException`**: Lỗi chung cho các ML Pipelines.
     *   **`ModelTrainingError`**: Lỗi phát sinh trong quá trình huấn luyện (VD: sai tham số khi thiết lập K-means, DBSCAN
 
-## 4. Tương Tác PostgreSQL (Core & Monitoring)
+## 4. PostgreSQL Database & Feature Store (`src/postgres`)
 
-**File:** `src/postgres/core/connection.py`
+Phân hệ này quản lý các tác vụ liên quan đến cơ sở dữ liệu PostgreSQL (lưu trữ chính và vector store với pgvector), bao gồm cấu hình, kết nối, luồng nạp dữ liệu cho Feature Store và giám sát hiệu suất truy vấn của [NutritionAI_V1](https://github.com/KingCarl2000/NutritionAI_V1).
 
-* Thiết lập kết nối cơ sở dữ liệu sử dụng `sqlalchemy.create_engine` và thư viện `psycopg` cùng `psycopg_pool.ConnectionPool` để tối ưu hóa pool kết nối.
+### A. Core Database (Cấu hình & Kết nối)
+*Mã nguồn:* 
+- [`src/postgres/core/db_config.py`](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/postgres/core/db_config.py)
+- [`src/postgres/core/connection.py`](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/postgres/core/connection.py)
 
-**File:** `src/postgres/monitoring/query_analyzer.py`
+*   **`db_config.py`**: Chịu trách nhiệm load các biến môi trường cấu hình DB từ file `.env` (thông qua `load_dotenv`) và định nghĩa đường dẫn gốc của dự án (`PROJECT_ROOT`).
+*   **`connection.py`**:
+    *   Sử dụng thư viện `psycopg` và `psycopg_pool.ConnectionPool` kết hợp cùng `SQLAlchemy`.
+    *   **`get_engine()`**: Khởi tạo và trả về đối tượng `SQLAlchemy Engine` theo mẫu thiết kế Singleton. Cung cấp cơ chế connection pooling với các tham số timeout an toàn. Tự động tích hợp với custom logger (`src.nutrition_core.logging.logger`) để ghi log trạng thái kết nối.
 
-* **`analyze_query_performance(query: str)`:** Hàm tự động chèn cú pháp `EXPLAIN (ANALYZE, FORMAT JSON)` vào truy vấn.
+### B. Feature Store Engine (Quản lý luồng nạp đặc trưng)
+*Mã nguồn:* [`src/postgres/feature_store/engine.py`](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/postgres/feature_store/engine.py)
+
+*   **`FeatureStoreEngine`**: Lớp điều khiển chính (Engine) cho việc tương tác và nạp dữ liệu vào Feature Store. Khởi tạo qua chuỗi kết nối `conn_info`.
+    *   **`copy_from_csv(table_name, file_path)`**: Phương thức tối ưu hóa để nạp dữ liệu số lượng lớn. Đọc trực tiếp từ file CSV và đẩy lên máy chủ PostgreSQL bằng lệnh `COPY FROM STDIN`. Giúp tránh nghẽn I/O khi khởi tạo Feature Store từ file thô.
+    *   **`stream_features_from_memory(table_name, columns, data_stream)`**: Phương thức cho phép stream dữ liệu trực tiếp từ Python (dưới dạng Generator/Iterator chứa các `Tuple`) vào Database, tối ưu cho các luồng xử lý dữ liệu động.
+
+### C. Monitoring (Giám sát truy vấn)
+*Mã nguồn:* [`src/postgres/monitoring/query_analyzer.py`](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/postgres/monitoring/query_analyzer.py)
+
+*   **`analyze_query_performance(query)`**: Công cụ phân tích và đo lường hiệu năng của các truy vấn gửi đến Feature Store. Hàm này tự động chèn tiền tố `EXPLAIN (ANALYZE, FORMAT JSON)` vào câu lệnh SQL nguyên bản, thực thi và trích xuất các thông tin quan trọng như thời gian thực thi thực tế, đồng thời giúp phát hiện các tình huống rủi ro như quét toàn bảng (Sequential Scan) làm chậm hệ thống.
 
 ## 5. Feature Store Engine
 
