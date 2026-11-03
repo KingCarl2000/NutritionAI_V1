@@ -116,14 +116,7 @@ Phân hệ này quản lý các tác vụ liên quan đến cơ sở dữ liệu
 
 *   **`analyze_query_performance(query)`**: Công cụ phân tích và đo lường hiệu năng của các truy vấn gửi đến Feature Store. Hàm này tự động chèn tiền tố `EXPLAIN (ANALYZE, FORMAT JSON)` vào câu lệnh SQL nguyên bản, thực thi và trích xuất các thông tin quan trọng như thời gian thực thi thực tế, đồng thời giúp phát hiện các tình huống rủi ro như quét toàn bảng (Sequential Scan) làm chậm hệ thống.
 
-## 5. Feature Store Engine
-
-**File:** `src/postgres/feature_store/engine.py`
-
-* **`FeatureStoreEngine(conn_info)`:** Khởi tạo engine quản lý kho đặc trưng với chuỗi kết nối PostgreSQL.
-* **`copy_from_csv(table_name, file_path)`:** Nạp dữ liệu trực tiếp từ file CSV phía Client lên máy chủ thông qua giao thức `COPY FROM STDIN`.
-
-## 6. ML Pipelines (Data Ingestion)
+## 5. ML Pipelines (Data Ingestion)
 
 ### 1. Calories Prediction ( src/pipelines/ml_pipelines/calories_pred )
 
@@ -140,7 +133,7 @@ Phân hệ này quản lý vòng đời dữ liệu đầu vào, kiểm định 
 - **`CaloriesDriftEvaluator`**: Lớp đánh giá Data Drift (trôi lệch dữ liệu) tích hợp Evidently. Khởi tạo và trích xuất động các cấu hình đường dẫn và ngưỡng cảnh báo (như PSI warning, PSI critical, p-value alpha) từ `evidently_profile.yaml` và `global.yaml`.
 - **`evaluate_drift()`**: Phương thức đo lường độ trôi lệch của tập dữ liệu mới so với tập tham chiếu (reference). Được giám sát thời gian thực thi bởi decorator `@monitor_performance`.
 
-## 7. Data Validation (Hệ sinh thái Pandera & evidently AI)
+## 6. Data Validation (Hệ sinh thái Pandera & evidently AI)
 
 **File:** [`src/nutrition_core/pandera/api/base.py`](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/nutrition_core/pandera/api/base.py)
 
@@ -170,7 +163,7 @@ Phân hệ này quản lý vòng đời dữ liệu đầu vào, kiểm định 
 - `validate_schema(df, schema_model)`: Thực thi kiểm tra lược đồ dữ liệu động (Pandera Schema Validation) [Giai đoạn 1].
 - `run_drift_detection(current_df, reference_df, ...)`: Phát hiện trôi dạt dữ liệu bằng Evidently AI dựa trên cấu hình (dataset_drift_share, method, thresholds...), đồng thời tạo snapshot và báo cáo HTML/JSON [Giai đoạn 2].
 
-## 8. Database & CRUD ( src/nutrition_core/database )
+## 7. Database & CRUD ( src/nutrition_core/database )
 Phân hệ quản lý kết nối cơ sở dữ liệu, khai báo mô hình (ORM) và các thao tác truy vấn (CRUD).
 
 *File:* [`src/nutrition_core/database/session.py`]
@@ -185,7 +178,7 @@ Phân hệ quản lý kết nối cơ sở dữ liệu, khai báo mô hình (ORM
 - Chứa các module xử lý thao tác Create, Read, Update, Delete.
 - Gồm các tệp chuyên biệt như `user_crud.py` (quản lý người dùng) và `vector_crud.py` (quản lý cơ sở dữ liệu vector/RAG).
 
-## 9. Database, EDA & Automation Scripts ( src/scripts )
+## 8. Database, EDA & Automation Scripts ( src/scripts )
 
 Phân hệ này chứa các đoạn mã chạy độc lập (standalone scripts) phục vụ cho việc tự động hóa cơ sở dữ liệu PostgreSQL, trích xuất báo cáo phân tích và sinh tự động các file cấu hình schema.
 
