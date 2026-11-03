@@ -242,20 +242,27 @@ Lớp điều phối trung gian (`EvidentlyDriftEngine`) tích hợp đồng th�
         *   Trích xuất các chỉ số quan trọng từ báo cáo JSON như `drift_share`, `number_of_drifted_columns` và cờ cảnh báo `dataset_drift_detected`.
         *   Sử dụng đối tượng `MLOpsTracker` để đẩy metrics lên MLflow và tự động tải các tệp báo cáo HTML/JSON làm hệ thống artifact logging để dễ dàng truy vết lịch sử vận hành mô hình.
 
-## 7. Database & CRUD ( src/nutrition_core/database )
-Phân hệ quản lý kết nối cơ sở dữ liệu, khai báo mô hình (ORM) và các thao tác truy vấn (CRUD).
+## 7. Database & CRUD (`src/nutrition_core/database`)
 
-*File:* [`src/nutrition_core/database/session.py`]
-- Cung cấp `Base` (declarative_base) và quản lý session của SQLAlchemy.
-- Thiết lập connection pool để tương tác với cơ sở dữ liệu PostgreSQL.
+Phân hệ này quản lý việc định nghĩa các cấu trúc bảng (ORM Models) và phiên giao dịch (Sessions) để tương tác với cơ sở dữ liệu. Điểm đặc biệt của kiến trúc này là khả năng sinh Model động từ file cấu hình thay vì hard-code.
 
-*File:* [`src/nutrition_core/database/models.py`]
-- `build_model_from_yaml(yaml_filename)`: Đọc tệp cấu hình YAML (từ `config/datasets/`) và tự động đăng ký Model động vào `Base.metadata`. Hàm này hỗ trợ ánh xạ tự động các kiểu dữ liệu cơ bản (integer, string, float, date...) từ cấu hình YAML sang SQLAlchemy Types.
+### A. Session Management (Quản lý phiên kết nối)
+*Mã nguồn:* [src/nutrition_core/database/session.py](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/nutrition_core/database/session.py)
 
-*Thư mục:* [`src/nutrition_core/database/crud/`]
+*   **Khởi tạo `SessionLocal`**: Khởi tạo nhà máy tạo Session (`sessionmaker`) của SQLAlchemy để cấp phát các phiên làm việc với cơ sở dữ liệu.
+*   **Đảm bảo tính toàn vẹn (ACID)**: Cấu hình `autocommit=False` và `autoflush=False` giúp hệ thống kiểm soát chặt chẽ thời điểm xác nhận (commit) hoặc hoàn tác (rollback) dữ liệu, tránh tình trạng ghi dữ liệu rác khi các pipeline xảy ra lỗi đột ngột.
+*   **Tích hợp Engine & Logging**: Tự động kết nối với hàm `get_engine()` (từ `src.postgres.core.connection`) và tích hợp custom logger để theo dõi toàn bộ trạng thái khởi tạo.
 
-- Chứa các module xử lý thao tác Create, Read, Update, Delete.
-- Gồm các tệp chuyên biệt như `user_crud.py` (quản lý người dùng) và `vector_crud.py` (quản lý cơ sở dữ liệu vector/RAG).
+### B. Dynamic Modeling (Định nghĩa Model động)
+*Mã nguồn:* [src/nutrition_core/database/models.py](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/nutrition_core/database/models.py)
+
+Phân hệ này được thiết kế để tự động hóa hoàn toàn việc tạo cấu trúc bảng ORM dựa trên các định nghĩa khai báo trong file cấu hình YAML.
+
+*   **`TYPE_MAPPING`**: Từ điển ánh xạ các chuỗi định nghĩa kiểu dữ liệu trong YAML (như `"integer"`, `"string"`, `"boolean"`, `"date"`, `"datetime"`) sang các lớp kiểu dữ liệu chuẩn tương ứng của SQLAlchemy (`Integer`, `String`, `Boolean`, `Date`, `DateTime`).
+*   **`build_model_from_yaml(yaml_filename: str)`**: Hàm cốt lõi chịu trách nhiệm sinh Model động.
+    *   **Cơ chế hoạt động**: Nhận tên file YAML (nằm trong thư mục `config/datasets/`), tự động đọc và phân tích cấu trúc, bao gồm cả việc xử lý các dictionary lồng nhau (nested dictionary) và các thuộc tính cột.
+    *   **Đăng ký tự động**: Các Model (Lớp) sinh ra sẽ tự động được trả về và đăng ký vào `Base.metadata`, giúp hệ thống ORM (như Alembic) có thể nhận diện ngay lập tức để thực hiện migration.
+    *   **Bắt lỗi cấu hình**: Nếu không tìm thấy file cấu hình được chỉ định, hàm sẽ ghi log lỗi ở mức ERROR và ném ra ngoại lệ `FileNotFoundError`, ngăn chặn hệ thống chạy với một database rỗng.
 
 ## 8. Database, EDA & Automation Scripts ( src/scripts )
 
