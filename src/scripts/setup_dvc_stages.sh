@@ -23,22 +23,7 @@ dvc stage add -n calories_validate -f \
   -o Artifacts/data/ml_calories/quarantine \
   python src/pipelines/ml_pipelines/calories_pred/data_val.py
 
-# 3. Stage: Data Transformation (Làm sạch & Biến đổi dữ liệu)
-dvc stage add -n calories_transform -f \
-  -d src/pipelines/ml_pipelines/calories_pred/data_trans.py \
-  -d Artifacts/reports/ml_calories/validation/val_report.json \
-  -o Artifacts/data/ml_calories/processed_data.parquet \
-  python src/pipelines/ml_pipelines/calories_pred/data_trans.py
-
-# 4. Stage: Model Training (Huấn luyện mô hình - sử dụng Orchestrator.py)
-dvc stage add -n calories_train -f \
-  -d src/pipelines/ml_pipelines/calories_pred/Orchestrator.py \
-  -d config/pipelines/ml_calories/train_params.yaml \
-  -d Artifacts/data/ml_calories/processed_data.parquet \
-  -o Artifacts/models/ml_calories/model.pkl \
-  python src/pipelines/ml_pipelines/calories_pred/Orchestrator.py
-
-# 5. Stage: Data Drift Evaluation (Đánh giá độ trôi dữ liệu với Evidently AI)
+# 3. Stage: Data Drift Evaluation (Đánh giá độ trôi dữ liệu với Evidently AI)
 dvc stage add -n calories_eval_drift -f \
   -d src/pipelines/ml_pipelines/calories_pred/eval_drift.py \
   -d config/pipelines/ml_calories/evidently_profile.yaml \
