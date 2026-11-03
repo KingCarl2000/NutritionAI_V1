@@ -264,27 +264,88 @@ Phân hệ này được thiết kế để tự động hóa hoàn toàn việc
     *   **Đăng ký tự động**: Các Model (Lớp) sinh ra sẽ tự động được trả về và đăng ký vào `Base.metadata`, giúp hệ thống ORM (như Alembic) có thể nhận diện ngay lập tức để thực hiện migration.
     *   **Bắt lỗi cấu hình**: Nếu không tìm thấy file cấu hình được chỉ định, hàm sẽ ghi log lỗi ở mức ERROR và ném ra ngoại lệ `FileNotFoundError`, ngăn chặn hệ thống chạy với một database rỗng.
 
-## 8. Database, EDA & Automation Scripts ( src/scripts )
+## 8. Automation Scripts (`src/scripts`)
 
-Phân hệ này chứa các đoạn mã chạy độc lập (standalone scripts) phục vụ cho việc tự động hóa cơ sở dữ liệu PostgreSQL, trích xuất báo cáo phân tích và sinh tự động các file cấu hình schema.
+Phân hệ này chứa các đoạn mã tự động hóa quy trình vận hành hệ thống, giúp kỹ sư chạy các tác vụ Data Ingestion, khởi tạo Database, hoặc luồng MLOps một cách độc lập và hàng loạt từ Command Line.
 
-*File:* [run_db_bulk_load.py](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/scripts/run_db_bulk_load.py)
-- **Chức năng**: Quản lý tiến trình nạp dữ liệu hàng loạt (bulk load) vào cơ sở dữ liệu PostgreSQL.
-- **Điểm nhấn kiến trúc**: Loại bỏ hoàn toàn việc mã hóa cứng (hardcode) đường dẫn. Được thiết kế để đọc siêu dữ liệu (metadata) và định nghĩa bảng trực tiếp từ cấu hình động `schema.yaml` và `docs/architecture/tables_created_report.yaml`.
+### A. Tự động hóa Bulk Load (Nạp dữ liệu lớn)
+*Mã nguồn:* [`src/scripts/run_db_bulk_load.py`](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/scripts/run_db_bulk_load.py)
 
-*File:* [create_tables.py](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/scripts/create_tables.py)
-- **Chức năng**: Khởi tạo tự động các bảng trong PostgreSQL thông qua SQLAlchemy dựa trên định nghĩa từ file YAML.
-- **Điểm nhấn kiến trúc**: Hàm `get_pg_data_type()` tự động ánh xạ các kiểu dữ liệu từ YAML (như `string`, `int`, `boolean`) sang kiểu chuẩn của PostgreSQL (như `VARCHAR(255)`, `BIGINT`, `BOOLEAN`).
+*   **Định tuyến động (`PROJECT_ROOT`)**: Tự động xác định đường dẫn gốc của dự án bằng `pathlib.Path` và đưa vào `sys.path`, cho phép thực thi script từ bất kỳ thư mục nào mà không bị lỗi module import.
+*   **YAML-Driven Ingestion (Nạp qua cấu hình)**: 
+    *   Hàm `main(config_rel_path)` đọc trực tiếp các thông số nạp dữ liệu từ file YAML (ví dụ: `config/datasets/calories.yaml`).
+    *   Hỗ trợ duyệt qua nhiều bảng (`dataset_key`, `dataset_info`) được định nghĩa trong cùng một file cấu hình để thực thi nạp hàng loạt.
+*   **Tích hợp `PostgresBulkLoader`**: Khởi tạo bộ nạp dữ liệu và gọi hàm `execute_bulk_load` cho từng file `.csv` thô, tận dụng cơ chế `COPY TO STDIN` của PostgreSQL để tối ưu tốc độ nạp thay vì dùng lệnh INSERT.
+*   **Thiết kế dễ mở rộng**: Khối `if __name__ == "__main__":` duy trì một danh sách `config_files`. Kỹ sư chỉ cần mở comment (ví dụ: `"config/datasets/recipes.yaml"`) để luồng script tự động quét và nạp thêm các Domain dữ liệu mới vào DB.
 
-*File:* [create_schema_pipelines.py](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/scripts/create_schema_pipelines.py)
-- **Chức năng**: Đọc cấu hình từ `tables_created_report.yaml` để phân luồng và tạo tự động các cấu hình schema pipeline tương ứng cho từng bộ dữ liệu đặc thù.
+### B. Tự động hóa Khởi tạo Bảng (Database Schema Creation)
+*Mã nguồn:* [src/scripts/create_tables.py](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/scripts/create_tables.py)
 
-*File:* [eda_report.py](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/scripts/eda_report.py)
-- **Chức năng**: Trích xuất báo cáo phân tích dữ liệu khám phá (EDA) kết hợp sử dụng `ydata_profiling`.
-- **Điểm nhấn kiến trúc**: Tích hợp hàm `calculate_custom_metrics()` để đo lường chính xác các chỉ số từ table-level, numerical, categorical đến relationships. Luồng xử lý phân tích tuân thủ nghiêm ngặt nguyên tắc **không sử dụng IQR để loại bỏ outlier** nhằm bảo toàn tính toàn vẹn của các điểm bất thường (anomalies) có ý nghĩa thực tế trong dữ liệu sức khỏe và dinh dưỡng.
+Script này chịu trách nhiệm đọc cấu hình lược đồ dữ liệu và tự động sinh ra các bảng vật lý trong cơ sở dữ liệu PostgreSQL, loại bỏ hoàn toàn việc phải viết các câu lệnh SQL DDL thủ công.
 
-*File:* [generate_data_schema.py](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/scripts/generate_data_schema.py)
-- **Chức năng**: Tự động sinh ra các bộ khung (skeleton) schema cho hệ sinh thái Pandera dựa trên file JSON Metrics được xuất ra từ quá trình chạy `eda_report.py`. Phục vụ trực tiếp cho lớp Data Validation.
+*   **Ánh xạ kiểu dữ liệu (`get_pg_data_type`)**: Tự động chuyển đổi các kiểu dữ liệu chung được khai báo trong file YAML (như `string`, `int`, `boolean`, `datetime`) sang các kiểu dữ liệu chuẩn tối ưu của PostgreSQL (như `VARCHAR(255)`, `BIGINT`, `BOOLEAN`, `TIMESTAMP`).
+*   **Chuẩn hóa định danh (`normalize_identifier`)**: Xử lý và làm sạch tên các tập dữ liệu (dataset) để tạo ra các tiền tố (prefix) bảng an toàn cho PostgreSQL, ngăn chặn các lỗi cú pháp do ký tự đặc biệt hoặc khoảng trắng gây ra.
+*   **Luồng thực thi lõi (`create_tables_from_yaml`)**:
+    *   Kết nối an toàn với Database thông qua `get_connection()`.
+    *   Tự động sinh và thực thi chuỗi lệnh DDL: Đảm bảo Schema tồn tại (`CREATE SCHEMA IF NOT EXISTS`), dọn dẹp bảng cũ (`DROP TABLE IF EXISTS CASCADE`), và khởi tạo bảng mới (`CREATE TABLE`).
+    *   **Cơ chế Báo cáo (Report Generation)**: Sau khi tạo bảng thành công, script sẽ tự động tổng hợp và xuất ra file báo cáo `tables_created_report.yaml` (lưu tại `docs/architecture/`). File báo cáo này đóng vai trò cực kỳ quan trọng làm "nguồn sự thật" (Source of Truth) đầu vào cho các luồng Ingestion hoặc Automation Scripts khác (như `run_db_bulk_load.py`) biết chính xác bảng nào đã sẵn sàng để nạp dữ liệu.
+
+### C. Tự động hóa Tạo Schema Pipeline (Pipeline Schema Generation)
+*Mã nguồn:* [src/scripts/create_schema_pipelines.py](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/scripts/create_schema_pipelines.py)
+
+Script này đóng vai trò cầu nối dữ liệu (Data Bridge) giữa hệ thống Cơ sở dữ liệu và các luồng Machine Learning (ML Pipelines). Nó đọc báo cáo cấu trúc bảng đã khởi tạo và tự động sinh ra các file cấu hình JSON chuyên biệt (ví dụ: `calories_data_schema.json`) phục vụ cho khâu trích xuất và biến đổi dữ liệu.
+
+*   **Kế thừa Nguồn sự thật (Single Source of Truth)**: Tự động đọc file `docs/architecture/tables_created_report.yaml` (được sinh ra từ bước tạo bảng). Việc này đảm bảo luồng ML luôn đồng bộ tuyệt đối với cấu trúc vật lý của PostgreSQL mà không cần kỹ sư phải khai báo lại cấu trúc bằng tay.
+*   **Phân loại Cột Tự động (Smart Column Categorization)**: Dựa vào thuộc tính `yaml_type`, script tự động phân tách và gom nhóm các đặc trưng thành:
+    *   `numerical_cols`: Các cột có kiểu `integer` hoặc `float` (dùng cho Standard Scaling, tính toán độ lệch).
+    *   `categorical_cols`: Các cột có kiểu `categorical` (dùng cho One-Hot Encoding hoặc Entity Embedding).
+*   **Kiến trúc Đăng ký Mở rộng (`PIPELINES_REGISTRY`)**: Quản lý tập trung các cấu hình pipeline thông qua một danh sách dictionary. Để tích hợp một domain dữ liệu mới (ví dụ: `recipes`), kỹ sư chỉ cần khai báo một block mới trong biến `PIPELINES_REGISTRY` (gồm `source_dataset`, `dir_path`, `index`, `drop_cols`). Script sẽ tự động quét và render file JSON cấu hình tương ứng.
+*   **Tích hợp đầu ra JSON**: Gói toàn bộ metadata (cột index, các cột cần loại bỏ, phân loại numerical/categorical) thành một file `.json` hoàn chỉnh. File này sau đó sẽ được `BasePostgresExtractor` và các module Data Ingestion nạp vào để chuẩn hóa DataFrame tự động.
+
+### D. Tự động hóa Báo cáo EDA (EDA Report Generation)
+*Mã nguồn:* [src/scripts/eda_report.py](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/scripts/eda_report.py)
+
+Script này tự động hóa quá trình phân tích khám phá dữ liệu (Exploratory Data Analysis - EDA), xuất ra các báo cáo trực quan và số liệu thống kê chi tiết cho từng bảng dữ liệu trong PostgreSQL.
+
+*   **Quản lý cấu hình động**: Tự động đọc định nghĩa các bảng cần phân tích từ file cấu hình `schema.yaml` (nằm trong `src/api/data_schema/`).
+*   **Trích xuất mẫu dữ liệu an toàn**: Tận dụng `get_connection()` từ Connection Pool để truy vấn dữ liệu từ PostgreSQL. Sử dụng giới hạn (`LIMIT 10000`) thông qua SQL để tránh tình trạng quá tải bộ nhớ (OOM) khi phân tích các bảng dữ liệu khổng lồ.
+*   **Tính toán Metric tùy chỉnh (`calculate_custom_metrics`)**: 
+    *   **Table-level**: Thống kê số dòng, số cột, tỷ lệ dữ liệu thiếu (missing) và dữ liệu trùng lặp (duplicate).
+    *   **Numerical metrics**: Tính toán chuyên sâu cho dữ liệu số (min, max, mean, median, IQR, std_dev, skewness, kurtosis, zero ratio).
+    *   **Categorical/Datetime metrics**: Đo lường tần suất (mode, frequency), số lượng giá trị duy nhất (distinct count) và tự động nhận diện ép kiểu thời gian.
+    *   **Relationships**: Tự động tính toán ma trận tương quan theo phương pháp Pearson và Spearman.
+*   **Kết xuất báo cáo kép (Dual Output)**: Kết quả phân tích được lưu tự động vào thư mục lưu trữ tĩnh `Artifacts/EDA_reports/` dưới 2 định dạng riêng biệt:
+    1.  **Cấu trúc JSON (`{table_name}_metrics.json`)**: Lưu trữ các custom metrics dưới dạng JSON để tiện cho việc tái sử dụng bằng máy trong các luồng MLOps tiếp theo.
+    2.  **Trực quan HTML (`{table_name}_dataset_schema.html`)**: Báo cáo trực quan sinh động, chứa đồ thị tương tác được tạo tự động bởi thư viện `ydata-profiling` (`ProfileReport`).
+
+### E. Tự động hóa Sinh khung kiểm định (Schema Skeleton Generation)
+*Mã nguồn:* [src/scripts/generate_data_schema.py](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/scripts/generate_data_schema.py)
+
+Script này đóng vai trò tự động hóa việc tạo bộ khung (skeleton) cho các file cấu hình Pandera Schema, giúp giảm thiểu tối đa thao tác viết mã thủ công lặp đi lặp lại (boilerplate code) cho Data Engineer.
+
+*   **Kế thừa Metrics tĩnh**: Tự động đọc và phân tích cấu trúc file `{table_name}_metrics.json` (được sinh ra từ bước chạy `eda_report.py`) để trích xuất chính xác danh sách các cột dạng số (numerical) và phân loại/thời gian (categorical/datetime).
+*   **Tự động sinh mã nguồn (Code Generation)**:
+    *   Dựa vào tên pipeline (`pipeline_name`), script tự động chuẩn hóa tên Class (ví dụ: `ml_calories` thành `MlCaloriesInputSchema`).
+    *   Render ra một file mã nguồn Python (`.py`) hoàn chỉnh định nghĩa các lớp Schema kế thừa từ `pa.DataFrameModel`.
+    *   Thiết lập sẵn các cấu hình bảo vệ cốt lõi: `coerce = True`, `strict = True` và đặt mặc định các trường là bắt buộc (`nullable=False`).
+*   **Phân luồng Target Column**: Tự động nhận diện cột mục tiêu dự đoán (`target_col`) để tách biệt kiến trúc. Cột mục tiêu sẽ chỉ được khai báo trong `TrainingSchema` (kế thừa từ `InputSchema`), giữ cho `InputSchema` thuần túy chỉ chứa các đặc trưng đầu vào (features).
+*   **Cơ chế Human-in-the-loop (Chờ chuyên gia tinh chỉnh)**: 
+    *   Script chỉ đóng vai trò tạo khung định kiểu cơ bản (`float` cho số, `str` cho chuỗi).
+    *   Nó tự động chèn các ghi chú `TODO` bên cạnh mỗi thuộc tính (Ví dụ: `TODO: Xác nhận lại kiểu (int/float) và cập nhật ngưỡng` hoặc `TODO: Cập nhật danh sách isin=[...]`). Điều này định hướng trực tiếp cho Data Engineer/Domain Expert vị trí cần can thiệp thủ công để điền các quy tắc logic nghiệp vụ và ngưỡng sinh học chính xác.
+*   **Thực thi hàng loạt (Batch Execution)**: Khối cấu hình trung tâm `ML_PIPELINES_CONFIG` cho phép ánh xạ 1-1 giữa nhiều file JSON metrics và đường dẫn xuất schema đầu ra, dễ dàng sinh khung cho hàng loạt Domain cùng lúc.
+
+### F. Tự động hóa cấu hình DVC Pipelines (DVC Stages Setup)
+*Mã nguồn:* [src/scripts/setup_dvc_stages.sh](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/scripts/setup_dvc_stages.sh)
+
+Script Bash này tự động hóa việc khởi tạo và liên kết các bước (stages) trong luồng máy học thành một pipeline hoàn chỉnh thông qua Data Version Control (DVC). Việc chạy script này sẽ tạo/cập nhật file `dvc.yaml`, đảm bảo tính tái lập (reproducibility) cho toàn bộ quy trình MLOps của phân hệ Calories Prediction.
+
+*   **Tự động định vị thư mục (Auto-Navigation)**: Sử dụng lệnh `cd "$(dirname "$0")/../.."` để luôn di chuyển luồng thực thi về thư mục gốc của dự án `NutritionAI_V1`. Điều này cực kỳ quan trọng giúp DVC nhận diện chính xác các đường dẫn tương đối (relative paths) của dữ liệu và mã nguồn, bất kể bạn gọi script từ thư mục nào.
+*   **Định nghĩa 5 giai đoạn cốt lõi (ML Pipeline Stages)**: Script thiết lập 5 stage nối tiếp nhau, đầu ra (`-o`) của bước trước làm đầu vào (`-d`) cho bước sau:
+    1.  **`calories_ingest` (Trích xuất dữ liệu)**: Theo dõi mã nguồn `data_ingest.py` và cấu hình YAML. Xuất ra file khung `calories_data_schema.json` và dữ liệu thô tại `Artifacts/data/ml_calories/raw`.
+    2.  **`calories_validate` (Kiểm định chất lượng)**: Nhận dữ liệu thô từ bước 1. Theo dõi `data_val.py` và `calories_schema.py`. Phân tách đầu ra thành dữ liệu sạch (`validated`) và dữ liệu lỗi (`quarantine`).
+    3.  **`calories_transform` (Biến đổi dữ liệu)**: Dựa trên báo cáo kiểm định `val_report.json`, chạy `data_trans.py` để xử lý đặc trưng, xuất ra file dữ liệu sẵn sàng huấn luyện `processed_data.parquet`.
+    4.  **`calories_train` (Huấn luyện mô hình)**: Kích hoạt `Orchestrator.py` cùng với file tham số `train_params.yaml`. Đầu ra được lưu trữ tĩnh là file trọng số mô hình `model.pkl` tại thư mục Artifacts.
+    5.  **`calories_eval_drift` (Đánh giá trôi dữ liệu)**: Bước cuối cùng dùng `eval_drift.py` và cấu hình Evidently để so sánh dữ liệu mới và cũ, kết xuất báo cáo trôi lệch dưới dạng `drift_metrics.json` và `drift_report.html`.
 
 ## 10. API Framework ( src/api )
 
