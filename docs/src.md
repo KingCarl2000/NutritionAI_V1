@@ -74,10 +74,21 @@ Phân hệ chịu trách nhiệm trích xuất, biến đổi, nạp dữ liệu
 
 ## 3. Quản Lý Ngoại Lệ (Exception Handling)
 
-**File:** `src/nutrition_core/exception/exception.py` & `val_exception.py`
+Phân hệ này cung cấp các lớp ngoại lệ tùy chỉnh và công cụ xử lý lỗi để chuẩn hóa việc bắt lỗi, ghi log và phản hồi trong toàn bộ hệ thống [NutritionAI_V1](https://github.com/KingCarl2000/NutritionAI_V1).
 
-* **`NutritionBaseException`**: Ngoại lệ gốc, tự động bắt Traceback.
-* **`DataPipelineException`, `DataValidationError`**: Các ngoại lệ cho Pipeline và Pandera validation.
+### A. Ngoại lệ Cốt lõi Hệ thống (System Core Exceptions)
+*Mã nguồn:* [`src/nutrition_core/exception/exception.py`](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/nutrition_core/exception/exception.py)
+
+*   **`NutritionBaseException`**: Lớp cơ sở (Base class) chứa lỗi hệ thống. Tự động trích xuất thông tin traceback (tên file `file_name` và số dòng `lineno`) thông qua phương thức `_get_detailed_error_info` để xuất thông báo lỗi chính xác.
+*   **Data Pipeline Exceptions**:
+    *   **`DataPipelineException`**: Lỗi chung cho quá trình luân chuyển và nạp dữ liệu.
+    *   **`DataTransformationError`**: Dùng khi có lỗi phát sinh trong quá trình biến đổi dữ liệu (VD: vô tình loại bỏ đặc trưng cần thiết).
+    *   **`DataCleansingError`**: Dùng khi có lỗi làm sạch dữ liệu (VD: thay thế null sai mã categorical columns).
+    *   **`DataNotFoundError`**: Lỗi khi không tìm thấy dữ liệu/mô hình (Map từ `dvc.exceptions.PathMissingError`).
+    *   **`RemoteStorageError`**: Lỗi khi tương tác với các hệ thống lưu trữ từ xa.
+*   **ML Pipeline Exceptions**:
+    *   **`MLPipelineException`**: Lỗi chung cho các ML Pipelines.
+    *   **`ModelTrainingError`**: Lỗi phát sinh trong quá trình huấn luyện (VD: sai tham số khi thiết lập K-means, DBSCAN
 
 ## 4. Tương Tác PostgreSQL (Core & Monitoring)
 
