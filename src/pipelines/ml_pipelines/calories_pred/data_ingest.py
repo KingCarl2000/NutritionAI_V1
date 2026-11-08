@@ -8,6 +8,8 @@ from src.nutrition_core.logging.mlflow_tracker import MLOpsTracker
 from src.data_io.base_extractor import BasePostgresExtractor
 from src.data_io.dvc_handler import DVCHandler
 
+import datetime
+
 import os
 os.environ["MLFLOW_DISABLE_SYSTEM_METRICS_LOGGING"] = "true"
 
@@ -138,29 +140,36 @@ class CaloriesDataIngestion(BasePostgresExtractor):
         """Implement the abstract method required by BasePostgresExtractor."""
         return self.extract_data_from_postgresql()
 
-    def run(self):
+    def run(self, report_output_dir: str = None): # Bổ sung tham số nhận vào tại đây
         logger.info("Khởi động Calories Data Ingestion Pipeline")
+        
+        params = {
+            "train_ratio": self.config['data_split']['train_ratio'],
+            "test_ratio": self.config['data_split']['test_ratio'],
+            "validation_ratio": self.config['data_split']['validation_ratio'],
+            "dvc_tracked": self.config['feature_store'].get('dvc_tracked', True)
+        }
         
         with self.tracker.start_run(run_name="data_ingestion"):
             df = self.extract()
             full_df, train_df, val_df, test_df = self.process_and_split_data(df)
             self.export_to_feature_store(full_df, train_df, val_df, test_df)
             
-            self.tracker.log_params_and_metrics(
-                params={
-                    "train_ratio": self.config['data_split']['train_ratio'],
-                    "test_ratio": self.config['data_split']['test_ratio'],
-                    "validation_ratio": self.config['data_split']['validation_ratio'],
-                    "dvc_tracked": self.config['feature_store'].get('dvc_tracked', True)
-                },
-                metrics={
-                    "total_rows": len(full_df),
-                    "total_features": len(full_df.columns),
-                    "train_rows": len(train_df),
-                    "validation_rows": len(val_df),
-                    "test_rows": len(test_df)
-                }
-            )
+            metrics = {
+                "total_rows": len(full_df),
+                "total_features": len(full_df.columns),
+                "train_rows": len(train_df),
+                "validation_rows": len(val_df),
+                "test_rows": len(test_df)
+            }
+            
+            # Ghi nhận lên MLflow
+            self.tracker.log_params_and_metrics(params=params, metrics=metrics)
+            
+            # Xuất file báo cáo offline nếu đường dẫn được cấu hình
+            if report_output_dir:
+                self.export_ingestion_report(report_output_dir, metrics, params)
+                
         logger.info("Quá trình Ingestion hoàn tất và đã được ghi nhận trên MLflow.")
 
 if __name__ == "__main__":
