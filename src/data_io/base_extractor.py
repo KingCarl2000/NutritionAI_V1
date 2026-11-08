@@ -3,9 +3,12 @@ import decimal
 import numpy as np
 import pandas as pd
 import psycopg
-from psycopg.rows import dict_row
+# Thêm thư viện này của SQLAlchemy
+from sqlalchemy import text 
+
 from abc import ABC, abstractmethod
-from typing import Optional, Dict, Any, List, Union, cast
+from typing import Optional, Dict, Any, List, Union
+# ... (giữ nguyên các import khác)
 
 from src.nutrition_core.logging.logger import logger, monitor_performance
 from src.nutrition_core.logging.mlflow_tracker import MLOpsTracker
@@ -102,60 +105,49 @@ class BasePostgresExtractor(ABC):
         schema_mapping: Optional[Dict[str, Any]] = None,
         flatten_json_cols: Optional[List[str]] = None,
         index_col: Optional[Union[str, List[str]]] = None,
-        mlflow_tracker: Optional[MLOpsTracker] = None, # THÊM THAM SỐ NÀY
-        dataset_name: str = "raw_postgresql_data"      # Tên dataset để track
+        mlflow_tracker: Optional[MLOpsTracker] = None,
+        dataset_name: str = "raw_postgresql_data"
     ) -> pd.DataFrame:
-        """
-        Đóng gói bản ghi thành Pandas DataFrame, cấu hình Index và chuẩn hóa kiểu dữ liệu.
-        """
+        
         params = params or {}
         logger.info("Bắt đầu truy vấn trích xuất dữ liệu từ PostgreSQL...")
 
         try:
             with self._get_connection() as conn:
-                connection = cast(Any, conn)
-                with connection.cursor(row_factory=dict_row) as cursor:
-                    
-                    cursor.execute(query, params)
-                    records = cursor.fetchall()
-                    
-                    if not records:
-                        logger.warning("Truy vấn thực thi thành công nhưng kết quả trả về rỗng.")
-                        return pd.DataFrame()
-                    
-                    # Đóng gói cấu trúc bản ghi thành DataFrame
-                    df = pd.DataFrame(records)
-                    logger.info(f"Đã trích xuất thành công {len(df)} bản ghi thô.")
-                    
-                    # Chuyển đổi và ánh xạ kiểu dữ liệu
-                    df = self._convert_data_types(df, schema_mapping, flatten_json_cols)
+                # SỬA LỖI: Dùng pd.read_sql với text() thay vì gọi conn.cursor()
+                sql_query = text(query)
+                df = pd.read_sql(sql_query, conn, params=params)
+                
+                if df.empty:
+                    logger.warning("Truy vấn thực thi thành công nhưng kết quả trả về rỗng.")
+                    return pd.DataFrame()
+                
+                logger.info(f"Đã trích xuất thành công {len(df)} bản ghi thô.")
+                
+                # Chuyển đổi và ánh xạ kiểu dữ liệu (Giữ nguyên logic cũ của bạn)
+                df = self._convert_data_types(df, schema_mapping, flatten_json_cols)
 
-                    # Thiết lập Index nếu được chỉ định
-                    if index_col:
-                        # Kiểm tra xem các cột index có tồn tại không
-                        missing_cols = [col for col in (index_col if isinstance(index_col, list) else [index_col]) if col not in df.columns]
-                        if not missing_cols:
-                            df.set_index(index_col, inplace=True)
-                            logger.debug(f"Đã thiết lập cột {index_col} làm DataFrame Index.")
-                        else:
-                            logger.warning(f"Không thể đặt Index. Cột {missing_cols} không tồn tại trong kết quả.")
+                # Thiết lập Index nếu được chỉ định
+                if index_col:
+                    missing_cols = [col for col in (index_col if isinstance(index_col, list) else [index_col]) if col not in df.columns]
+                    if not missing_cols:
+                        df.set_index(index_col, inplace=True)
+                        logger.debug(f"Đã thiết lập cột {index_col} làm DataFrame Index.")
+                    else:
+                        logger.warning(f"Không thể đặt Index. Cột {missing_cols} không tồn tại trong kết quả.")
 
-                    # THÊM LOGIC GHI NHẬN DATA LINEAGE VÀO ĐÂY
-                    if mlflow_tracker is not None:
-                        # Tạo chuỗi mô phỏng source URI (vì không thể truyền toàn bộ query)
-                        source_uri = f"postgresql://query_hash_{hash(query)}" 
-                        mlflow_tracker.log_dataset_lineage(df, dataset_name, source_uri)
-                        logger.info("Đã đồng bộ thông tin Dataset Lineage lên MLflow.")
+                # GHI NHẬN DATA LINEAGE VÀO MLFLOW
+                if mlflow_tracker is not None:
+                    source_uri = f"postgresql://query_hash_{hash(query)}" 
+                    mlflow_tracker.log_dataset_lineage(df, dataset_name, source_uri)
+                    logger.info("Đã đồng bộ thông tin Dataset Lineage lên MLflow.")
 
-                    return df
+                return df
 
-        except psycopg.OperationalError as op_err:
-            logger.error(f"Lỗi OperationalError: {op_err}")
-            raise DatabaseConnectionError("Mất kết nối PostgreSQL.", error_details=sys)
-            
-        except psycopg.Error as db_err:
-            logger.error(f"Lỗi thực thi PostgreSQL: {db_err}")
-            raise QueryExecutionError("Lỗi thực thi câu lệnh SQL.", error_details=sys)
+        # Có thể bắt thêm SQLAlchemy Error nếu cần thiết
+        except Exception as db_err:
+            logger.error(f"Lỗi thực thi dữ liệu từ PostgreSQL: {db_err}")
+            raise QueryExecutionError("Lỗi thực thi câu lệnh SQL qua SQLAlchemy.", error_details=sys)
 
     @abstractmethod
     def extract(self, *args, **kwargs) -> pd.DataFrame:
