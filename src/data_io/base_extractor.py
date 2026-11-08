@@ -57,9 +57,8 @@ class BasePostgresExtractor(ABC):
                         df = pd.concat([df.drop(columns=[col]), flattened_df], axis=1)
                         logger.debug(f"Đã phẳng hóa cột JSON: '{col}'")
 
-            # 2. Xử lý tự động các kiểu dữ liệu thô từ psycopg3
+            # 2. Xử lý tự động các kiểu dữ liệu thô từ psycopg3 (hoặc SQLAlchemy)
             for col in df.columns:
-                # Lấy giá trị hợp lệ đầu tiên để nội suy kiểu dữ liệu thô
                 first_valid = df[col].dropna().iloc[0] if not df[col].dropna().empty else None
                 
                 if first_valid is None:
@@ -73,10 +72,14 @@ class BasePostgresExtractor(ABC):
                 elif isinstance(first_valid, bool):
                     df[col] = df[col].astype('boolean')
                     
-                # Array (Mảng) -> NumPy Array (Hữu ích cho pgvector / embeddings)
+                # THÊM MỚI: Integer -> Nullable Integer (Int64)
+                elif isinstance(first_valid, int):
+                    df[col] = df[col].astype('Int64')
+                    
+                # Array (Mảng) -> NumPy Array
                 elif isinstance(first_valid, list):
-                    values = [np.asarray(value) if isinstance(value, list) else value for value in df[col]]
-                    df[col] = pd.Series(values, index=df.index, dtype=object)
+                    values = [np.array(value) if isinstance(value, list) else value for value in df[col]]
+                    df[col] = pd.Series(values, index=df.index, dtype='object')
 
             # 3. Xử lý ép kiểu tường minh (bao gồm Timestamp) qua schema_mapping
             if schema_mapping:
@@ -138,7 +141,11 @@ class BasePostgresExtractor(ABC):
 
                 # GHI NHẬN DATA LINEAGE VÀO MLFLOW
                 if mlflow_tracker is not None:
-                    source_uri = f"postgresql://query_hash_{hash(query)}" 
+                    # SỬA LỖI: Bỏ "postgresql://" để tránh MLflow gọi URI Resolver.
+                    # Thay bằng một chuỗi định danh tĩnh phản ánh cấu trúc DB của bạn.
+                    query_hash = abs(hash(query))
+                    source_uri = f"nutrition_ai_db_query_{query_hash}" 
+                    
                     mlflow_tracker.log_dataset_lineage(df, dataset_name, source_uri)
                     logger.info("Đã đồng bộ thông tin Dataset Lineage lên MLflow.")
 

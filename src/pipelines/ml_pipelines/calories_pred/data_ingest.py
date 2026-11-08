@@ -8,6 +8,9 @@ from src.nutrition_core.logging.mlflow_tracker import MLOpsTracker
 from src.data_io.base_extractor import BasePostgresExtractor
 from src.data_io.dvc_handler import DVCHandler
 
+import os
+os.environ["MLFLOW_DISABLE_SYSTEM_METRICS_LOGGING"] = "true"
+
 class CaloriesDataIngestion(BasePostgresExtractor):
     def __init__(self, config: dict, tracker: MLOpsTracker = None):
         super().__init__()
@@ -34,7 +37,7 @@ class CaloriesDataIngestion(BasePostgresExtractor):
             logger.error(f"Lỗi định dạng YAML trong file {schema_file}: {exc}")
             raise
 
-    @monitor_performance()
+    @monitor_performance(time_limit=30)
     def extract_data_from_postgresql(self) -> pd.DataFrame:
         schema_name = self.config['database'].get('schema_name', 'raw')
         
@@ -82,9 +85,9 @@ class CaloriesDataIngestion(BasePostgresExtractor):
         
         return df, train_df, val_df, test_df
 
-    @monitor_performance()
+    @monitor_performance(time_limit=30)
+    @monitor_performance(time_limit=15.0) # Có thể nới lỏng thêm một chút nếu dữ liệu lớn
     def export_to_feature_store(self, df: pd.DataFrame, train_df: pd.DataFrame, val_df: pd.DataFrame, test_df: pd.DataFrame):
-        # THAY ĐỔI 5: Fix lỗi logic mặc định 'True' thành đường dẫn chuỗi (string)
         export_dir = self.config['feature_store'].get('export_dir', "Artifacts/features/calories")
         dvc_tracked = self.config['feature_store'].get('dvc_tracked', True)
 
@@ -97,13 +100,16 @@ class CaloriesDataIngestion(BasePostgresExtractor):
             "test.csv": test_df
         }
 
+        # 1. Vòng lặp CHỈ làm nhiệm vụ lưu file I/O của Pandas
         for file_name, dataset in files.items():
             file_path = os.path.join(export_dir, file_name)
-            dataset.to_csv(file_path, index=True) # Lưu ý: Để index=True nếu User_ID đang là Index
+            dataset.to_csv(file_path, index=True)
             logger.info(f"Đã lưu: {file_path}")
             
-            if dvc_tracked:
-                self.dvc.add_data(file_path)
+        # 2. Đưa lệnh dvc add ra NGOÀI vòng lặp
+        if dvc_tracked:
+            logger.info(f"Tiến hành thêm toàn bộ thư mục '{export_dir}' vào DVC...")
+            self.dvc.add_data(export_dir) # Add cả thư mục thay vì từng file
 
         logger.info("Hoàn tất xuất dữ liệu ra Feature Store.")
 

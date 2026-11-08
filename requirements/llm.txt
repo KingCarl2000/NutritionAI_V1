@@ -11,3 +11,4 @@ langchain-community
 tiktoken
 pypdf
 
+nvidia-ml-py

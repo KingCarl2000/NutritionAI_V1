@@ -36,12 +36,14 @@ langchain
 langchain-community
 tiktoken
 pypdf
+nvidia-ml-py
 
 [llm]
 langchain
 langchain-community
 tiktoken
 pypdf
+nvidia-ml-py
 
 [ml]
 pandas

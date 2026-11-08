@@ -41,6 +41,7 @@ Requires-Dist: langchain; extra == "llm"
 Requires-Dist: langchain-community; extra == "llm"
 Requires-Dist: tiktoken; extra == "llm"
 Requires-Dist: pypdf; extra == "llm"
+Requires-Dist: nvidia-ml-py; extra == "llm"
 Provides-Extra: all
 Requires-Dist: pandas; extra == "all"
 Requires-Dist: numpy; extra == "all"
@@ -62,6 +63,7 @@ Requires-Dist: langchain; extra == "all"
 Requires-Dist: langchain-community; extra == "all"
 Requires-Dist: tiktoken; extra == "all"
 Requires-Dist: pypdf; extra == "all"
+Requires-Dist: nvidia-ml-py; extra == "all"
 Dynamic: author
 Dynamic: author-email
 Dynamic: provides-extra
