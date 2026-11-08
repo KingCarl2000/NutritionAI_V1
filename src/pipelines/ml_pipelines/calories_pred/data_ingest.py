@@ -54,7 +54,7 @@ class CaloriesDataIngestion(BasePostgresExtractor):
         # - Đặt index trực tiếp
         df = self.fetch_as_dataframe(
             query=query,
-            index_col='recipe_id', # Ánh xạ cột recipe_id thành Index
+            index_col='User_ID', # Ánh xạ cột User_ID thành Index
             mlflow_tracker=self.tracker,
             dataset_name=f"{schema_name}_{table_name}"
         )
@@ -99,7 +99,7 @@ class CaloriesDataIngestion(BasePostgresExtractor):
 
         for file_name, dataset in files.items():
             file_path = os.path.join(export_dir, file_name)
-            dataset.to_csv(file_path, index=True) # Lưu ý: Để index=True nếu recipe_id đang là Index
+            dataset.to_csv(file_path, index=True) # Lưu ý: Để index=True nếu User_ID đang là Index
             logger.info(f"Đã lưu: {file_path}")
             
             if dvc_tracked:

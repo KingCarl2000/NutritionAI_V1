@@ -142,3 +142,13 @@ class DVCHandler:
         
         with dvc.api.open(image_path, repo=self.repo, rev=self.rev, mode='rb') as f:
             return base64.b64encode(f.read()).decode('utf-8')
+
+    @dvc_error_handler(max_retries=2, retry_delay=1)
+    def add_data(self, file_path: str) -> None:
+        """
+        Thêm file hoặc thư mục vào hệ thống theo dõi của DVC (che giấu lệnh 'dvc add').
+        """
+        logger.info(f"Đang thêm {file_path} vào DVC...")
+        # Gọi CLI của DVC để add data
+        result = subprocess.run(["dvc", "add", file_path], capture_output=True, text=True, check=True)
+        logger.info(f"Đã thêm vào DVC thành công: {result.stdout.strip()}")
