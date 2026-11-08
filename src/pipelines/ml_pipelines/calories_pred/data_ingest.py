@@ -18,10 +18,10 @@ class CaloriesDataIngestion(BasePostgresExtractor):
         # Nhận tracker từ Orchestrator để đồng bộ run_id, nếu không có mới tự tạo
         self.tracker = tracker if tracker else MLOpsTracker(experiment_name="calories_pred")
 
-        self.json_schema = self._load_json_schema()
+        self.json_schema = self._load_schema()
 
-    def _load_json_schema(self) -> dict:
-        schema_file = self.config['schema']['json_schema_file']
+    def _load_schema(self) -> dict:
+        schema_file = self.config['schema']['data_config_file']
         logger.info(f"Đọc cấu hình JSON Schema từ: {schema_file}")
         try:
             with open(schema_file, 'r', encoding='utf-8') as f:

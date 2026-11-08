@@ -5,7 +5,7 @@ import pandas as pd
 import psycopg
 from psycopg.rows import dict_row
 from abc import ABC, abstractmethod
-from typing import Optional, Dict, Any, List, Union
+from typing import Optional, Dict, Any, List, Union, cast
 
 from src.nutrition_core.logging.logger import logger, monitor_performance
 from src.nutrition_core.logging.mlflow_tracker import MLOpsTracker
@@ -72,7 +72,8 @@ class BasePostgresExtractor(ABC):
                     
                 # Array (Mảng) -> NumPy Array (Hữu ích cho pgvector / embeddings)
                 elif isinstance(first_valid, list):
-                    df[col] = df[col].apply(lambda x: np.array(x) if isinstance(x, list) else x)
+                    values = [np.asarray(value) if isinstance(value, list) else value for value in df[col]]
+                    df[col] = pd.Series(values, index=df.index, dtype=object)
 
             # 3. Xử lý ép kiểu tường minh (bao gồm Timestamp) qua schema_mapping
             if schema_mapping:
@@ -112,7 +113,8 @@ class BasePostgresExtractor(ABC):
 
         try:
             with self._get_connection() as conn:
-                with conn.cursor(row_factory=dict_row) as cursor:
+                connection = cast(Any, conn)
+                with connection.cursor(row_factory=dict_row) as cursor:
                     
                     cursor.execute(query, params)
                     records = cursor.fetchall()

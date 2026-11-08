@@ -6,7 +6,7 @@ database:
 
 schema:
   # Vẫn giữ đường dẫn JSON schema để đồng bộ với Database Models như bạn đang code
-  json_schema_file: "Artifacts/reports/ml_calories/ingestion/calories_data_schema.json"
+  data_config_file: "config/datasets/calories.yaml"
   target_column: "Calories"     # BỔ SUNG: Khai báo rõ cột nhãn/mục tiêu
   # Khuyến nghị: Chuyển cấu hình loại bỏ cột ra YAML để dễ cấu hình ETL hơn
   columns_to_drop:
