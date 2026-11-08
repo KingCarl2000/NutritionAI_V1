@@ -78,8 +78,7 @@ class BasePostgresExtractor(ABC):
                     
                 # Array (Mảng) -> NumPy Array
                 elif isinstance(first_valid, list):
-                    values = [np.array(value) if isinstance(value, list) else value for value in df[col]]
-                    df[col] = pd.Series(values, index=df.index, dtype='object')
+                    df[col] = df[col].apply(lambda x: np.array(x) if isinstance(x, list) else x)
 
             # 3. Xử lý ép kiểu tường minh (bao gồm Timestamp) qua schema_mapping
             if schema_mapping:

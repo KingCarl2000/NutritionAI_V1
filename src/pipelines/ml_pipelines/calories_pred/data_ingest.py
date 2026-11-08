@@ -112,6 +112,27 @@ class CaloriesDataIngestion(BasePostgresExtractor):
             self.dvc.add_data(export_dir) # Add cả thư mục thay vì từng file
 
         logger.info("Hoàn tất xuất dữ liệu ra Feature Store.")
+    # MỚI: Hàm xuất file báo cáo thông tin tương tự MLflow ra thư mục tùy chọn
+    def export_ingestion_report(self, report_dir: str, metrics: dict, params: dict):
+        os.makedirs(report_dir, exist_ok=True)
+        report_path = os.path.join(report_dir, "ingestion_report.json")
+        
+        report_data = {
+            "pipeline_name": "calories_ingestion",
+            "timestamp": datetime.now().isoformat(),
+            "parameters": params,
+            "metrics": metrics,
+            "status": "SUCCESS"
+        }
+        
+        with open(report_path, "w", encoding="utf-8") as f:
+            json.dump(report_data, f, ensure_ascii=False, indent=4)
+            
+        logger.info(f"Đã xuất file báo cáo ingestion tại: {report_path}")
+        
+        # Nếu muốn đẩy cả file report này lên MLflow artifact store cho đồng bộ
+        if self.tracker:
+            self.tracker.log_artifact_file(report_path)
 
     def extract(self) -> pd.DataFrame:
         """Implement the abstract method required by BasePostgresExtractor."""
@@ -147,5 +168,8 @@ if __name__ == "__main__":
     with open(yaml_path, "r", encoding="utf-8") as f:
         config = yaml.safe_load(f)
         
+    # Cấu hình đường dẫn báo cáo offline ngay tại đây để dễ thay đổi cho pipeline khác
+    REPORT_DIR = "Artifacts/reports/ml_calories/ingestion"
+    
     pipeline = CaloriesDataIngestion(config)
-    pipeline.run()
+    pipeline.run(report_output_dir=REPORT_DIR)
