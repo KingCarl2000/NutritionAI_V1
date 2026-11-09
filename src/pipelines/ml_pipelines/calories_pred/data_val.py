@@ -4,6 +4,17 @@ import yaml
 from pathlib import Path
 from typing import Type, Any, Dict
 
+
+import json
+import pandas as pd
+import pandera.errors as pa_errors
+
+# Giả định import các thành phần Core đã có trong dự án
+from src.nutrition_core.logging.mlflow_tracker import MLOpsTracker
+from src.nutrition_core.pandera.backends.pandas_executor import NutritionPandasBackend
+from src.nutrition_core.exception.val_exception import DataValidationError
+from src.nutrition_core.logging.logger import logger
+
 def load_class_from_registry(api_path: str) -> Any:
     """
     Nạp động Class, Function hoặc Method từ đường dẫn dot-notation trong YAML.
@@ -95,6 +106,135 @@ class DataValidationConfig:
             return load_class_from_registry(self._inference_schema_path)
         else:
             raise ValueError("Chế độ (mode) chỉ hỗ trợ 'train' hoặc 'inference'.")
+
+
+def validate_with_pandas_backend(
+    df: pd.DataFrame, 
+    schema_class: Type[Any], 
+    lazy: bool = True
+) -> Tuple[pd.DataFrame, List[dict]]:
+    """
+    Hàm xử lý backend kiểm định thực tế cho Pandas.
+    Sử dụng cơ chế Lazy Validation để gom toàn bộ lỗi thay vì dừng lại ở lỗi đầu tiên.
+    
+    Args:
+        df (pd.DataFrame): Dữ liệu cần kiểm định.
+        schema_class (Type[Any]): Lớp Pandera Schema (thường kế thừa BaseSchema).
+        lazy (bool): Bật chế độ tổng hợp lỗi (Lazy Validation).
+        
+    Returns:
+        Tuple[pd.DataFrame, List[dict]]: DataFrame sau khi xử lý (hoặc gốc) và danh sách chi tiết lỗi.
+    """
+    errors = []
+    validated_df = df.copy()
+    
+    # Chuyển đổi DataFrameModel sang DataFrameSchema để tương thích với Backend (nếu cần)
+    core_schema = schema_class.to_schema()
+    
+    # Khởi tạo backend thực thi
+    backend = NutritionPandasBackend(schema=core_schema, lazy=lazy, drop_invalid_rows=False)
+    
+    try:
+        # Tùy thuộc vào thiết kế nội bộ của NutritionPandasBackend, hàm thực thi có thể là validate hoặc _preprocess_and_coerce
+        # Nếu Backend ném ra SchemaErrors (do lazy=True), ta sẽ bắt và trích xuất
+        validated_df = core_schema.validate(df, lazy=lazy)
+    except pa_errors.SchemaErrors as err:
+        # Gom các lỗi định dạng thành danh sách dict dễ đọc cho validation_report
+        for error in err.failure_cases.itertuples(index=False):
+            errors.append({
+                "column": getattr(error, "column", "N/A"),
+                "check": getattr(error, "check", "N/A"),
+                "failure_case": str(getattr(error, "failure_case", "N/A")),
+                "index": getattr(error, "index", "N/A")
+            })
+        
+        # Đồng bộ hóa với failure_cases của backend (tùy chọn)
+        backend.failure_cases = errors
+        
+    except Exception as e:
+        logger.error(f"Lỗi không xác định trong quá trình validate backend: {str(e)}")
+        raise DataValidationError(f"Backend Error: {str(e)}")
+        
+    return validated_df, errors
+
+
+def run_validation_pipeline(
+    df: pd.DataFrame, 
+    schema_class: Type[Any], 
+    mode: str, 
+    tracker: MLOpsTracker, 
+    error_threshold: float, 
+    quarantine_dir: str, 
+    output_dir: str
+) -> pd.DataFrame:
+    """
+    Hàm điều phối chính thực thi kiểm định dữ liệu.
+    Xử lý tỷ lệ lỗi, ghi nhận vào MLflow Tracker, xuất file báo cáo và xử lý logic Fail-Fast/Quarantine.
+    """
+    import os
+    
+    logger.info(f"Bắt đầu Validation Pipeline (Mode: {mode}) với {len(df)} dòng dữ liệu.")
+    
+    # 1. Thực thi kiểm định qua Pandas Backend
+    validated_df, error_cases = validate_with_pandas_backend(df, schema_class, lazy=True)
+    
+    total_records = len(df)
+    error_count = len(error_cases)
+    error_rate = error_count / total_records if total_records > 0 else 0.0
+    
+    # 2. Tạo báo cáo Validation Report
+    report = {
+        "mode": mode,
+        "total_records": total_records,
+        "error_count": error_count,
+        "error_rate": error_rate,
+        "errors_detail": error_cases[:100]  # Giới hạn ghi 100 lỗi đầu tiên để tránh file quá lớn
+    }
+    
+    os.makedirs(output_dir, exist_ok=True)
+    os.makedirs(quarantine_dir, exist_ok=True)
+    
+    report_path = os.path.join(output_dir, f"validation_report_{mode}.json")
+    with open(report_path, "w", encoding="utf-8") as f:
+        json.dump(report, f, indent=4, ensure_ascii=False)
+        
+    # Track metadata lên MLflow
+    if tracker:
+        tracker.log_metrics({"validation_error_rate": error_rate, "validation_error_count": error_count})
+        tracker.log_artifact(report_path)
+
+    # 3. Phân luồng dựa trên ngưỡng lỗi (Threshold Routing)
+    if error_rate > error_threshold:
+        # Fail-Fast hoặc chuyển vùng cách ly (Quarantine)
+        quarantine_file = os.path.join(quarantine_dir, f"quarantine_{mode}.csv")
+        df.to_csv(quarantine_file, index=False)
+        logger.error(f"Validation thất bại! Tỷ lệ lỗi {error_rate*100:.2f}% vượt ngưỡng {error_threshold*100:.2f}%. Dữ liệu đã được đưa vào Quarantine.")
+        
+        # Track dataset hỏng nếu cần
+        if tracker:
+            tracker.log_artifact(quarantine_file)
+            
+        raise DataValidationError(f"Tỷ lệ vi phạm dữ liệu quá cao ({error_rate:.2%}). Dừng pipeline.")
+    
+    elif error_count > 0:
+        logger.warning(f"Validation hoàn thành với {error_count} cảnh báo nhỏ. Tỷ lệ lỗi ({error_rate*100:.2f}%) nằm trong ngưỡng an toàn.")
+        # Loại bỏ các dòng lỗi trước khi đưa ra bản sạch (logic tùy thuộc nghiệp vụ)
+        if error_cases:
+            error_indices = [err["index"] for err in error_cases if err.get("index") != "N/A"]
+            valid_df = df.drop(index=error_indices).reset_index(drop=True)
+        else:
+            valid_df = validated_df
+    else:
+        logger.info("Validation thành công tuyệt đối, không có dòng vi phạm.")
+        valid_df = validated_df
+
+    # 4. Xuất file dữ liệu sạch
+    output_file = os.path.join(output_dir, f"valid_{mode}.csv")
+    valid_df.to_csv(output_file, index=False)
+    logger.info(f"Đã lưu tập dữ liệu đạt chuẩn tại: {output_file}")
+    
+    return valid_df
+
 
 # Test nhanh (Tùy chọn - Dùng để kiểm tra khi chạy trực tiếp file)
 if __name__ == "__main__":
