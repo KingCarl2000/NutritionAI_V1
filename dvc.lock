@@ -1,0 +1,106 @@
+schema: '2.0'
+stages:
+  calories_ingest:
+    cmd: python src/pipelines/ml_pipelines/calories_pred/data_ingest.py
+    deps:
+    - path: src/data_io/base_extractor.py
+      hash: md5
+      md5: f9366453b091dc407c8cfbf658e64a9e
+      size: 7477
+    - path: src/data_io/dvc_handler.py
+      hash: md5
+      md5: 9eaecf1c726bfefb94747d9fa64c77c0
+      size: 7323
+    - path: src/nutrition_core/logging/logger.py
+      hash: md5
+      md5: 7bb1f8a296dc794ddfb4443ea3ff49fb
+      size: 9361
+    - path: src/nutrition_core/logging/mlflow_tracker.py
+      hash: md5
+      md5: a2b36c24c259342f027b603f530cd72f
+      size: 9243
+    - path: src/pipelines/ml_pipelines/calories_pred/data_ingest.py
+      hash: md5
+      md5: f9652bcceea79d260995ba40389e8153
+      size: 8121
+    params:
+      config/datasets/calories.yaml:
+        calories:
+          db_schema: raw
+          table_name: calories
+          source_path: D:/NutritionAI_V1/Data/raw/calories.csv
+          columns:
+            User_ID:
+              type: integer
+              nullable: false
+              description: ''
+            Gender:
+              type: categorical
+              nullable: false
+              description: ''
+            Age:
+              type: integer
+              nullable: false
+              description: ''
+            Height:
+              type: float
+              nullable: false
+              description: ''
+            Weight:
+              type: float
+              nullable: false
+              description: ''
+            Duration:
+              type: float
+              nullable: false
+              description: ''
+            Heart_Rate:
+              type: float
+              nullable: false
+              description: ''
+            Body_Temp:
+              type: float
+              nullable: false
+              description: ''
+            Calories:
+              type: float
+              nullable: false
+              description: ''
+          numerical_columns:
+          - User_ID
+          - Age
+          - Height
+          - Weight
+          - Duration
+          - Heart_Rate
+          - Body_Temp
+          - Calories
+          categorical_columns:
+          - Gender
+      config/pipelines/ml_calories/data_ingestion.yaml:
+        data_split:
+          train_ratio: 0.7
+          test_ratio: 0.15
+          validation_ratio: 0.15
+          random_state: 42
+        database:
+          schema_name: raw
+          table_name: calories
+        feature_store:
+          dvc_tracked: true
+          export_dir: Artifacts/data/ml_calories/raw
+        schema:
+          data_config_file: config/datasets/calories.yaml
+          target_column: Calories
+          columns_to_drop:
+          - User_ID
+    outs:
+    - path: Artifacts/data/ml_calories/raw
+      hash: md5
+      md5: c7d161e3f392118910b5e7ed71e91320.dir
+      size: 1514720
+      nfiles: 4
+    - path: Artifacts/reports/ml_calories/ingestion/ingestion_report.json
+      hash: md5
+      md5: 672c20e300622790292c9eb8b4a91f85
+      size: 449
