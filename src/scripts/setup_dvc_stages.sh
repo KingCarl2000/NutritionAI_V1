@@ -13,22 +13,3 @@ dvc stage add -n calories_ingest -f \
   -o Artifacts/data/ml_calories/raw \
   python src/pipelines/ml_pipelines/calories_pred/data_ingest.py
 
-# 2. Stage: Data Validation (Kiểm định chất lượng với Pandera)
-dvc stage add -n calories_validate -f \
-  -d src/pipelines/ml_pipelines/calories_pred/data_val.py \
-  -d config/pipelines/ml_calories/data_val.yaml \
-  -d config/pipelines/ml_calories/calories_schema.py \
-  -d Artifacts/data/ml_calories/raw \
-  -o Artifacts/data/ml_calories/validated \
-  -o Artifacts/data/ml_calories/quarantine \
-  python src/pipelines/ml_pipelines/calories_pred/data_val.py
-
-# 3. Stage: Data Drift Evaluation (Đánh giá độ trôi dữ liệu với Evidently AI)
-dvc stage add -n calories_eval_drift -f \
-  -d src/pipelines/ml_pipelines/calories_pred/eval_drift.py \
-  -d config/pipelines/ml_calories/evidently_profile.yaml \
-  -o Artifacts/reports/ml_calories/evidently/drift_metrics.json \
-  -o Artifacts/reports/ml_calories/evidently/drift_report.html \
-  python src/pipelines/ml_pipelines/calories_pred/eval_drift.py
-
-echo "✅ Đã tạo xong các stages trong file dvc.yaml!"

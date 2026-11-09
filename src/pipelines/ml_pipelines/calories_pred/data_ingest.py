@@ -8,7 +8,8 @@ from src.nutrition_core.logging.mlflow_tracker import MLOpsTracker
 from src.data_io.base_extractor import BasePostgresExtractor
 from src.data_io.dvc_handler import DVCHandler
 
-import datetime
+from datetime import datetime
+import json
 
 import os
 os.environ["MLFLOW_DISABLE_SYSTEM_METRICS_LOGGING"] = "true"

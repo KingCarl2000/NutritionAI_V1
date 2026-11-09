@@ -10,12 +10,23 @@ Phân hệ này chịu trách nhiệm quản lý nhật ký hệ thống (system
 
 *Mã nguồn:* [src/nutrition_core/logging/logger.py](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/nutrition_core/logging/logger.py)
 
-- **`logger` (Instance)**: Đối tượng logging lõi của dự án (`NutritionAI`). Được cấu hình để tự động phân luồng nhật ký theo định dạng thời gian thực và ghi ra 3 thư mục cách ly:
-  - `oper_logs`: Lưu toàn bộ tiến trình hệ thống từ mức `INFO` trở lên.
-  - `warm_logs`: Lưu các cảnh báo từ mức `WARNING` trở lên.
+- **`logger` *(Instance)***: Đối tượng logging lõi của dự án (`NutritionAI`). Tự động phân luồng nhật ký theo thời gian thực (`logs/{thư_mục}/MM_DD_YYYY/HH_MM_SS.log`) và xuất ra 4 luồng ghi cách ly:
+  - `oper_logs`: Lưu toàn bộ tiến trình vận hành hệ thống từ mức `INFO` trở lên.
+  - `warm_logs`: Ghi nhận các cảnh báo hiệu năng hoặc sự cố từ mức `WARNING` trở lên.
   - `error_logs`: Cách ly các lỗi nghiêm trọng ở mức `ERROR` và `CRITICAL`.
-- **`@monitor_performance(time_limit=5.0)`**: Decorator dùng để bao bọc các hàm xử lý dữ liệu nặng. Tự động đo lường thời gian thực thi và xuất cảnh báo (Warning) vào log nếu vượt quá ngưỡng `time_limit` (tính bằng giây).
-- **`@validation_error_handler()`**: Decorator chuyên dụng để bắt và bọc các lỗi ngoại lệ (đặc biệt là `SchemaErrors` sinh ra từ Pandera), chuẩn hóa thông điệp lỗi hệ thống trước khi ngắt tiến trình.
+  - `Console (sys.stdout)`: In nhật ký định dạng chuẩn trực tiếp ra màn hình Terminal.
+
+- **`@monitor_performance(time_limit=5.0)`**: Decorator đo lường thời gian thực thi của các hàm xử lý dữ liệu. Tự động tính toán thời gian chạy, xuất log `INFO` khi hoàn thành hoặc xuất cảnh báo `WARNING` vào `oper_logs` và `warm_logs` nếu thời gian chạy vượt quá ngưỡng `time_limit` (tính bằng giây).
+
+- **`@dvc_error_handler(max_retries=3, retry_delay=2, fallback_func=None)`**: Decorator xử lý lỗi tập trung cho các tác vụ tương tác với DVC (Map ngoại lệ, Inject Context, và Fallback & Retry):
+  - **Thiếu dữ liệu**: Bắt `PathMissingError`, `FileMissingError`, `FileNotFoundError`, ghi log context (`args`, `kwargs`) và chuyển đổi thành `DataNotFoundError`.
+  - **Lỗi phiên bản**: Bắt lỗi `RevisionError` của DVC và chuyển đổi thành `VersionNotFoundError`.
+  - **Lỗi kết nối / Remote**: Nhận diện các sự cố mạng (`network`, `connection`, `s3`, `gcs`, `timeout`) hoặc `CalledProcessError`. Tự động thử lại (Retry) tối đa `max_retries` lần (nghỉ `retry_delay` giây). Nếu thất bại hoàn toàn, kích hoạt hàm dự phòng cục bộ (`fallback_func`) trước khi ném ngoại lệ `RemoteStorageError`.
+  - **Lỗi hệ thống**: Bắt các ngoại lệ DVC không xác định khác và chuyển thành `DataPipelineException`.
+
+- **`@validation_error_handler()`**: Decorator xử lý lỗi tập trung cho quá trình kiểm định dữ liệu (Data Validation với Pandera):
+  - Phân loại chính xác 3 cấp độ lỗi validation: `DataValidationError` (lỗi đã parse), `SchemaErrors` (Lazy Validation vi phạm cấu trúc nhiều dòng), và `SchemaError` (Eager Validation thất bại tại cột cụ thể).
+  - Tự động ghi chi tiết log sự cố vào `error_logs` trước khi ngắt luồng (re-raise) để đảm bảo pipeline chính (FastAPI / MLflow Pipeline) dừng an toàn.
 
 ### B. MLOps Tracking (Giám sát vòng đời học máy)
 
@@ -36,13 +47,27 @@ Phân hệ chịu trách nhiệm trích xuất, biến đổi, nạp dữ liệu
 
 *File:* [src/data_io/base_extractor.py](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/data_io/base_extractor.py)
 
-- **`BasePostgresExtractor` (ABC)**: Lớp cơ sở (Abstract Base Class) chịu trách nhiệm quản lý kết nối và trích xuất dữ liệu từ PostgreSQL. Hệ thống hóa quá trình đóng gói bản ghi (Record Packaging) và ánh xạ kiểu dữ liệu (Data Type Mapping) một cách an toàn.
-  - **`_get_connection()`**: Trích xuất kết nối từ Pool cơ sở dữ liệu (`src.postgres.core.connection`). Tự động bắt lỗi và ném ngoại lệ `DatabaseConnectionError` nếu không thể kết nối, giúp pipeline dừng an toàn.
-  - **`_convert_data_types(df, schema_mapping, flatten_json_cols)`**: Phương thức lõi xử lý kiểu dữ liệu từ PostgreSQL sang định dạng chuẩn của Pandas/NumPy. Bao gồm 3 luồng xử lý:
-    1. **Flatten JSON/JSONB**: Tự động phẳng hóa (flatten) các trường JSON lồng nhau thành các cột độc lập (đặt tên theo định dạng `cột_subcol`).
-    2. **Auto Casting**: Xử lý tự động các kiểu thô từ `psycopg3` (VD: `decimal.Decimal` chuyển thành `float64`, kiểu `bool` sang `pd.BooleanDtype`, và đặc biệt ép kiểu PostgreSQL Array thành `numpy.array` để phục vụ trực tiếp cho pgvector/embeddings).
-    3. **Explicit Mapping**: Ép kiểu tường minh dựa trên cấu hình `schema_mapping` truyền vào (hỗ trợ xử lý an toàn các cột `datetime64`).
-  - **`fetch_as_dataframe(query, params, index_col, ...)`**: Thực thi truy vấn SQL (`cursor.execute`), lấy dữ liệu (`fetchall`), đóng gói thành DataFrame, tự động gọi hàm chuyển đổi kiểu dữ liệu ở trên và thiết lập cột Index (`set_index`) nếu được yêu cầu. Hỗ trợ ghi nhận Data Lineage trực tiếp nếu được truyền đối tượng MLflow Tracker.
+- **`BasePostgresExtractor` *(ABC)*** : Lớp cơ sở (Abstract Base Class) chịu trách nhiệm quản lý kết nối và trích xuất dữ liệu từ PostgreSQL. Hệ thống hóa quá trình đóng gói bản ghi (Record Packaging) và ánh xạ kiểu dữ liệu (Data Type Mapping) một cách an toàn.
+
+- **`_get_connection()`** : Trích xuất kết nối từ Pool cơ sở dữ liệu (`src.postgres.core.connection`). Tự động bắt lỗi và ném ngoại lệ `DatabaseConnectionError` nếu không thể kết nối, giúp pipeline dừng an toàn.
+
+- **`_convert_data_types(df, schema_mapping, flatten_json_cols)`** : Phương thức lõi xử lý kiểu dữ liệu từ PostgreSQL sang định dạng chuẩn của Pandas/NumPy. Bao gồm 3 luồng xử lý:
+  1. *Flatten JSON/JSONB*: Tự động phẳng hóa (flatten) các trường JSON lồng nhau thành các cột độc lập (đặt tên theo định dạng `cột_subcol`).
+  2. *Auto Casting*: Xử lý tự động các kiểu dữ liệu thô từ psycopg3/SQLAlchemy:
+     - `decimal.Decimal` $\rightarrow$ `float64`
+     - `bool` $\rightarrow$ Nullable Boolean (`pd.BooleanDtype`)
+     - `int` $\rightarrow$ Nullable Integer (`Int64`)
+     - PostgreSQL Array/List $\rightarrow$ `numpy.array`
+  3. *Explicit Mapping*: Ép kiểu tường minh dựa trên cấu hình `schema_mapping` truyền vào (hỗ trợ ép kiểu an toàn cho các cột `datetime64`/`datetime64[ns]` thông qua `pd.to_datetime`).
+
+- **`fetch_as_dataframe(query, params, schema_mapping, flatten_json_cols, index_col, mlflow_tracker, dataset_name)`** :
+  - Tích hợp decorator `@monitor_performance(time_limit=10.0)` để giám sát thời gian thực thi.
+  - Sử dụng `sqlalchemy.text()` kết hợp với `pd.read_sql()` để thực thi truy vấn trực tiếp và đọc kết quả thành DataFrame.
+  - Tự động gọi `_convert_data_types` để chuẩn hóa kiểu dữ liệu và thiết lập Index nếu `index_col` được cung cấp.
+  - **MLOps Tracking**: Tự động ghi nhận Data Lineage lên MLflow nếu truyền `mlflow_tracker`. Sử dụng định danh nguồn `source_uri = f"nutrition_ai_db_query_{query_hash}"` (loại bỏ tiền tố `postgresql://` để tránh kích hoạt URI Resolver của MLflow).
+  - Bắt lỗi thực thi SQL và ném ngoại lệ `QueryExecutionError`.
+
+- **`extract(*args, **kwargs)` *(Abstract Method)*** : Phương thức trừu tượng buộc các lớp con phải triển khai logic trích xuất dữ liệu cụ thể.
 
 *File:* [src/data_io/base_trans.py](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/data_io/base_trans.py)
 
@@ -63,17 +88,23 @@ Phân hệ chịu trách nhiệm trích xuất, biến đổi, nạp dữ liệu
 
 *File:* [src/data_io/dvc_handler.py](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/data_io/dvc_handler.py)
 
-- **Pydantic Schemas (Interface Adaptation)**: Bộ schema định nghĩa các cấu trúc chuẩn hóa (Type Hinting & Validation) cho chỉ số đánh giá mô hình, đảm bảo tính nhất quán trước khi lưu trữ hoặc đẩy lên MLflow:
+- **Pydantic Schemas (Interface Adaptation)**: Bộ schema định nghĩa cấu trúc chuẩn hóa (Type Hinting & Validation) cho dữ liệu chỉ số đánh giá và siêu dữ liệu của DVC, đảm bảo tính nhất quán trước khi lưu trữ hoặc ghi vào MLflow:
+  - `PerClassMetric`: Quản lý các chỉ số chi tiết cho từng nhãn/class phân loại (`precision`, `recall`, `f1_score`, `support`).
+  - `GlobalSummaryMetrics`: Quản lý các chỉ số tổng quan của mô hình (`accuracy`, `f1_score`, `precision`, `recall`, `loss`, `roc_auc`).
+  - `EpochMetrics`: Lưu vết các thông số theo từng epoch huấn luyện (`best_epoch`, `total_epochs`, `train_loss_final`, `val_loss_final`).
+  - `ExecutionMetadata`: Lưu trữ siêu dữ liệu phiên chạy (`dataset_version`, `execution_time_seconds`, `num_samples_eval`, `framework`).
+  - `DVCMetricsNormalizedSchema`: Schema wrapper gom cụm toàn bộ các sub-schema trên thành một cấu trúc JSON/Dict thống nhất.
 
-  - `GlobalSummaryMetrics`: Quản lý các chỉ số tổng quan (accuracy, f1_score, precision, recall, loss, roc_auc).
-  - `PerClassMetric`: Quản lý chỉ số chi tiết cho từng nhãn/class phân loại.
-  - `EpochMetrics`: Lưu vết các thông số theo quá trình huấn luyện (best_epoch, total_epochs, loss final).
-  - `ExecutionMetadata`: Lưu trữ siêu dữ liệu phiên chạy (thời gian thực thi, dataset version, framework sử dụng).
-  - `DVCMetricsNormalizedSchema`: Lớp schema bao ngoài (wrapper) gom cụm toàn bộ các sub-schema trên thành một cấu trúc JSON/Dict thống nhất.
-- **`DVCHandler`**: Lớp Adapter che giấu sự phức tạp khi tương tác với DVC (API/CLI). Được tích hợp Decorator xử lý lỗi tập trung (`@dvc_error_handler`).
-
-  - **`sync_data()`**: Kéo dữ liệu đồng bộ từ remote storage thông qua lệnh `subprocess.run(["dvc", "pull"])`. Tích hợp cơ chế tự động thử lại (Retry: max_retries=3, delay=2s) khi gặp sự cố mạng lưới.
-  - **`_fallback_local_dataset(data_path, format_type)`**: Cơ chế dự phòng (Fallback) thông minh. Nếu quá trình đồng bộ DVC thất bại, hệ thống sẽ tự động chuyển hướng tìm và đọc file dữ liệu trực tiếp từ bộ đệm cục bộ (`data/raw/`), đảm bảo pipeline không bị gián đoạn.
+- **`DVCHandler` *(Class)***: Lớp Adapter che giấu sự phức tạp khi tương tác với DVC (kết hợp cả DVC Python API và CLI). Toàn bộ phương thức nghiệp vụ đều được tích hợp Decorator `@dvc_error_handler` để tự động hóa việc bắt lỗi, thử lại (Retry) và kích hoạt dự phòng (Fallback):
+  - `__init__(repo=None, rev=None)`: Khởi tạo handler với thông tin repository và phiên bản (revision/git commit) tùy chọn.
+  - `_fallback_local_dataset(data_path, format_type)`: Cơ chế dự phòng (Fallback) đọc file trực tiếp từ cache cục bộ (`data/raw/`) nếu việc truy cập DVC Remote thất bại.
+  - `sync_data()`: Kéo dữ liệu đồng bộ từ remote storage về máy cục bộ thông qua lệnh `dvc pull` (tự động thử lại tối đa 3 lần).
+  - `is_data_updated()`: Kiểm tra trạng thái cập nhật dữ liệu của dự án thông qua câu lệnh `dvc status -c`.
+  - `get_dataset(data_path, format_type='csv')`: Stream tệp dữ liệu (`.csv` hoặc `.parquet`) trực tiếp từ DVC Remote thành Pandas DataFrame qua `dvc.api.open`. Đã kích hoạt hàm dự phòng `_fallback_local_dataset` nếu gặp sự cố mạng.
+  - `get_latest_model(model_path, framework='sklearn')`: Stream và giải mã mô hình từ DVC Remote thành đối tượng Python, hỗ trợ các framework `scikit-learn` (qua `joblib`) và `PyTorch` (qua `torch`).
+  - `get_metrics(metrics_path='metrics.json')`: Đọc file `metrics.json` từ DVC và tự động parse/validate dữ liệu qua `DVCMetricsNormalizedSchema`.
+  - `get_image_base64(image_path)`: Đọc dữ liệu ảnh nhị phân từ DVC Remote và mã hóa thành chuỗi Base64 (dùng cho hiển thị UI hoặc tạo báo cáo).
+  - `add_data(file_path)`: Đưa file hoặc thư mục mới vào hệ thống quản lý phiên bản của DVC bằng lệnh `dvc add`.
 
 ## 3. Quản Lý Ngoại Lệ (Exception Handling)
 
@@ -140,13 +171,45 @@ Phân hệ này quản lý vòng đời dữ liệu đầu vào, kiểm định 
 
 *File:* [data_ingest.py](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/pipelines/ml_pipelines/calories_pred/data_ingest.py)
 
-* **`CaloriesDataIngestion`**: Lớp chịu trách nhiệm trích xuất, tiền xử lý cơ bản và chia tách dữ liệu cho bài toán phân tích/dự đoán Calories. Lớp này kế thừa từ `BasePostgresExtractor` nhằm kế thừa cơ chế kết nối DB và ép kiểu (auto casting), đồng thời tích hợp trực tiếp `DVCHandler` và `MLOpsTracker`.
-  * **Thiết kế linh hoạt (YAML-Driven Config)**: Chuyển dịch thiết kế từ việc đọc cứng (hard-code) bằng JSON Schema sang đọc cấu hình động (tên DB/Schema, danh sách cột cần bỏ, cấu trúc chia tập) từ file YAML.
-  * **`extract_data_from_postgresql()`**: Lấy tên bảng từ YAML (với fallback về `source_dataset` trong JSON), thực thi truy vấn SQL lấy toàn bộ dữ liệu, sau đó gọi `_convert_data_types` (của lớp cha) để làm phẳng JSON và chuẩn hóa kiểu dữ liệu.
-  * **`process_and_split_data(df)`**: Tiến hành loại bỏ tự động các cột rác (được định nghĩa trong `columns_to_drop` của YAML). Sau đó thực hiện phân chia dữ liệu thành 3 tập: Train, Validation và Test dựa theo tỷ lệ cấu hình an toàn (random_state=42).
-  * **`export_to_feature_store(...)`**: Xuất các DataFrames (Train/Val/Test/Current) ra định dạng `.csv` lưu vào thư mục Feature Store. Đặc biệt, nếu cấu hình `dvc_tracked` được kích hoạt, phương thức sẽ tự động gọi `self.dvc.add_data(file_path)` để phiên bản hóa dữ liệu ngay lúc lưu.
-  * **`run()`**: Hàm entry point thực thi toàn bộ quy trình. Khởi động một phiên theo dõi trên MLflow bằng `self.tracker.start_run(run_name="data_ingestion")` để quản lý luồng dữ liệu.
-  * *Giám sát hiệu năng:* Tất cả các phương thức cốt lõi (extract, process, export) đều được bọc bởi decorator `@monitor_performance()` nhằm ghi nhận thời gian chạy vào log hệ thống tự động.
+- **`CaloriesDataIngestion(BasePostgresExtractor)` *(Class)***: Lớp điều phối toàn bộ tiến trình trích xuất, tiền xử lý cơ bản, phân chia dữ liệu và xuất dữ liệu ra Feature Store cho pipeline dự đoán lượng calo (`calories_pred`). Kế thừa từ `BasePostgresExtractor`.
+
+- **`__init__(config: dict, tracker: MLOpsTracker = None)`**:
+  - Khởi tạo kết nối cơ sở dữ liệu và lớp xử lý DVC (`DVCHandler`).
+  - Nhận đối tượng `MLOpsTracker` từ orchestrator để đồng bộ `run_id`, hoặc tự khởi tạo tracker mới với `experiment_name="calories_pred"`.
+  - Tải và gán cấu hình schema từ file YAML thông qua `_load_schema()`.
+
+- **`_load_schema()`**:
+  - Đọc file cấu hình Dataset Schema định dạng YAML (`yaml.safe_load`) từ đường dẫn `config['schema']['data_config_file']`. Bắt lỗi `FileNotFoundError` và `YAMLError` để ghi log chi tiết.
+
+- **`extract_data_from_postgresql()`**:
+  - Decorator: `@monitor_performance(time_limit=30)`
+  - Xác định `schema_name` và `table_name` từ `config` hoặc fallback về `dataset_schema`.
+  - Thực thi câu lệnh SQL trích xuất dữ liệu thông qua phương thức `fetch_as_dataframe` của base class:
+    - Tự động ép kiểu dữ liệu (array, decimal, nullable integers).
+    - Đặt cột `User_ID` làm Index.
+    - Đồng bộ Data Lineage lên MLflow.
+
+- **`process_and_split_data(df: pd.DataFrame)`**:
+  - Decorator: `@monitor_performance()`
+  - Loại bỏ các cột không cần thiết dựa trên danh sách `columns_to_drop` trong cấu hình schema.
+  - Phân chia dữ liệu thành 3 tập độc lập (Train, Validation, Test) theo tỷ lệ cấu hình (`train_ratio`, `validation_ratio`, `test_ratio`) bằng `train_test_split` với `random_state=42`.
+
+- **`export_to_feature_store(df, train_df, val_df, test_df)`**:
+  - Decorator: `@monitor_performance(time_limit=15.0)`
+  - Xuất 4 tệp dữ liệu CSV (`current_data.csv`, `train.csv`, `val.csv`, `test.csv`) kèm index vào thư mục Feature Store (`export_dir`, mặc định `Artifacts/features/calories`).
+  - Đưa toàn bộ thư mục Feature Store vào quản lý phiên bản của DVC (`self.dvc.add_data(export_dir)`) nếu cấu hình `dvc_tracked=True`.
+
+- **`export_ingestion_report(report_dir, metrics, params)`**:
+  - Tạo và lưu báo cáo ingestion định dạng JSON (`ingestion_report.json`) chứa các thông số: tên pipeline, thời gian thực thi (timestamp ISO format), tham số đầu vào, chỉ số số lượng bản ghi và trạng thái execution.
+  - Tự động tải file báo cáo này lên MLflow Artifact Store nếu `tracker` đang hoạt động.
+
+- **`extract()`**:
+  - Triển khai phương thức trừu tượng (abstract method) từ `BasePostgresExtractor`, gọi trực tiếp `extract_data_from_postgresql()`.
+
+- **`run(report_output_dir: str = None)`**:
+  - Phương thức chính vận hành toàn bộ luồng Ingestion trong một MLflow Run (`run_name="data_ingestion"`).
+  - Thu thập chỉ số (`total_rows`, `total_features`, `train_rows`, `validation_rows`, `test_rows`) và tham số phân tách dữ liệu để đẩy lên MLflow Tracker.
+  - Gọi `export_ingestion_report` xuất báo cáo offline nếu truyền tham số `report_output_dir`.
 
 *File:* [data_val.py](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/pipelines/ml_pipelines/calories_pred/data_val.py)
 
