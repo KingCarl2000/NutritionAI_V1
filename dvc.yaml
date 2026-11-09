@@ -1,0 +1,17 @@
+stages:
+  calories_ingest:
+    cmd: python src/pipelines/ml_pipelines/calories_pred/data_ingest.py
+    deps:
+    - src/data_io/base_extractor.py
+    - src/data_io/dvc_handler.py
+    - src/nutrition_core/logging/logger.py
+    - src/nutrition_core/logging/mlflow_tracker.py
+    - src/pipelines/ml_pipelines/calories_pred/data_ingest.py
+    params:
+    - config/datasets/calories.yaml:
+    - config/pipelines/ml_calories/data_ingestion.yaml:
+    outs:
+    - Artifacts/data/ml_calories/raw
+    metrics:
+    - Artifacts/reports/ml_calories/ingestion/ingestion_report.json:
+        cache: false

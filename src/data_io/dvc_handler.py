@@ -146,9 +146,13 @@ class DVCHandler:
     @dvc_error_handler(max_retries=2, retry_delay=1)
     def add_data(self, file_path: str) -> None:
         """
-        Thêm file hoặc thư mục vào hệ thống theo dõi của DVC (che giấu lệnh 'dvc add').
+        [DEPRECATED trong MLOps Pipeline] 
+        Không dùng dvc add thủ công khi đã cấu hình DVC Pipeline (dvc.yaml).
         """
-        logger.info(f"Đang thêm {file_path} vào DVC...")
-        # Gọi CLI của DVC để add data
-        result = subprocess.run(["dvc", "add", file_path], capture_output=True, text=True, check=True)
-        logger.info(f"Đã thêm vào DVC thành công: {result.stdout.strip()}")
+        logger.warning(
+            f"⚠️ Bỏ qua lệnh 'dvc add {file_path}'. "
+            f"DVC Pipeline sẽ tự động track thư mục này vì nó đã được khai báo là output (-o)."
+        )
+        # Bỏ comment 2 dòng dưới nếu bạn thực sự muốn track thủ công ở ngoài pipeline
+        # result = subprocess.run(["dvc", "add", file_path], capture_output=True, text=True, check=True)
+        # logger.info(f"Đã thêm vào DVC thành công: {result.stdout.strip()}")

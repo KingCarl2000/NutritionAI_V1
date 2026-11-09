@@ -108,11 +108,6 @@ class CaloriesDataIngestion(BasePostgresExtractor):
             file_path = os.path.join(export_dir, file_name)
             dataset.to_csv(file_path, index=True)
             logger.info(f"Đã lưu: {file_path}")
-            
-        # 2. Đưa lệnh dvc add ra NGOÀI vòng lặp
-        if dvc_tracked:
-            logger.info(f"Tiến hành thêm toàn bộ thư mục '{export_dir}' vào DVC...")
-            self.dvc.add_data(export_dir) # Add cả thư mục thay vì từng file
 
         logger.info("Hoàn tất xuất dữ liệu ra Feature Store.")
     # MỚI: Hàm xuất file báo cáo thông tin tương tự MLflow ra thư mục tùy chọn

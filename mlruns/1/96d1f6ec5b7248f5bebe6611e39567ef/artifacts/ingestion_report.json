@@ -1,0 +1,18 @@
+{
+    "pipeline_name": "calories_ingestion",
+    "timestamp": "2026-11-09T11:47:19.015776",
+    "parameters": {
+        "train_ratio": 0.7,
+        "test_ratio": 0.15,
+        "validation_ratio": 0.15,
+        "dvc_tracked": true
+    },
+    "metrics": {
+        "total_rows": 15000,
+        "total_features": 8,
+        "train_rows": 10500,
+        "validation_rows": 2250,
+        "test_rows": 2250
+    },
+    "status": "SUCCESS"
+}
