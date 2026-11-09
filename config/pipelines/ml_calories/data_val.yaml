@@ -1,31 +1,23 @@
-core_api_references:
-  # 1. Base Schema (base.py)
-  base_schema: "src.nutrition_core.pandera.api.base.BaseDataFrameModel"
-  validate_df: "src.nutrition_core.pandera.api.base.BaseDataFrameModel.validate_df"
-  
-  # 2. Custom Checks (check.py)
-  numeric_range_check: "src.nutrition_core.pandera.api.check.is_in_numeric_range"
-  string_length_check: "src.nutrition_core.pandera.api.check.is_valid_string_length"
-  
-  # 3. Exceptions & Error Handling (val_exception.py)
-  data_validation_error: "src.nutrition_core.exception.val_exception.DataValidationError"
-  
-  # 4. Decorators & Tracking (logger.py & mlflow_tracker.py)
-  validation_handler: "src.nutrition_core.logging.logger.validation_error_handler"
-  mlops_tracker: "src.nutrition_core.logging.mlflow_tracker.MLOpsTracker"
-  
-  # 5. Schema Classes (Dynamic Import cho Pipeline)
+# =============================================================================
+# PIPELINE-SPECIFIC CONFIGURATIONS
+# Cấu hình riêng biệt cho Data Validation của pipeline ml_calories
+# =============================================================================
+
+schema_classes:
+  # Schema Classes (Dynamic Import cho Pipeline ml_calories)
   train_schema: "config.pipelines.ml_calories.calories_schema.MlCaloriesTrainingSchema"
   inference_schema: "config.pipelines.ml_calories.calories_schema.MlCaloriesInputSchema"
 
 pipeline_paths:
+  # Đường dẫn module nội bộ
   pandera_schema_path: "config/pipelines/ml_calories/calories_schema.py"
   evidently_ai_profile_path: "config/pipelines/ml_calories/evidently_profile.yaml"
-  # BỔ SUNG: Đường dẫn xử lý dữ liệu để đồng bộ với DVC
+  
+  # Đường dẫn xử lý dữ liệu để đồng bộ với DVC
   input_dir: "Artifacts/data/ml_calories/raw"
   output_dir: "Artifacts/data/ml_calories/validated"
   quarantine_dir: "Artifacts/data/ml_calories/quarantine"
 
-# BỔ SUNG: Khối tham số cấu hình validation
 validation_params:
+  # Các tham số ghi đè (override) ngưỡng chung cho pipeline này (nếu cần)
   error_threshold: 0.05

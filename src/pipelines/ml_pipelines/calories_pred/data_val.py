@@ -103,22 +103,32 @@ def run_validation_pipeline(
 # LỚP ĐIỀU PHỐI (ORCHESTRATOR CLASS) CHO BƯỚC VALIDATION
 # =============================================================================
 class CaloriesDataValidationPipeline:
-    def __init__(self, config_path: str):
-        with open(config_path, "r", encoding="utf-8") as f:
-            self.config = yaml.safe_load(f)
+    def __init__(self, local_config_path: str, global_config_path: str = "config/pipelines/global.yaml"):
+        # 1. Load cấu hình chung (Global)
+        with open(global_config_path, "r", encoding="utf-8") as fg:
+            self.global_config = yaml.safe_load(fg)
             
-        # Khớp chính xác với các key trong file data_val.yaml đã sửa
-        self.api_refs = self.config.get("core_api_references", {})
-        self.paths = self.config.get("pipeline_paths", {})
-        self.params = self.config.get("validation_params", {})
+        # 2. Load cấu hình riêng của Pipeline (Local)
+        with open(local_config_path, "r", encoding="utf-8") as fl:
+            self.local_config = yaml.safe_load(fl)
+            
+        # Phân rã cấu hình Global
+        self.api_refs = self.global_config.get("core_api_references", {})
+        self.mlops_thresholds = self.global_config.get("mlops_thresholds", {})
         
-        # Đường dẫn thư mục
+        # Phân rã cấu hình Local
+        self.schema_classes = self.local_config.get("schema_classes", {})
+        self.paths = self.local_config.get("pipeline_paths", {})
+        self.params = self.local_config.get("validation_params", {})
+        
+        # Đường dẫn thư mục (Ưu tiên config local, có default dự phòng)
         self.input_dir = self.paths.get("input_dir", "Artifacts/data/ml_calories/raw")
         self.output_dir = self.paths.get("output_dir", "Artifacts/data/ml_calories/validated")
         self.quarantine_dir = self.paths.get("quarantine_dir", "Artifacts/data/ml_calories/quarantine")
         
-        # Tham số cấu hình
-        self.error_threshold = self.params.get("error_threshold", 0.05)
+        # Tham số cấu hình (Ưu tiên tham số override ở local, nếu không có thì fallback về warning_threshold của global)
+        default_threshold = self.mlops_thresholds.get("data_failure_rate", {}).get("warning_threshold", 0.05)
+        self.error_threshold = self.params.get("error_threshold", default_threshold)
         
         # Khởi tạo MLflow Tracker
         self.tracker = MLOpsTracker(experiment_name="calories_data_pipeline")
@@ -129,8 +139,8 @@ class CaloriesDataValidationPipeline:
         self.tracker.start_run(run_name="data_validation_stage")
         
         try:
-            # Load class schema động
-            schema_class_path = self.api_refs.get("train_schema", "config.pipelines.ml_calories.calories_schema.MlCaloriesTrainingSchema")
+            # Load class schema động từ config local
+            schema_class_path = self.schema_classes.get("train_schema", "config.pipelines.ml_calories.calories_schema.MlCaloriesTrainingSchema")
             schema_class = load_class_from_registry(schema_class_path)
             
             # Quét và validate tất cả file .parquet trong thư mục raw (train, val, test)
@@ -169,6 +179,12 @@ class CaloriesDataValidationPipeline:
             raise e
 
 if __name__ == "__main__":
-    config_file = "config/pipelines/ml_calories/data_val.yaml"
-    pipeline = CaloriesDataValidationPipeline(config_file)
+    # Nạp đường dẫn cho cả file local và file global
+    local_config = "config/pipelines/ml_calories/data_val.yaml"
+    global_config = "config/pipelines/global.yaml"
+    
+    pipeline = CaloriesDataValidationPipeline(
+        local_config_path=local_config, 
+        global_config_path=global_config
+    )
     pipeline.run()
