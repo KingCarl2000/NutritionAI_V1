@@ -17,6 +17,7 @@ pipeline_paths:
   input_dir: "Artifacts/data/ml_calories/raw"
   output_dir: "Artifacts/data/ml_calories/validated"
   quarantine_dir: "Artifacts/data/ml_calories/quarantine"
+  evidently_report_dir: "Artifacts/reports/ml_calories/evidently"
 
 validation_params:
   # Các tham số ghi đè (override) ngưỡng chung cho pipeline này (nếu cần)

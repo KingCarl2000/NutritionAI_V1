@@ -237,85 +237,89 @@ Phân hệ này quản lý vòng đời dữ liệu đầu vào, kiểm định 
 
 *Mã nguồn:* [src/nutrition_core/pandera/api/base.py](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/nutrition_core/pandera/api/base.py)
 
-* **`BaseSchema(pa.DataFrameModel)`**: Lớp Schema nền tảng áp dụng các quy tắc kiểm định khung. Tất cả các schema nghiệp vụ phía sau (như `CaloriesSchema`, `UserSchema`) đều phải kế thừa từ lớp này để đồng bộ hóa quy tắc xử lý.
-  * **Cấu hình hệ thống (Class Config)**: Định nghĩa các quy tắc cốt lõi:
-    * `coerce = True`: Tự động ép kiểu dữ liệu của DataFrame về đúng định dạng (dtype) đã khai báo.
-    * `strict = False` & `ordered = False`: Thiết kế linh hoạt, cho phép DataFrame chứa các cột phụ (không định nghĩa trong schema) và không ép buộc thứ tự các cột.
-    * `unique_column_names = True`: Đảm bảo tính toàn vẹn, ngăn chặn các cột bị trùng lặp tên.
-    * `add_missing_columns = True`: Tự động bổ sung các cột bị thiếu và điền giá trị mặc định (`default`) nếu cột đó được cấu hình là không bắt buộc.
-  * **`validate_df(cls, df, lazy, drop_invalid_rows)`**: Giao diện (Interface) chính để thực thi kiểm định.
-    * Sử dụng trình quản lý tùy chỉnh **`NutritionPandasBackend`** làm Orchestrator nhằm bóc tách logic duyệt và lọc dữ liệu lỗi khỏi Pandera gốc.
-    * Tích hợp decorator `@validation_error_handler()` để tự động chặn các ngoại lệ `SchemaError`/`SchemaErrors` và ghi trực tiếp vào `error_logs`.
-    * Tự động gắn kết với hệ thống theo dõi `MLOpsTracker` thông qua experiment `Data_Validation_Pipeline`, giúp dễ dàng truy vết trạng thái kiểm định trên bảng điều khiển MLflow.
+- *BaseSchema* *(Class)* : Lớp Schema cơ sở kế thừa từ `pa.DataFrameModel`, áp dụng các quy tắc kiểm định khung cho tất cả mô hình dữ liệu (như `CaloriesSchema`, `UserSchema`,...).
+    - *Config* : Định nghĩa các quy tắc kiểm định cốt lõi:
+        - `coerce = True` : Tự động ép kiểu dữ liệu về đúng dtype khai báo.
+        - `strict = False` : Linh hoạt chấp nhận các cột phụ ở tầng Base.
+        - `ordered = False` : Không bắt buộc thứ tự cột trừ khi pipeline cụ thể yêu cầu.
+        - `unique_column_names = True` : Đảm bảo tên các cột trong DataFrame không bị trùng lặp.
+        - `add_missing_columns = True` : Tự động tạo cột và điền default value nếu dữ liệu thiếu cột không bắt buộc.
+- *validate_df(cls, df, lazy=True, drop_invalid_rows=False)* *(Classmethod)* : Phương thức thực thi kiểm định DataFrame.
+    - Được tích hợp sẵn decorator `@validation_error_handler()` để tự động bắt lỗi `DataValidationError`/`SchemaError` và ghi vào system logs.
+    - Tách biệt logic xử lý bằng cách chuyển đổi model sang `DataFrameSchema` và gọi `NutritionPandasBackend` để thực thi.
+    - *MLOps Tracking* : Tích hợp tự động với `MLOpsTracker` (pipeline `Data_Validation_Pipeline`). Tự động đẩy kết quả, trạng thái (`SUCCESS`, `PARTIAL_SUCCESS`, `FAILED`) và các metric (như `error_count`, `dropped_rows`) lên MLflow. Tự động xuất JSON danh sách lỗi vào mục Artifacts.
+    - *Xử lý lỗi linh hoạt* : Nếu `drop_invalid_rows=True`, hệ thống tự động loại bỏ dòng vi phạm, ghi cảnh báo và trả về DataFrame sạch. Nếu `False`, hệ thống ngắt an toàn luồng pipeline và ném ngoại lệ `DataValidationError`.
 
 *Mã nguồn:* [src/nutrition_core/pandera/api/check.py](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/nutrition_core/pandera/api/check.py)
 
-Module này đóng vai trò là một thư viện tiện ích (Utilities) độc lập với dataset, cung cấp các quy tắc kiểm định (Checks) nâng cao để các lớp Schema trong hệ thống có thể dễ dàng gọi và tái sử dụng.
+Module cung cấp các Custom Check Generators & Extensions tổng quát cho hệ thống Pandera. Đây là tập hợp các công cụ (Utilities) độc lập với dataset, cho phép các Pipeline Schema tùy chỉnh truyền tham số và tái sử dụng linh hoạt.
 
-* **1. Extensions API (Phương thức Vectorized mở rộng)**:
-  * Sử dụng decorator `@pa_ext.register_check_method` để nhúng trực tiếp các hàm kiểm tra hiệu năng cao (vectorized) vào thư viện Pandera.
-  * **`is_in_numeric_range`**: Đảm bảo các giá trị trong một cột số nằm đúng trong giới hạn `[min_val, max_val]`.
-  * **`is_valid_string_length`**: Đảm bảo độ dài của chuỗi ký tự nằm trong giới hạn cho phép `[min_len, max_len]`.
-* **2. `GenericCheckFactory` (Lớp khởi tạo quy tắc linh hoạt)**:
-  * Tập hợp các phương thức tĩnh (`@staticmethod`) tạo quy tắc kiểm định đa cột hoặc theo nhóm được tham số hóa:
-  * **`check_sum_le_total`** *(Wide Check)*: Ràng buộc logic đảm bảo tổng giá trị của các cột thành phần (`component_cols`) nhỏ hơn hoặc bằng cột tổng (`total_col`).
-  * **`check_range_validity`** *(Wide Check)*: Đảm bảo tính hợp lệ của chuỗi dữ liệu theo thứ tự nghiêm ngặt: `min_col <= target_col <= max_col`.
-  * **`check_group_mean_comparison`** *(Groupby Check)*: Gom nhóm dữ liệu (`groupby_col`) và so sánh giá trị trung bình, đảm bảo nhóm thấp (`lower_group`) có giá trị trung bình nhỏ hơn nhóm cao (`higher_group`).
-  * **`check_regex_pattern`** *(Element-wise Check)*: Đối chiếu từng giá trị đơn lẻ trong cột xem có khớp với biểu thức Regex truyền vào hay không.
-  * **`create_outlier_warning`** *(Soft Check)*: Cơ chế kiểm định "mềm". Cấu hình `raise_warning=True` để phát ra tín hiệu `SchemaWarning` ghi log khi phát hiện giá trị lớn hơn `upper_threshold` (Outlier) thay vì văng Exception làm ngắt ngang toàn bộ Pipeline luân chuyển dữ liệu.
+- **1. Extensions API (Phương thức Vectorized dùng chung)**:
+    - Được đăng ký qua decorator `@pa_ext.register_check_method`, giúp gọi trực tiếp dưới dạng string trong Schema.
+    - `is_in_numeric_range(min_val=0.0, max_val=1e9)` : Kiểm tra giá trị của một cột số có nằm an toàn trong khoảng `[min_val, max_val]` hay không.
+    - `is_valid_string_length(min_len=1, max_len=255)` : Ràng buộc độ dài của chuỗi ký tự phải nằm trong khoảng `[min_len, max_len]`.
+
+- **2. GenericCheckFactory** *(Class)*: Tập hợp các Factory Functions giúp khởi tạo linh hoạt các quy tắc kiểm định phức tạp đa cột.
+    - `check_sum_le_total(component_cols, total_col, error_msg)` : *[Wide Check]* Đảm bảo tổng giá trị của các cột thành phần (`component_cols`) không vượt quá giá trị của cột tổng (`total_col`) trên cùng một dòng.
+    - `check_range_validity(min_col, target_col, max_col, error_msg)` : *[Wide Check]* Đảm bảo logic thứ tự độ lớn hợp lệ: `min_col <= target_col <= max_col`.
+    - `check_group_mean_comparison(groupby_col, target_col, lower_group, higher_group, error_msg)` : *[Groupby Check]* Đối chiếu trung bình nhóm, kiểm tra trung bình của cột `target_col` thuộc `lower_group` có nhỏ hơn `higher_group` hay không.
+    - `check_regex_pattern(pattern, error_msg)` : *[Element-wise Check]* Xác thực định dạng từng phần tử (chuỗi) dựa trên biểu thức chính quy (Regex).
+    - `create_outlier_warning(upper_threshold, warning_msg)` : *[Soft Check]* Chỉ sinh cảnh báo dữ liệu (`SchemaWarning`) khi phát hiện giá trị bất thường vượt ngưỡng cực đại (Outlier), cho phép ghi log mà **không ngắt** luồng thực thi hệ thống.
 
 ### B. Pandas Execution Backend (Thực thi kiểm định hệ thống)
 
 *Mã nguồn:* [src/nutrition_core/pandera/backends/pandas_executor.py](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/nutrition_core/pandera/backends/pandas_executor.py)
 
-Module này chứa Engine thực thi lõi, đảm nhiệm việc bóc tách logic kiểm định khỏi Pandera gốc, giúp hệ thống kiểm soát chặt chẽ quá trình tiền xử lý, bẫy lỗi và cách ly dữ liệu hỏng đối với cấu trúc dữ liệu Pandas DataFrame.
+Module thực thi Backend kiểm định dành riêng cho dữ liệu Pandas DataFrame trong NutritionAI_V1. Đóng vai trò là lớp điều phối trung gian (Facade) giữa Schema API và lõi xử lý, chịu trách nhiệm phân giải Schema, tiền xử lý, thực thi kiểm định vector hóa và gom nhóm lỗi.
 
-* **`NutritionPandasBackend`**: Lớp điều phối trung gian (Facade) nhận cấu hình từ các Schema (như `lazy`, `drop_invalid_rows`) và quản lý vòng đời kiểm định:
-  * **`_preprocess_and_coerce(df)`**: Bước tiền xử lý chạy trước Pandera. Khớp tên cột (hỗ trợ cả Regex), kiểm tra thiếu sót các cột bắt buộc, và chủ động ép kiểu dữ liệu (coerce). Các lỗi ép kiểu sẽ được gom lại thay vì làm sập chương trình.
-  * **`_execute_vectorized_checks(df)`**: Thực thi bộ quy tắc kiểm định cốt lõi. Nếu có vi phạm, phương thức bẫy ngoại lệ `SchemaErrors`, gọi `PanderaErrorHandler` (từ `val_exception.py`) để trích xuất lỗi thành danh sách dictionary, đồng thời tạo ra một `valid_mask` (Boolean Series) để đánh dấu chính xác các dòng lỗi.
-  * **`run_pipeline(df)`**: Luồng thực thi tổng quát (Orchestrator). Trình tự: Xác thực Backend -> Tiền xử lý -> Chạy Checks -> Tự động loại bỏ dòng vi phạm (nếu `drop_invalid_rows=True`) -> Trả về DataFrame "sạch" (`valid_df`) cùng danh sách các lỗi (`failure_cases`). Trong trường hợp `lazy=False`, tự động ném ra `DataValidationError` đã được chuẩn hóa hệ thống.
-* **`validate_with_pandas_backend(schema, df, **kwargs)`**: Hàm Wrapper API
+- **NutritionPandasBackend** *(Class)* : Backend xử lý và điều phối quá trình kiểm định trên Pandas DataFrame.
+    - `resolve_backend(data)` *(Classmethod)* : Xác thực nghiêm ngặt kiểu dữ liệu đầu vào. Đảm bảo dữ liệu phải là `pandas.DataFrame`, ngược lại ném ngoại lệ `TypeError`.
+    - `_preprocess_and_coerce(df)` : Tiền xử lý dữ liệu trước khi kiểm định. Hỗ trợ đối chiếu cột bằng Regex, kiểm tra tính toàn vẹn của các cột bắt buộc, và tự động ép kiểu an toàn (coerce) thông qua `pandas_engine`.
+    - `_execute_vectorized_checks(df)` : Thực thi lõi kiểm định toàn cục (validate). Gọi trực tiếp `PanderaErrorHandler` để phân tích (parse) các lỗi cấu trúc (Lazy errors) thành danh sách chi tiết, đồng thời trả về bộ lọc (`valid_mask`) định vị chính xác index của các dòng vi phạm.
+    - `_record_error(column, reason, index)` : Ghi nhận và lưu trữ thông tin của các ca kiểm định đơn lẻ thất bại.
+    - `run_pipeline(df)` : Trái tim của Backend, thực thi Pipeline tuần tự: Tiền xử lý -> Kiểm định Vector hóa -> Xử lý dữ liệu lỗi. Tự động lọc bỏ các dòng vi phạm nếu `drop_invalid_rows=True`. Nếu cấu hình `lazy=False` (Eager execution), hệ thống sẽ ngắt ngay luồng chạy và ném ngoại lệ `DataValidationError` ngay ở lỗi đầu tiên.
+- **validate_with_pandas_backend(schema, df, **kwargs)** *(Function)* : API Wrapper tiện ích giúp các module ngoại vi gọi độc lập luồng kiểm định bằng Backend này mà không cần khởi tạo instance. Tự động đánh giá kết quả và ném `DataValidationError` nếu quá trình xử lý tồn đọng lỗi mà không có chỉ định loại bỏ dòng.
 
-### D. Engines
+### C. Engines
 
-*Mã nguồn:* [src/nutrition_core/pandera/decorators.py](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/nutrition_core/pandera/decorators.py)
 
-Module chứa các Decorators chuyên dụng dùng để bọc (wrap) các decorator gốc của thư viện Pandera. Mục tiêu của phân hệ này là tự động hóa việc chuẩn hóa ngoại lệ và gắn kết luồng kiểm định với hệ thống theo dõi MLOps mà không làm thay đổi logic gốc của các hàm xử lý dữ liệu.
-
-* **Tích hợp MLOps (MLflow Tracker)**: Module tự động khởi tạo một phiên bản `MLOpsTracker` với experiment name là `Data_Validation_Pipeline` để quản lý tập trung toàn bộ tiến trình.
-* **`_log_validation_failure(func_name, errors)`**: Hàm nội bộ (helper) làm nhiệm vụ gọi hook `log_validation_failure` của tracker để đẩy trực tiếp danh sách chi tiết các lỗi kiểm định lên bảng điều khiển MLflow ngay khi pipeline gặp sự cố.
-* **`@nutrition_check_types(*args, **kwargs)`**:
-  * Mở rộng từ `pandera.check_types`. Thực hiện kiểm định dữ liệu tự động dựa trên Type Annotations (Type Hint) của hàm (ví dụ: tham số truyền vào được đánh dấu là `DataFrame[SchemaModel]`).
-  * **Cơ chế bắt lỗi an toàn**: Bẫy các ngoại lệ `SchemaError` hoặc `SchemaErrors` nguyên thủy từ Pandera. Sau đó, ghi log (Error) chi tiết tên hàm bị sụp, gọi hàm `_log_validation_failure` để gửi báo cáo lỗi, và cuối cùng ném ra ngoại lệ chuẩn của hệ thống là `DataValidationError` để ngắt pipeline an toàn.
-* **`@nutrition_check_io(head=5, tail=5, **kwargs)`**:
-  * Mở rộng từ `pandera.check_io`. Dùng để kiểm định tường minh dữ liệu đầu vào (Input) và đầu ra (Output) của một hàm thông qua `DataFrameSchema` (ví dụ: `df=schema_in`, `out=schema_out`).
-  * Kế thừa toàn bộ cơ chế bắt lỗi, trích xuất lỗi qua `PanderaErrorHandler`, ghi log hệ thống và tracking MLOps tương tự như `nutrition_check_types`.
 
 *Mã nguồn:* [src/nutrition_core/pandera/config.py](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/nutrition_core/pandera/config.py)
 
-Module quản lý cấu hình toàn cục cho quá trình kiểm định dữ liệu của Pandera trong hệ thống, giúp tinh chỉnh linh hoạt giữa các môi trường triển khai (Dev, Staging, Production).
+Module cung cấp cấu hình toàn cục (Global Configuration) cho quá trình kiểm định dữ liệu Pandera trong hệ thống NutritionAI_V1. Chịu trách nhiệm quản lý các mức độ kiểm định dựa trên môi trường triển khai thực tế và tích hợp luồng ghi nhận MLOps.
 
-* **`setup_pandera_validation(mlflow_tracker=None)`**: Hàm khởi tạo cấu hình trung tâm, được thiết kế để gọi một lần tại điểm khởi chạy (entry point) của Data Validation Pipeline.
-  * **Quản lý Validation Depth (Độ sâu kiểm định)**: Tự động nạp cấu hình từ biến môi trường `PANDERA_VALIDATION_DEPTH`. Nó ánh xạ các giá trị chuỗi sang `ValidationDepth` Enum của Pandera: `SCHEMA_ONLY`, `DATA_ONLY`, hoặc `SCHEMA_AND_DATA` (mặc định). Tính năng này cho phép bạn dễ dàng tắt bớt việc quét Data (chỉ giữ lại quét Schema) để tiết kiệm thời gian xử lý khi chạy trên Production với lượng dữ liệu khổng lồ.
-  * **Tích hợp Tracking MLOps**: Nếu hàm được cấp một đối tượng `MLOpsTracker`, nó sẽ thực hiện gọi `log_params_and_metrics` để ghi nhận trực tiếp thông số `pandera_validation_depth` lên bảng điều khiển MLflow, giúp quản lý lịch sử cấu hình của từng phiên chạy.
-  * **Giám sát hiệu năng khởi tạo**: Sử dụng decorator `@monitor_performance(time_limit=2.0)` để đảm bảo rằng tác vụ đọc biến môi trường và thiết lập ngữ cảnh không vượt quá 2 giây, tránh hiện tượng thắt nút cổ chai (bottleneck) ngay từ đầu luồng.
-  * **Thiết lập Ngữ cảnh**: Hàm trả về đối tượng `config_context(validation_depth=...)`, giúp áp dụng giới hạn kiểm định này vào phạm vi hoạt động của toàn bộ luồng xử lý phía sau một cách đồng nhất.
+- **setup_pandera_validation(mlflow_tracker=None)** *(Function)* : Khởi tạo và thiết lập mức độ kiểm định toàn cục (ValidationDepth) tại điểm khởi chạy ứng dụng.
+    - *Quản lý môi trường* : Đọc cấu hình từ biến môi trường `PANDERA_VALIDATION_DEPTH` (mặc định là `SCHEMA_AND_DATA`). Ánh xạ tự động sang các Enum chuẩn của Pandera: `SCHEMA_ONLY`, `DATA_ONLY`, hoặc `SCHEMA_AND_DATA`.
+    - *Theo dõi hiệu năng* : Tích hợp sẵn decorator `@monitor_performance(time_limit=2.0)` để đảm bảo quá trình tải cấu hình và context diễn ra nhanh chóng, xuất cảnh báo nếu vượt ngưỡng 2 giây.
+    - *MLOps Tracking* : Tự động tích hợp với `MLOpsTracker`. Nếu truyền vào một instance tracker hợp lệ, hàm sẽ tự động đẩy tham số cấu hình `pandera_validation_depth` lên MLflow để phục vụ việc tra cứu (Data Lineage & Reproducibility).
+    - *Cấu hình luồng* : Trả về một đối tượng `config_context` chứa thiết lập `validation_depth`, giúp giới hạn hoặc mở rộng chi phí tính toán của quá trình kiểm định một cách linh hoạt tùy theo môi trường (Dev/Staging/Prod).
+
+*Mã nguồn:* [src/nutrition_core/pandera/decorators.py](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/nutrition_core/pandera/decorators.py)
+
+Module cung cấp các Decorators tùy chỉnh hỗ trợ kiểm định dữ liệu cho các Data Pipelines. Đóng vai trò bọc (wrap) các decorator gốc của Pandera nhằm mục đích chuẩn hóa xử lý ngoại lệ thành `DataValidationError` và tự động ghi nhận (tracking) log/metadata vào MLflow.
+
+- **nutrition_check_types(*args, **kwargs)** *(Decorator)* : 
+    - Tự động kiểm tra tính hợp lệ của dữ liệu đầu vào dựa trên Type Annotations (ví dụ: `df: DataFrame[SchemaModel]`). 
+    - Bọc decorator `pa.check_types` của Pandera. 
+    - *Xử lý ngoại lệ & MLOps* : Khi phát hiện lỗi `SchemaError` hoặc `SchemaErrors`, tự động trích xuất chi tiết lỗi thông qua `PanderaErrorHandler`, ghi nhận thất bại lên hệ thống MLflow (thông qua `MLOpsTracker`), và ném ra `DataValidationError` để dừng pipeline an toàn.
+- **nutrition_check_io(head=5, tail=5, **kwargs)** *(Decorator)* : 
+    - Kiểm định tường minh (explicit validation) cho Input và Output của hàm thông qua `DataFrameSchema`. Khai báo linh hoạt qua `kwargs` (ví dụ: `df=schema_in`, `out=schema_out`).
+    - Bọc decorator `pa.check_io` của Pandera. Cung cấp tham số `head` và `tail` để cấu hình số lượng dòng lỗi mẫu xuất ra log.
+    - *Tích hợp an toàn* : Tương tự `nutrition_check_types`, đảm bảo bắt mọi lỗi cấu trúc I/O, đẩy log lên MLflow và chuẩn hóa ngoại lệ ném ra hệ thống.
 
 *Mã nguồn:* [`src/nutrition_core/pandera/evidently_engine.py`](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/nutrition_core/pandera/evidently_engine.py)
 
-Lớp điều phối trung gian (`EvidentlyDriftEngine`) tích hợp đồng thời Pandera Schema Validation, Evidently AI Data Drift Engine, DVC Artifact Management và hệ thống MLflow Logging cho hệ thống [NutritionAI_V1](https://github.com/KingCarl2000/NutritionAI_V1).
+Module cung cấp `EvidentlyDriftEngine` – engine tích hợp khép kín giữa kiểm định lược đồ dữ liệu động (Pandera Schema Validation), phân tích trôi lệch dữ liệu (Evidently AI Data Drift Engine), quản lý phiên bản (DVC Artifact Management) và giám sát MLOps (MLflow Logging) trong hệ thống `NutritionAI_V1`.
 
-* **Khởi tạo (`__init__`)**: Nhận các tham số cốt lõi gồm `artifact_dir`, `project_name`, `evidently_workspace_url` và `mlops_tracker`. Tự động khởi tạo thư mục lưu trữ báo cáo (ví dụ: `Artifacts/reports/ml_calories/evidently`) nếu chưa tồn tại.
-* **Các giai đoạn thực thi chính**:
-  * **Giai đoạn 1 - `validate_schema(df, schema_model)`**: Thực thi kiểm tra cấu trúc lược đồ dữ liệu động sử dụng mô hình Pandera Schema trước khi đưa vào phân tích trôi lệch. Trả về trạng thái `True/False` kèm theo DataFrame đã được xác thực.
-  * **Giai đoạn 2 - `run_drift_detection(current_df, reference_df, column_mapping_cfg, drift_options_cfg)`**:
-    * Trích xuất linh hoạt các đặc trưng số (`numerical_columns`), phân loại (`categorical_columns`) và văn bản (`text_columns`) từ file cấu hình YAML để xây dựng `DataDefinition` và `Dataset` của Evidently.
-    * Thiết lập cấu hình kiểm định trôi lệch (`DataDriftPreset`) và tóm tắt dữ liệu (`DataSummaryPreset`) dựa trên các ngưỡng cấu hình (`dataset_drift_share`, `p_value_alpha`, `wasserstein_distance`, v.v.).
-    * Xuất và lưu trữ báo cáo dưới dạng tệp `drift_report.html` và `drift_metrics.json` vào thư mục Artifacts.
-    * Đồng bộ snapshot trực tiếp lên Evidently Remote Workspace UI (nếu có cấu hình `evidently_workspace_url`).
-  * **Giai đoạn 3 - `log_metrics_to_mlflow(validation_json)`**:
-    * Trích xuất các chỉ số quan trọng từ báo cáo JSON như `drift_share`, `number_of_drifted_columns` và cờ cảnh báo `dataset_drift_detected`.
-    * Sử dụng đối tượng `MLOpsTracker` để đẩy metrics lên MLflow và tự động tải các tệp báo cáo HTML/JSON làm hệ thống artifact logging để dễ dàng truy vết lịch sử vận hành mô hình.
+- **EvidentlyDriftEngine** *(Class)* : Lớp quản lý và điều phối toàn bộ chuỗi kiểm định dữ liệu và trôi lệch mô hình.
+    - `__init__(artifact_dir, project_name, evidently_workspace_url, mlops_tracker)` : Khởi tạo engine với thư mục lưu trữ artifact bắt buộc, tên dự án, đường dẫn workspace của Evidently và instance theo dõi MLOps. Tự động tạo thư mục đích nếu chưa tồn tại.
+    - `validate_schema(df, schema_model)` *(Giai đoạn 1)* : Thực thi kiểm tra cấu trúc/lược đồ DataFrame động thông qua Pandera Schema Model. Ghi log trạng thái thành công (`PASSED`) hoặc thất bại (`FAILED`) ra hệ thống.
+    - `run_drift_detection(current_df, reference_df, column_mapping_cfg, drift_options_cfg)` *(Giai đoạn 2)* : Phân tích trôi lệch dữ liệu bằng Evidently AI dựa trên file cấu hình YAML. 
+        - Trích xuất cấu hình đặc trưng (numerical, categorical, text) qua `DataDefinition`.
+        - Xây dựng preset kiểm định (`DataDriftPreset` kết hợp `DataSummaryPreset`) với các ngưỡng linh hoạt (`drift_share`, `p_value_alpha`, `wasserstein_distance`, v.v.).
+        - Xuất báo cáo tài nguyên dưới dạng file HTML (`drift_report.html`) và chỉ số định lượng JSON (`drift_metrics.json`) vào thư mục `artifact_dir`.
+        - Hỗ trợ đồng bộ tự động Snapshot lên Evidently Remote Workspace UI nếu có cấu hình URL.
+    - `log_metrics_to_mlflow(validation_json)` *(Giai đoạn 3)* : Đẩy các chỉ số trôi lệch quan trọng (`drift_share`, `number_of_drifted_columns`, `dataset_drift_detected`) cùng bộ tệp báo cáo Artifacts lên hệ thống MLflow thông qua `MLOpsTracker`.
 
 ## 7. Database & CRUD (`src/nutrition_core/database`)
 
