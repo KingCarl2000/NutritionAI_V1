@@ -1,35 +1,34 @@
-"""
-Path: D:/NutritionAI_V1/src/pipelines/ml_pipelines/calories_pred/data_val.py
-"""
 
 import importlib
 import yaml
 from pathlib import Path
 from typing import Type, Any, Dict
 
-def load_class_from_registry(api_path: str) -> Type[Any]:
+def load_class_from_registry(api_path: str) -> Any:
     """
-    Nạp động (dynamically import) một class/module từ đường dẫn chuỗi khai báo trong file YAML.
+    Nạp động Class, Function hoặc Method từ đường dẫn dot-notation trong YAML.
+    Hỗ trợ cả 2 dạng:
+    - 'package.module.ClassName'
+    - 'package.module.ClassName.method_name'
+    """
+    if not api_path or not isinstance(api_path, str):
+        raise ValueError("`api_path` phải là chuỗi ký tự hợp lệ.")
+
+    parts = api_path.split(".")
     
-    Args:
-        api_path (str): Đường dẫn import (vd: 'config.pipelines.ml_calories.calories_schema.MlCaloriesTrainingSchema')
-        
-    Returns:
-        Type[Any]: Lớp (Class) hoặc hàm được tham chiếu.
-        
-    Raises:
-        ImportError: Nếu đường dẫn sai hoặc module/class không tồn tại.
-    """
-    try:
-        module_path, class_name = api_path.rsplit('.', 1)
-        module = importlib.import_module(module_path)
-        return getattr(module, class_name)
-    except ValueError:
-        raise ImportError(f"Đường dẫn API '{api_path}' không đúng định dạng (module.class).")
-    except ImportError as e:
-        raise ImportError(f"Không thể import module từ '{module_path}': {e}")
-    except AttributeError as e:
-        raise ImportError(f"Không tìm thấy class/hàm '{class_name}' trong module '{module_path}': {e}")
+    # Thử import module từ dài nhất đến ngắn nhất
+    for i in range(len(parts), 0, -1):
+        module_path = ".".join(parts[:i])
+        try:
+            obj = importlib.import_module(module_path)
+            # Duyệt qua các attr còn lại (Class -> Method/Property)
+            for attr in parts[i:]:
+                obj = getattr(obj, attr)
+            return obj
+        except ImportError:
+            continue
+            
+    raise ImportError(f"Không thể import hoặc truy cập thành phần từ đường dẫn API: '{api_path}'")
 
 
 class DataValidationConfig:
