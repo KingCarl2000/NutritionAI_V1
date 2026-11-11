@@ -64,6 +64,22 @@ from evidently.metrics import (
     PopularityBiasMetric, ItemBiasMetric, UserBiasMetric, RecCasesTable
 )
 
+from evidently.test_suite import TestSuite
+from evidently.test_preset import (
+    DataDriftTestPreset, 
+    DataQualityTestPreset, 
+    DataStabilityTestPreset,
+    BinaryClassificationTestPreset, 
+    MulticlassClassificationTestPreset, 
+    RegressionTestPreset, 
+    RecsysTestPreset, 
+    NoTargetPerformanceTestPreset
+)
+# Quản lý Workspace
+from evidently.ui.workspace import RemoteWorkspace, Workspace
+from evidently.ui.dashboards import DashboardPanelPlot, ReportFilter, PanelValue, PlotType
+
+
 class EvidentlyDriftEngine:
     """
     Engine thực thi kiểm định trôi lệch dữ liệu (Drift Detection) 
@@ -493,6 +509,113 @@ class EvidentlyDriftEngine:
             # recsys_test_suite = TestSuite(tests=[
             #     RecsysTestPreset(k=k_val)
             # ])
+
+        # =====================================================================
+        # 8. Mô-đun Kiểm thử Tự động (Automated Testing & Test Suites)
+        # =====================================================================
+        test_suite_cfg = kwargs.get("test_suite_options", {})
+        test_suite = None
+
+        if test_suite_cfg:
+            logger.info("--- Khởi tạo Test Suite (CI/CD Pass/Fail Validation) ---")
+            test_presets = []
+            
+            # 8.1. Kiểm thử Drift & Chất lượng Dữ liệu
+            if test_suite_cfg.get("data_drift"):
+                # Có thể custom ngưỡng (ví dụ: is_critical=False để chỉ cảnh báo thay vì Fail)
+                test_presets.append(DataDriftTestPreset())
+            if test_suite_cfg.get("data_quality"):
+                test_presets.append(DataQualityTestPreset())
+            if test_suite_cfg.get("data_stability"):
+                test_presets.append(DataStabilityTestPreset())
+                
+            # 8.2. Kiểm thử Hiệu năng Mô hình theo Task
+            if task_type == "classification" and target_col:
+                if test_suite_cfg.get("binary_classification"):
+                    test_presets.append(BinaryClassificationTestPreset())
+                elif test_suite_cfg.get("multiclass_classification"):
+                    test_presets.append(MulticlassClassificationTestPreset())
+            
+            elif task_type == "regression" and target_col:
+                if test_suite_cfg.get("regression"):
+                    test_presets.append(RegressionTestPreset())
+                    
+            elif task_type == "recsys" and target_col:
+                if test_suite_cfg.get("recsys"):
+                    test_presets.append(RecsysTestPreset(k=test_suite_cfg.get("k", 10)))
+            
+            # Kiểm thử khi không có nhãn thực tế (Target)
+            elif test_suite_cfg.get("no_target_performance"):
+                test_presets.append(NoTargetPerformanceTestPreset())
+
+            # 8.3. Thực thi Test Suite
+            if test_presets:
+                test_suite = TestSuite(tests=test_presets)
+                test_suite.run(
+                    current_data=curr_dataset, 
+                    reference_data=ref_dataset,
+                    additional_data=kwargs.get("additional_data", None)
+                )
+                
+                # Phân tích kết quả CI/CD
+                test_summary = test_suite.as_dict()
+                total_tests = test_summary["summary"]["all_passed"]
+                if not total_tests:
+                    logger.warning("⚠️ Test Suite chạy xong nhưng có bài kiểm thử bị FAILED hoặc WARNING!")
+                else:
+                    logger.info("✓ Tất cả các bài kiểm thử đều PASSED!")
+
+        # =====================================================================
+        # 9. Quản lý Workspace & Monitoring UI (Đẩy kết quả lên Dashboard)
+        # =====================================================================
+        if self.evidently_workspace_url:
+            logger.info("--- Đồng bộ kết quả lên Evidently Workspace ---")
+            try:
+                # 1. Khởi tạo Workspace (Remote hoặc Local)
+                if self.evidently_workspace_url.startswith("http"):
+                    workspace = RemoteWorkspace(self.evidently_workspace_url)
+                else:
+                    # Tạo hoặc nạp thư mục workspace local (File System)
+                    workspace = Workspace.create(self.evidently_workspace_url) 
+                
+                # 2. Quản lý Dự án (Project Management)
+                # Tìm kiếm dự án theo tên (trả về list)
+                existing_projects = workspace.search_project(self.project_name)
+                
+                if not existing_projects:
+                    # Khởi tạo dự án mới nếu chưa tồn tại
+                    project = workspace.create_project(self.project_name)
+                    project.description = f"Automated MLOps tracking for {self.project_name}"
+                    project.save() # Lưu metadata của project
+                    logger.info(f"Đã tạo mới Project trong Workspace: {self.project_name}")
+                else:
+                    project = existing_projects[0]
+                
+                # 3. Lưu trữ & Quản lý Snapshots (Runs)
+                # Ghi nhận snapshot (Report) vào dự án
+                workspace.add_report(project.id, report)
+                
+                # Ghi nhận snapshot (TestSuite) vào dự án nếu có chạy kiểm thử
+                if test_suite:
+                    workspace.add_test_suite(project.id, test_suite)
+                    
+                logger.info(f"✓ Đã đẩy Snapshots thành công lên Workspace: {self.evidently_workspace_url}")
+                
+                # (Tùy chọn tương lai) Dọn dẹp Snapshots cũ / Xóa dự án:
+                # runs = workspace.list_runs(project.id)
+                # if len(runs) > 100:  # Ví dụ: Chỉ giữ lại 100 runs gần nhất
+                #     workspace.delete_run(project.id, runs[-1].id) 
+                
+            except Exception as e:
+                logger.error(f"❌ Lỗi khi đồng bộ Workspace: {e}")
+
+        # Trả về cả Report và Test Suite cho Pipeline xử lý (lưu file json/html cục bộ nếu cần)
+        return {
+            "report": report,
+            "test_suite": test_suite
+        }
+
+
 
     def log_metrics_to_mlflow(self, validation_json: Dict[str, Any]) -> None:
         """
