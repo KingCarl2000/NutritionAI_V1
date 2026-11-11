@@ -59,10 +59,23 @@ mlops_thresholds:
 
   # 2. Ngưỡng Trôi lệch Phân phối & Thống kê (Data & Feature Drift)
   data_drift:
-    psi_warning: 0.10         # PSI > 0.10: Trôi lệch trung bình (Gửi cảnh báo)
-    psi_critical: 0.25        # PSI > 0.25: Trôi lệch nghiêm trọng (Yêu cầu Retrain)
-    p_value_alpha: 0.05       # Mức ý nghĩa thống kê cho kiểm định Hypothesis (t-test, KS-test)
-
+    psi_warning: 0.10         
+    psi_critical: 0.25        
+    p_value_alpha: 0.05       
+        
+        # --- BỔ SUNG CHO EVIDENTLY ENGINE ---
+    dataset_drift_share: 0.5        # Tỷ lệ số cột bị drift để cảnh báo Fail toàn Dataset
+    default_method: null            # Thuật toán mặc định chung (để null để Evidently auto-select)
+        
+        # Cấu hình thuật toán riêng cho từng loại dữ liệu
+    numerical:
+      method: 'wasserstein'         # VD: wasserstein, ks, psi...
+    categorical:
+      method: 'chisquare'           # VD: chisquare, z, jensenshannon...
+          
+      # Cấu hình thuật toán cho Embeddings Drift
+    embeddings_drift_method: 'model' # Hỗ trợ: 'model', 'distance', 'ratio', 'mmd'
+        
   # 3. Ngưỡng Độ trễ & SLA Kiểm định (Validation SLA & Performance)
   validation_sla:
     online_latency_max_ms: 50           # Tối đa 50ms cho bước validation trên API Serving
