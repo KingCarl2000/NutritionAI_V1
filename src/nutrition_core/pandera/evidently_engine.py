@@ -21,6 +21,48 @@ from evidently.ui.workspace import RemoteWorkspace
 from src.nutrition_core.logging.logger import logger
 from src.nutrition_core.logging.mlflow_tracker import MLOpsTracker
 
+from evidently.metric_preset import DataDriftPreset, DataSummaryPreset
+from evidently.metrics import DatasetDriftMetric, DataDriftTable, EmbeddingsDriftMetric, ColumnDriftMetric
+
+from evidently.metric_preset import DataQualityPreset, DataSummaryPreset
+from evidently.metrics import (
+    DatasetMissingValuesMetric, ColumnMissingValuesMetric, 
+    ColumnRegExpMetric, DatasetCorrelationsMetric,
+    ColumnValueRangeMetric, ColumnValueListMetric,
+    # DataQualityStabilityMetric, ConflictTargetMetric, ConflictPredictionMetric
+)
+
+from evidently.metric_preset import ClassificationPreset
+from evidently.metrics import (
+    ClassificationDummyMetric,
+    ClassificationProbDistribution, 
+    ClassificationQualityByFeatureTable,
+    ClassificationConfusionMatrix
+)
+
+from evidently.metric_preset import RegressionPreset
+from evidently.metrics import (
+    RegressionDummyMetric, 
+    RegressionErrorBiasTable, 
+    RegressionTopErrorMetric
+)
+
+from evidently.metric_preset import TextEvals
+from evidently.metrics import (
+    ContextQualityLLMEval, FaithfulnessLLMEval, CorrectnessLLMEval, CompletenessLLMEval,
+    PIILLMEval, ToxicityLLMEval, DeclineLLMEval, BiasLLMEval, NegativityLLMEval
+)
+# Các Text Descriptors (Nếu dùng độc lập) có thể import từ evidently.descriptors
+from evidently.descriptors import (
+    TextLength, WordCount, Sentiment, OOVWordsPercentage, NonLetterCharacterPercentage,
+    RegExp, ContainsLink, TextMatch, IsValidJSON, SemanticSimilarity
+)
+
+from evidently.metric_preset import RecsysPreset
+from evidently.metrics import (
+    Personalization, ScoreDistribution, Diversity, Novelty, Serendipity,
+    PopularityBiasMetric, ItemBiasMetric, UserBiasMetric, RecCasesTable
+)
 
 class EvidentlyDriftEngine:
     """
@@ -74,53 +116,383 @@ class EvidentlyDriftEngine:
         num_cols = column_mapping_cfg.get("numerical_features", [])
         cat_cols = column_mapping_cfg.get("categorical_features", [])
         text_cols = column_mapping_cfg.get("text_features", [])
+        datetime_cols = column_mapping_cfg.get("datetime_features", [])
+        id_col = column_mapping_cfg.get("id_column", None)
+        
+        # Cấu hình cho ML Task (Classification/Regression) & Embeddings
+        target_col = column_mapping_cfg.get("target", None)
+        prediction_col = column_mapping_cfg.get("prediction", None)
+        task_type = column_mapping_cfg.get("task", None) # "classification" hoặc "regression"
+        pos_label = column_mapping_cfg.get("pos_label", None)
+        embeddings_cfg = column_mapping_cfg.get("embeddings", None)
 
         data_def = DataDefinition(
             numerical_columns=num_cols,
             categorical_columns=cat_cols,
             text_columns=text_cols,
+            datetime_columns=datetime_cols,
+            id_column=id_col,
+            target=target_col,
+            prediction=prediction_col,
+            task=task_type,
+            pos_label=pos_label,
+            embeddings=embeddings_cfg
         )
 
         curr_dataset = Dataset.from_pandas(current_df, data_definition=data_def)
         ref_dataset = Dataset.from_pandas(reference_df, data_definition=data_def)
 
-        # 2. Đọc cấu hình ngưỡng từ global.yaml
+        # 2. Cấu hình Mô-đun Dịch chuyển Dữ liệu & Embeddings (Data Drift & Embeddings Drift)
+        # Hỗ trợ tự động hoặc cấu hình linh hoạt các StatTests (ks, wasserstein, chisquare, psi...), 
+        # Text Drift và Embeddings Drift (Distance, Model, Ratio, MMD).
+        
+        # --- A. Các tham số Data Drift ---
+        drift_share_val = drift_options_cfg.get("dataset_drift_share", None)
+        default_stattest = drift_options_cfg.get("default_method", None) 
+        default_threshold = drift_options_cfg.get("p_value_alpha", None)
+        
+        # --- B. Khởi tạo Presets & Metrics Lõi cho Data Drift ---
         drift_preset = DataDriftPreset(
-            drift_share=drift_options_cfg.get("dataset_drift_share", 0.5),
-            method=drift_options_cfg.get("default_method", "ks"),
-            threshold=drift_options_cfg.get("p_value_alpha", 0.05),
-            num_method=drift_options_cfg.get("numerical", {}).get("method", "wasserstein"),
-            num_threshold=drift_options_cfg.get("numerical", {}).get("wasserstein_distance", 0.1),
-            per_column_method=drift_options_cfg.get("per_feature_stattest"),
-            per_column_threshold=drift_options_cfg.get("per_feature_threshold"),
+            drift_share=drift_share_val,
+            stattest=default_stattest,
+            stattest_threshold=default_threshold,
+            num_stattest=drift_options_cfg.get("numerical", {}).get("method", None),
+            cat_stattest=drift_options_cfg.get("categorical", {}).get("method", None),
+            per_column_stattest=drift_options_cfg.get("per_feature_stattest", None)
         )
+        
+        # Các Metric đơn lẻ (đã được cấu hình mở tham số cho Pipeline)
+        dataset_drift_metric = DatasetDriftMetric(drift_share=drift_share_val)
+        data_drift_table = DataDriftTable(
+            stattest=default_stattest, 
+            stattest_threshold=default_threshold
+        )
+        
+        column_drift_metrics = []
+        target_columns = drift_options_cfg.get("columns_to_check_drift", [])
+        for col in target_columns:
+            # Hỗ trợ Text Drift, Categorical, Numerical ở mức cột
+            column_drift_metrics.append(ColumnDriftMetric(column_name=col))
 
-        report = Report(metrics=[DataSummaryPreset(), drift_preset])
+        # --- C. Khởi tạo Embeddings Drift Metrics ---
+        embeddings_metrics = []
+        if embeddings_cfg:
+            # Lặp qua các không gian embedding được định nghĩa ở Giai đoạn 1
+            for emb_name in embeddings_cfg.keys():
+                embeddings_metrics.append(
+                    EmbeddingsDriftMetric(
+                        embeddings_name=emb_name,
+                        drift_method=drift_options_cfg.get("embeddings_drift_method", None) # Hỗ trợ Model, Distance, MMD, Ratio
+                    )
+                )
+
+        # --- D. Đóng gói Report & Chạy Engine ---
+        # Chú ý: Các thành phần độc lập (dataset_drift_metric, data_drift_table) có thể 
+        # uncomment và đưa vào list tùy thuộc vào yêu cầu của pipeline.
+        active_metrics = [
+            DataSummaryPreset(),
+            drift_preset,
+            # dataset_drift_metric, 
+            # data_drift_table
+        ] + embeddings_metrics + column_drift_metrics
+
+        report = Report(metrics=active_metrics)
         snapshot = report.run(current_data=curr_dataset, reference_data=ref_dataset)
 
-        # 3. Xuất tài nguyên Artifacts
-        html_path = os.path.join(self.artifact_dir, "drift_report.html")
-        json_path = os.path.join(self.artifact_dir, "drift_metrics.json")
+        # (Tương lai) Dành cho DataDriftTestPreset trong CI/CD Pipelines:
+        # from evidently.test_suite import TestSuite
+        # from evidently.test_preset import DataDriftTestPreset
+        # test_suite = TestSuite(tests=[DataDriftTestPreset(drift_share=drift_share_val)])
 
-        report.save_html(html_path) # type: ignore
-        with open(json_path, "w", encoding="utf-8") as f:
-            f.write(report.json()) # type: ignore
+     
+        # 3. Cấu hình Mô-đun Chất lượng & Tính toàn vẹn Dữ liệu (Data Quality & Integrity)
+        # Lấy cấu hình linh hoạt từ file YAML của pipeline (nếu có)
+        data_quality_cfg = kwargs.get("data_quality_options", {})
+        
+        # --- A. Các Presets Lõi cho Data Quality ---
+        # Bao phủ tổng quan các thống kê (DatasetStats, ValueStats) và Missing Values
+        dq_presets = [
+            DataSummaryPreset(),
+            DataQualityPreset()
+        ]
 
-        logger.info(f"✓ Báo cáo HTML đã lưu tại: {html_path}")
-        logger.info(f"✓ Chỉ số JSON đã lưu tại: {json_path}")
+        # --- B. Tính toàn vẹn dữ liệu (Data Integrity) & RegExp ---
+        dq_metrics = []
+        
+        # Định nghĩa các giá trị được coi là Missing (VD: ["", "n/a", -9999])
+        custom_missing_values = data_quality_cfg.get("custom_missing_values", None)
+        dq_metrics.append(DatasetMissingValuesMetric(missing_values=custom_missing_values))
 
-        # 4. Push Snapshot lên Evidently Remote Workspace (Nếu khả dụng)
-        if self.evidently_workspace_url:
-            try:
-                ws = RemoteWorkspace(self.evidently_workspace_url)
-                project = ws.get_or_create_project(self.project_name) # type: ignore
-                ws.add_run(project.id, snapshot)
-                logger.info(f"✓ Đã đồng bộ Snapshot lên Evidently Service UI.")
-            except Exception as e:
-                logger.warning(f"⚠️ Không thể kết nối Evidently UI Server: {e}")
+        # Phân tích tương quan & Độ ổn định (Correlations & Stability) ở mức độ Dataset
+        dq_metrics.append(DatasetCorrelationsMetric())
+        
+        # Đánh giá xung đột dữ liệu (nếu bài toán có target/prediction)
+        if target_col or prediction_col:
+            # dq_metrics.append(DataQualityStabilityMetric())
+            # dq_metrics.append(ConflictTargetMetric())
+            # dq_metrics.append(ConflictPredictionMetric())
+            pass
 
-        with open(json_path, "r", encoding="utf-8") as f:
-            return json.load(f)
+        # --- C. Kiểm tra ở mức độ Từng cột (Column-level Validation) ---
+        # Range, List, RegExp và Missing Values per column
+        columns_to_check_dq = data_quality_cfg.get("columns_to_check", [])
+        
+        for col in columns_to_check_dq:
+            # 1. Missing values cho từng cột
+            dq_metrics.append(ColumnMissingValuesMetric(
+                column_name=col, 
+                missing_values=custom_missing_values
+            ))
+            
+            # 2. Biểu thức chính quy (RegExp Validation)
+            reg_exp_rule = data_quality_cfg.get("regexp_rules", {}).get(col, None)
+            if reg_exp_rule:
+                dq_metrics.append(ColumnRegExpMetric(
+                    column_name=col, 
+                    reg_exp=reg_exp_rule
+                ))
+                
+            # 3. Kiểm tra khoảng giá trị (Range Validation)
+            range_rules = data_quality_cfg.get("range_rules", {}).get(col, {})
+            if range_rules:
+                dq_metrics.append(ColumnValueRangeMetric(
+                    column_name=col,
+                    left=range_rules.get("left", None),
+                    right=range_rules.get("right", None)
+                ))
+                
+            # 4. Kiểm tra danh sách giá trị hợp lệ (List Validation)
+            list_rules = data_quality_cfg.get("list_rules", {}).get(col, None)
+            if list_rules:
+                dq_metrics.append(ColumnValueListMetric(
+                    column_name=col, 
+                    values=list_rules
+                ))
+
+        # --- D. Đóng gói vào List Metrics Tổng ---
+        # Kết hợp các metrics của Data Quality vào list active_metrics đã có ở phần Drift
+        # active_metrics.extend(dq_presets + dq_metrics)
+        
+        # (Tương lai) Bài kiểm thử tự động (Test Presets) cho CI/CD Pipeline
+        # from evidently.test_suite import TestSuite
+        # from evidently.test_preset import DataQualityTestPreset, DataStabilityTestPreset
+        # dq_test_suite = TestSuite(tests=[
+        #     DataQualityTestPreset(),
+        #     DataStabilityTestPreset()
+        # ])
+
+
+        # 4. Cấu hình Mô-đun Đánh giá Phân loại (Classification Metrics)
+        classification_cfg = kwargs.get("classification_options", {})
+        class_metrics = []
+
+        # Chỉ kích hoạt nếu Lược đồ dữ liệu (Giai đoạn 1) định nghĩa đây là bài toán Classification
+        if task_type == "classification" and target_col and prediction_col:
+            
+            # Lấy các tham số cấu hình đặc thù cho Classification
+            probas_threshold = classification_cfg.get("probas_threshold", None)
+            k_val = classification_cfg.get("k", None)
+            
+            # --- C. Các Metric Presets Đóng gói sẵn ---
+            # Sử dụng ClassificationPreset (Toàn diện nhất) bao gồm:
+            # - Chỉ số tổng hợp (Accuracy, Precision, Recall, F1Score, RocAuc, LogLoss...)
+            # - Chỉ số nhị phân (TPR, TNR, FPR, FNR)
+            # - Chỉ số theo lớp (PrecisionByLabel, RecallByLabel...)
+            # - Đồ thị (Confusion Matrix, ROC Curve, PR Curve, Lift Curve...)
+            class_metrics.append(
+                ClassificationPreset(
+                    probas_threshold=probas_threshold, 
+                    k=k_val
+                )
+            )
+
+            # --- D. Mô hình Đối chứng Baseline (Dummy Metrics) ---
+            # Bật/tắt so sánh hiệu năng với mô hình đoán ngẫu nhiên/theo tần suất
+            if classification_cfg.get("enable_dummy_metrics", False):
+                class_metrics.append(ClassificationDummyMetric())
+
+            # --- E. Công cụ Trực quan hóa & Đồ thị Mở rộng (Cấu hình lẻ) ---
+            # Nếu người dùng muốn phân tích siêu chi tiết từng thuộc tính và phân bố xác suất:
+            if classification_cfg.get("enable_detailed_plots", False):
+                class_metrics.append(ClassificationProbDistribution())
+                class_metrics.append(ClassificationQualityByFeatureTable())
+                # Bảng Confusion Matrix độc lập (nếu không dùng preset)
+                # class_metrics.append(ClassificationConfusionMatrix(probas_threshold=probas_threshold, k=k_val))
+
+            # Kết hợp các metrics Phân loại vào list active_metrics đã có
+            # active_metrics.extend(class_metrics)
+            
+            # --- 4. (Tương lai) Bài kiểm thử Tự động (Test Presets) cho CI/CD ---
+            # from evidently.test_suite import TestSuite
+            # from evidently.test_preset import BinaryClassificationTestPreset, MulticlassClassificationTestPreset
+            # class_test_suite = TestSuite(tests=[
+            #     BinaryClassificationTestPreset(probas_threshold=probas_threshold)
+            #     # Hoặc: MulticlassClassificationTestPreset()
+            # ])
+
+        # 5. Cấu hình Mô-đun Đánh giá Hồi quy (Regression Metrics)
+        regression_cfg = kwargs.get("regression_options", {})
+        reg_metrics = []
+
+        # Chỉ kích hoạt nếu Lược đồ dữ liệu định nghĩa đây là bài toán Regression
+        if task_type == "regression" and target_col and prediction_col:
+            
+            # --- C. Các Metric Presets Đóng gói sẵn ---
+            # Sử dụng RegressionPreset (Toàn diện nhất) bao gồm:
+            # - Chỉ số tổng hợp (MAE, RMSE, MAPE, R2Score, MeanError, AbsMaxError)
+            # - Đồ thị (Predicted vs Actual, Error Plot, Error Distribution, Q-Q Plot...)
+            reg_metrics.append(
+                RegressionPreset()
+            )
+
+            # --- D. Mô hình Đối chứng Baseline (Dummy Metrics) ---
+            # So sánh hiệu năng thực tế với mô hình giả định (median/mean baseline)
+            if regression_cfg.get("enable_dummy_metrics", False):
+                reg_metrics.append(RegressionDummyMetric())
+
+            # --- E. Công cụ Trực quan hóa & Phân tích Độ lệch Sai số (Cấu hình lẻ) ---
+            # Bật phân tích lệch (Bias) và Top Error theo từng thuộc tính đầu vào
+            if regression_cfg.get("enable_detailed_plots", False):
+                columns_to_analyze = regression_cfg.get("columns_to_analyze", None)
+                reg_metrics.append(RegressionErrorBiasTable(columns=columns_to_analyze))
+                reg_metrics.append(RegressionTopErrorMetric())
+
+            # Cấu hình độc lập lẻ tẻ (nếu không dùng preset tổng)
+            # VD: Cấu hình xử lý điểm dữ liệu target=0 cho MAPE
+            # zero_handling = regression_cfg.get("zero_handling", None) # "drop", "replace", "none"
+            # epsilon = regression_cfg.get("epsilon", None)
+
+            # Kết hợp các metrics Hồi quy vào list active_metrics đã có
+            # active_metrics.extend(reg_metrics)
+            
+            # --- 5. (Tương lai) Bài kiểm thử Tự động (Test Presets) cho CI/CD ---
+            # from evidently.test_suite import TestSuite
+            # from evidently.test_preset import RegressionTestPreset
+            # reg_test_suite = TestSuite(tests=[
+            #     RegressionTestPreset()
+            # ])
+
+        # 6. Cấu hình Mô-đun Văn bản & LLM Evals (Generative AI / RAG Validation)
+        llm_evals_cfg = kwargs.get("llm_evals_options", {})
+        text_llm_metrics = []
+
+        # Chỉ kích hoạt nếu có dữ liệu text hoặc pipeline có cấu hình LLM Evals
+        if text_cols or llm_evals_cfg:
+            
+            # --- A. Các Presets Đóng gói sẵn ---
+            # TextEvals tính toán phân phối thống kê (TextLength, Sentiment, OOV...) cho toàn bộ text_columns
+            if llm_evals_cfg.get("enable_text_evals_preset", False):
+                text_llm_metrics.append(TextEvals())
+
+            # --- B. Trích xuất thuộc tính văn bản (Text Descriptors) ---
+            # (Thường được sử dụng tích hợp bên trong TextEvals hoặc DataDriftPreset)
+            # Tuy nhiên, pipeline có thể định nghĩa ánh xạ đánh giá từng cột độc lập.
+            descriptors_cfg = llm_evals_cfg.get("descriptors", {})
+            for col, d_list in descriptors_cfg.items():
+                # Ví dụ: d_list = ["TextLength", "Sentiment", "OOVWordsPercentage", "ContainsLink"]
+                # Logic ánh xạ string -> Descriptor objects sẽ được triển khai tại đây
+                pass
+
+            # --- C. Đánh giá RAG & Hệ thống LLM (LLM-as-a-Judge) ---
+            llm_judge_cfg = llm_evals_cfg.get("llm_judge", {})
+            
+            if llm_judge_cfg:
+                # LLM Provider (VD: từ module evidently.llm_engine, OpenAI, v.v.)
+                # Nhận động từ pipeline để tránh hardcode API Key trong engine
+                llm_provider = llm_judge_cfg.get("provider", None) 
+
+                # 1. Bộ ba chỉ số đánh giá RAG (RAG Triad) & Completeness
+                if llm_judge_cfg.get("context_quality"):
+                    text_llm_metrics.append(ContextQualityLLMEval(provider=llm_provider))
+                if llm_judge_cfg.get("faithfulness"):
+                    text_llm_metrics.append(FaithfulnessLLMEval(provider=llm_provider))
+                if llm_judge_cfg.get("correctness"):
+                    text_llm_metrics.append(CorrectnessLLMEval(provider=llm_provider))
+                if llm_judge_cfg.get("completeness"):
+                    text_llm_metrics.append(CompletenessLLMEval(provider=llm_provider))
+
+                # 2. Đánh giá An toàn & Tuân thủ Policy (Safety Judges)
+                if llm_judge_cfg.get("pii"):
+                    text_llm_metrics.append(PIILLMEval(provider=llm_provider))
+                if llm_judge_cfg.get("toxicity"):
+                    text_llm_metrics.append(ToxicityLLMEval(provider=llm_provider))
+                if llm_judge_cfg.get("decline"):
+                    text_llm_metrics.append(DeclineLLMEval(provider=llm_provider))
+                if llm_judge_cfg.get("bias"):
+                    text_llm_metrics.append(BiasLLMEval(provider=llm_provider))
+                if llm_judge_cfg.get("negativity"):
+                    text_llm_metrics.append(NegativityLLMEval(provider=llm_provider))
+
+            # Kết hợp các metrics Text/LLM vào list active_metrics đã có
+            # active_metrics.extend(text_llm_metrics)
+            
+            # --- D. (Tương lai) Các công cụ LLM Datagen & Guardrails ---
+            # Lưu ý: Các modules evidently.llm.datagen (tạo dữ liệu giả lập) 
+            # và evidently.guardrails (kiểm soát luồng) chạy độc lập với Report, 
+            # nên sẽ được cấu hình ở các Gateway/API chặn đầu vào thay vì trong Engine này.
+
+        # 7. Cấu hình Mô-đun Hệ thống Gợi ý & Xếp hạng (Recommendation Systems - RecSys)
+        recsys_cfg = kwargs.get("recsys_options", {})
+        recsys_metrics = []
+
+        # Kích hoạt nếu Lược đồ dữ liệu định nghĩa bài toán là RecSys (Gợi ý/Xếp hạng)
+        # Yêu cầu phải có target_col, prediction_col và tối thiểu user_id, item_id
+        if task_type == "recsys" and target_col and prediction_col:
+            
+            # Lấy tham số K (Top-K) và các cấu hình đặc thù
+            k_val = recsys_cfg.get("k", None)
+            
+            # --- A. Các Metric Presets Đóng gói sẵn ---
+            # Sử dụng RecsysPreset (Tự động bao gồm Precision, Recall, MAP, NDCG, MRR, HitRate)
+            # Tự động tính Novelty, Diversity, Serendipity, Bias... nếu có truyền đủ train_data và features
+            recsys_metrics.append(RecsysPreset(k=k_val))
+            
+            # --- B. Các Metric Đa dạng, Cá nhân hóa, Độ mới & Thiên vị (Cấu hình lẻ) ---
+            # Chỉ sử dụng nếu muốn tinh chỉnh sâu hơn ở bên ngoài Preset
+            if recsys_cfg.get("enable_diversity_novelty", False):
+                item_features = recsys_cfg.get("item_features", None)
+                
+                recsys_metrics.append(Personalization(k=k_val))
+                recsys_metrics.append(ScoreDistribution(k=k_val))
+                recsys_metrics.append(Novelty(k=k_val))
+                
+                if item_features:
+                    recsys_metrics.append(Diversity(k=k_val, item_features=item_features))
+                    recsys_metrics.append(Serendipity(k=k_val, item_features=item_features))
+
+            # Đánh giá thiên vị (Bias) theo mức độ phổ biến, thuộc tính User / Item
+            if recsys_cfg.get("enable_bias_metrics", False):
+                item_bias_cols = recsys_cfg.get("item_bias_columns", None)
+                user_bias_cols = recsys_cfg.get("user_bias_columns", None)
+                
+                recsys_metrics.append(PopularityBiasMetric(k=k_val))
+                
+                if item_bias_cols:
+                    recsys_metrics.append(ItemBiasMetric(k=k_val, column_names=item_bias_cols))
+                if user_bias_cols:
+                    recsys_metrics.append(UserBiasMetric(k=k_val, column_names=user_bias_cols))
+
+            # --- C. Bảng trực quan hóa các trường hợp gợi ý thực tế (RecCasesTable) ---
+            if recsys_cfg.get("enable_rec_cases", False):
+                user_ids_to_check = recsys_cfg.get("user_ids", None)
+                display_features = recsys_cfg.get("display_features", None)
+                
+                recsys_metrics.append(
+                    RecCasesTable(
+                        user_ids=user_ids_to_check, 
+                        display_features=display_features
+                    )
+                )
+
+            # Kết hợp các metrics RecSys vào list active_metrics đã có
+            # active_metrics.extend(recsys_metrics)
+            
+            # --- D. (Tương lai) Bài kiểm thử Tự động (Test Presets) cho CI/CD ---
+            # from evidently.test_suite import TestSuite
+            # from evidently.test_preset import RecsysTestPreset
+            # recsys_test_suite = TestSuite(tests=[
+            #     RecsysTestPreset(k=k_val)
+            # ])
 
     def log_metrics_to_mlflow(self, validation_json: Dict[str, Any]) -> None:
         """
