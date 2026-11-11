@@ -617,45 +617,64 @@ class EvidentlyDriftEngine:
 
 
 
-    def log_metrics_to_mlflow(self, validation_json: Dict[str, Any]) -> None:
+    def log_metrics_to_mlflow(self, report_json: Dict[str, Any], test_suite_json: Optional[Dict[str, Any]] = None) -> None:
         """
-        Giai đoạn 3: Đẩy chỉ số Drift và Artifacts lên MLflow qua MLOpsTracker của hệ thống.
+        Giai đoạn 3: Đẩy các chỉ số (Drift, Quality, Performance) và kết quả Test (CI/CD) lên MLflow.
         """
-        logger.info("--- [GIAO ĐOẠN 3] Đồng bộ Metrics & Artifacts lên MLflow Tracker ---")
+        logger.info("--- [GIAO ĐOẠN 3] Đồng bộ Metrics & Test Results lên MLflow Tracker ---")
         
-        metrics_results = validation_json.get("metrics", [])
-        drift_share, number_of_drifted_columns, dataset_drift = None, None, None
+        if not self.tracker:
+            logger.warning("MLOpsTracker không khả dụng. Bỏ qua bước log MLflow.")
+            return
 
+        raw_metrics = {}
+
+        # 1. Trích xuất Metrics từ Report (Data Drift, Data Quality, ML Performance)
+        metrics_results = report_json.get("metrics", [])
         for item in metrics_results:
+            metric_type = item.get("metric", "")
             result = item.get("result", {})
-            if "drift_share" in result and "number_of_drifted_columns" in result:
-                drift_share = result.get("drift_share")
-                number_of_drifted_columns = result.get("number_of_drifted_columns")
-                dataset_drift = int(result.get("dataset_drift", False))
-                break
 
-        # Log qua Tracker của hệ thống nếu khả dụng
-        if self.tracker and drift_share is not None:
-            raw_metrics = {
-                "drift_share": drift_share,
-                "number_of_drifted_columns": number_of_drifted_columns,
-                "dataset_drift_detected": float(dataset_drift) if dataset_drift is not None else None,
-            }
-
-            # Ensure all values are typed strictly as float and remove None
-            metrics: dict[str, float] = {
-                k: float(v) for k, v in raw_metrics.items() if v is not None
-            }
-
-            self.tracker.log_params_and_metrics(metrics=metrics)
-
-
-            html_path = os.path.join(self.artifact_dir, "drift_report.html")
-            json_path = os.path.join(self.artifact_dir, "drift_metrics.json")
+            # Trích xuất Data Drift
+            if metric_type == "DatasetDriftMetric":
+                raw_metrics["dataset_drift_share"] = result.get("drift_share")
+                raw_metrics["dataset_drift_flag"] = int(result.get("dataset_drift", False))
+                raw_metrics["number_of_drifted_columns"] = result.get("number_of_drifted_columns")
             
-            if os.path.exists(html_path):
-                self.tracker.upload_system_logs(html_path)
-            if os.path.exists(json_path):
-                self.tracker.upload_system_logs(json_path)
-                
-            logger.info("✓ Đã log thông số Drift thành công lên MLflow.")
+            # Trích xuất Data Quality (Missing Values)
+            elif metric_type == "DatasetMissingValuesMetric":
+                raw_metrics["dataset_missing_share"] = result.get("current", {}).get("share_of_missing_values")
+
+            # Trích xuất Regression Performance
+            elif metric_type == "RegressionQualityMetric":
+                raw_metrics["regression_rmse"] = result.get("current", {}).get("rmse")
+                raw_metrics["regression_mae"] = result.get("current", {}).get("mae")
+                raw_metrics["regression_r2_score"] = result.get("current", {}).get("r2_score")
+
+            # Trích xuất Classification Performance
+            elif metric_type == "ClassificationQualityMetric":
+                raw_metrics["classification_accuracy"] = result.get("current", {}).get("accuracy")
+                raw_metrics["classification_f1"] = result.get("current", {}).get("f1")
+                raw_metrics["classification_roc_auc"] = result.get("current", {}).get("roc_auc")
+
+        # 2. Trích xuất kết quả từ Test Suite (CI/CD Pass/Fail)
+        if test_suite_json:
+            summary = test_suite_json.get("summary", {})
+            raw_metrics["test_suite_total_tests"] = summary.get("total_tests", 0)
+            raw_metrics["test_suite_all_passed"] = int(summary.get("all_passed", False))
+            raw_metrics["test_suite_success_count"] = summary.get("success_tests", 0)
+            raw_metrics["test_suite_failed_count"] = summary.get("failed_tests", 0)
+            raw_metrics["test_suite_warning_count"] = summary.get("warning_tests", 0)
+
+        # 3. Đẩy lên MLflow (Lọc bỏ các giá trị None để tránh lỗi)
+        clean_metrics = {k: v for k, v in raw_metrics.items() if v is not None}
+        
+        if clean_metrics:
+            try:
+                # Giả định tracker của bạn có hàm log_metrics
+                self.tracker.log_metrics(clean_metrics)
+                logger.info(f"✓ Đã ghi nhận {len(clean_metrics)} chỉ số lên MLflow.")
+            except AttributeError:
+                logger.error("Hàm log_metrics không tồn tại trong MLOpsTracker.")
+        else:
+            logger.info("Không tìm thấy chỉ số cốt lõi nào để log lên MLflow.")
