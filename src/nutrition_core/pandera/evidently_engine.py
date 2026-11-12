@@ -1,114 +1,113 @@
-"""
-Module: src.nutrition_core.pandera.evidently_engine
-Description: Engine đa mô-đun tích hợp giữa Pandera Schema Validation, Evidently AI 
-             (Data Drift, Quality, Classification, Regression, Text/LLM Evals, RecSys), 
-             TestSuite kiểm thử tự động, DVC Artifact Management và MLflow Logging.
-"""
+""" Module: src.nutrition\_core.pandera.evidently\_engine Description: Engine tích hợp giữa Pandera Schema Validation, Evidently AI Data Drift Engine, DVC Artifact Management và MLflow Logging cho NutritionAI\_V1\. """ 
+import json 
+import os 
+from typing import Any, Dict, Optional, Tuple 
+import pandas as pd 
+import pandera as pa 
+from pandera.errors import SchemaError 
+# ------------------------------------------------------------------------- 
+# #1\. Core Evidently Imports (Top-level &amp; Workspace) 
+# # ------------------------------------------------------------------------- 
+# 1. Core (DataDefinition, Dataset, Report tích hợp sẵn Tests)
+from evidently import DataDefinition, Dataset, Report
 
-import os
-import json
-from typing import Dict, Any, Optional, Tuple, List, Union
-import pandas as pd
-import pandera as pa
-from pandera.errors import SchemaError
+# 2. Workspace
+from evidently.ui.workspace import RemoteWorkspace, Workspace
 
-# Evidently AI Core Imports
-from evidently.report import Report
-from evidently.test_suite import TestSuite
-from evidently.core.datasets import Dataset, DataDefinition
-from evidently.ui.workspace import RemoteWorkspace
-
-# 1. Evidently AI Metric Presets (Dùng cho Report)
+# 3. Dashboard Panels (thay thế cho ui.dashboards cũ)
+from evidently.sdk.panels import (
+    DashboardPanelPlot,
+    PanelMetric,
+    bar_plot_panel,
+    counter_panel,
+    line_plot_panel,
+    pie_plot_panel,
+    text_panel,
+)
+# ------------------------------------------------------------------------- 
+# # 2\. Presets (Metrics &amp; Test Suites) 
+# # ------------------------------------------------------------------------- 
+from evidently import Report
 from evidently.presets import (
-    DataDriftPreset,
-    DataQualityPreset,
     ClassificationPreset,
+    DataDriftPreset,
+    DataSummaryPreset,  # Thay thế cho DataQualityPreset
+    RecsysPreset,
     RegressionPreset,
-    TargetDriftPreset,
+    TextEvals,
 )
 
-# 2. Evidently AI Test Presets (Dùng cho TestSuite)
-from evidently.test_preset import (
-    DataDriftTestPreset,
-    DataQualityTestPreset,
-    DataStabilityTestPreset,
-    BinaryClassificationTestPreset,
-    RegressionTestPreset,
+# ------------------------------------------------------------------------- 
+# # 3\. Metrics (Tabular, ML &amp; RecSys Metrics) 
+# # ------------------------------------------------------------------------- 
+from evidently.metrics import (
+    # Data Drift
+    DriftedColumnsCount,
+    EmbeddingsDrift,
+    ValueDrift,
+    # Data Quality
+    DatasetCorrelations,
+    DatasetMissingValueCount,
+    GroupBy,
+    InListValueCount,
+    InRangeValueCount,
+    MissingValueCount,
+    OutListValueCount,
+    OutRangeValueCount,
+    # Classification & Regression Dummy
+    DummyAccuracy,
+    DummyF1Score,
+    DummyMAE,
+    DummyMAPE,
+    DummyPrecision,
+    DummyRecall,
+    DummyRMSE,
+    DummyRocAuc,
+    # RecSys
+    Diversity,
+    ItemBias,
+    Novelty,
+    Personalization,
+    PopularityBiasMetric,
+    RecCasesTable,
+    ScoreDistribution,
+    Serendipity,
+    UserBias,
 )
 
-# Core Utilities trong NutritionAI_V1
-from src.nutrition_core.logging.logger import logger
+# ------------------------------------------------------------------------- 
+# # 4\. Text Descriptors &amp; LLM Evaluators 
+# # ------------------------------------------------------------------------- 
+from evidently.descriptors import ( 
+    # LLM Evals  
+    BiasLLMEval, CompletenessLLMEval, 
+    ContextQualityLLMEval, CorrectnessLLMEval, 
+    DeclineLLMEval, FaithfulnessLLMEval, 
+    NegativityLLMEval, PIILLMEval, ToxicityLLMEval, 
+    # Text Descriptors 
+    ContainsLink, IsValidJSON, 
+    NonLetterCharacterPercentage, 
+    OOVWordsPercentage, RegExp, 
+    SemanticSimilarity, Sentiment, 
+    TextLength, TextMatch, WordCount, ) 
+
+# ------------------------------------------------------------------------- # 
+# 5\. Core Internal Utilities (NutritionAI\_V1) 
+# # ------------------------------------------------------------------------- 
+from src.nutrition_core.logging.logger import logger 
 from src.nutrition_core.logging.mlflow_tracker import MLOpsTracker
 
-from evidently.metric_preset import DataDriftPreset, DataSummaryPreset
-from evidently.metrics import DatasetDriftMetric, DataDriftTable, EmbeddingsDriftMetric, ColumnDriftMetric
 
-from evidently.metric_preset import DataQualityPreset, DataSummaryPreset
-from evidently.metrics import (
-    DatasetMissingValuesMetric, ColumnMissingValuesMetric, 
-    ColumnRegExpMetric, DatasetCorrelationsMetric,
-    ColumnValueRangeMetric, ColumnValueListMetric,
-    # DataQualityStabilityMetric, ConflictTargetMetric, ConflictPredictionMetric
-)
-
-from evidently.metric_preset import ClassificationPreset
-from evidently.metrics import (
-    ClassificationDummyMetric,
-    ClassificationProbDistribution, 
-    ClassificationQualityByFeatureTable,
-    ClassificationConfusionMatrix
-)
-
-from evidently.metric_preset import RegressionPreset
-from evidently.metrics import (
-    RegressionDummyMetric, 
-    RegressionErrorBiasTable, 
-    RegressionTopErrorMetric
-)
-
-from evidently.metric_preset import TextEvals
-from evidently.metrics import (
-    ContextQualityLLMEval, FaithfulnessLLMEval, CorrectnessLLMEval, CompletenessLLMEval,
-    PIILLMEval, ToxicityLLMEval, DeclineLLMEval, BiasLLMEval, NegativityLLMEval
-)
-# Các Text Descriptors (Nếu dùng độc lập) có thể import từ evidently.descriptors
-from evidently.descriptors import (
-    TextLength, WordCount, Sentiment, OOVWordsPercentage, NonLetterCharacterPercentage,
-    RegExp, ContainsLink, TextMatch, IsValidJSON, SemanticSimilarity
-)
-
-from evidently.metric_preset import RecsysPreset
-from evidently.metrics import (
-    Personalization, ScoreDistribution, Diversity, Novelty, Serendipity,
-    PopularityBiasMetric, ItemBiasMetric, UserBiasMetric, RecCasesTable
-)
-
-from evidently.test_suite import TestSuite
-from evidently.test_preset import (
-    DataDriftTestPreset, 
-    DataQualityTestPreset, 
-    DataStabilityTestPreset,
-    BinaryClassificationTestPreset, 
-    MulticlassClassificationTestPreset, 
-    RegressionTestPreset, 
-    RecsysTestPreset, 
-    NoTargetPerformanceTestPreset
-)
-# Quản lý Workspace
-from evidently.ui.workspace import RemoteWorkspace, Workspace
-from evidently.ui.dashboards import DashboardPanelPlot, ReportFilter, PanelValue, PlotType
-
-
-class EvidentlyEngine:
+class EvidentlyDriftEngine:
     """
-    Engine đa năng thực thi quy trình kiểm định chất lượng dữ liệu, mô hình AI/LLM
-    và đồng bộ với hạ tầng MLOps (Evidently Workspace & MLflow).
+    Engine thực thi kiểm định trôi lệch dữ liệu (Drift Detection) 
+    và đồng bộ với MLOps Infrastructure.
     """
-
+    
     def __init__(
         self,
-        artifact_dir: str,
-        project_name: str,
+        artifact_dir: str,          # Bắt buộc truyền từ pipeline
+        project_name: str,          # Bắt buộc truyền từ pipeline
         evidently_workspace_url: Optional[str] = None,
         mlops_tracker: Optional[MLOpsTracker] = None,
     ):
@@ -117,30 +116,14 @@ class EvidentlyEngine:
         self.evidently_workspace_url = evidently_workspace_url
         self.tracker = mlops_tracker
 
-        # Tự động tạo thư mục lưu trữ Artifacts
+        # Tự động tạo thư mục đích nếu chưa tồn tại (vd: Artifacts/reports/ml_calories/evidently)
         os.makedirs(self.artifact_dir, exist_ok=True)
 
-    def _build_data_definition(self, column_mapping_cfg: Dict[str, Any]) -> DataDefinition:
-        """
-        Chuẩn hóa cấu hình cột từ dict/YAML sang DataDefinition của Evidently.
-        """
-        return DataDefinition(
-            numerical_columns=column_mapping_cfg.get("numerical_features", []),
-            categorical_columns=column_mapping_cfg.get("categorical_features", []),
-            text_columns=column_mapping_cfg.get("text_features", []),
-            target_column=column_mapping_cfg.get("target"),
-            prediction_column=column_mapping_cfg.get("prediction"),
-            datetime_column=column_mapping_cfg.get("datetime"),
-        )
-
-    # =========================================================================
-    # GIAI ĐOẠN 1: SCHEMA VALIDATION (PANDERA)
-    # =========================================================================
     def validate_schema(
         self, df: pd.DataFrame, schema_model: pa.DataFrameModel
     ) -> Tuple[bool, Optional[pd.DataFrame]]:
         """
-        Kiểm tra Lược đồ Dữ liệu tĩnh/động bằng Pandera Schema.
+        Giai đoạn 1: Kiểm tra Lược đồ Dữ liệu động với Pandera Schema.
         """
         logger.info("--- [GIAO ĐOẠN 1] Thực thi Pandera Schema Validation ---")
         try:
@@ -151,9 +134,6 @@ class EvidentlyEngine:
             logger.error(f"❌ Pandera Validation FAILED: {err}")
             return False, None
 
-    # =========================================================================
-    # GIAI ĐOẠN 2: ĐÁNH GIÁ ĐA MÔ-ĐUN (EVIDENTLY REPORT)
-    # =========================================================================
     def run_drift_detection(
         self,
         current_df: pd.DataFrame,
@@ -162,9 +142,8 @@ class EvidentlyEngine:
         drift_options_cfg: Dict[str, Any],
     ) -> Dict[str, Any]:
         """
-        Tương thích ngược: Đánh giá Data Drift chuyên biệt.
+        Giai đoạn 2: Phát hiện Drift bằng Evidently AI dựa trên cấu hình YAML.
         """
-<<<<<<< HEAD
         logger.info("--- [GIAO ĐOẠN 2] Thực thi Evidently AI Drift Detection Engine ---")
 
         # 1. Trích xuất Schema linh hoạt từ configuration
@@ -192,49 +171,11 @@ class EvidentlyEngine:
             task=task_type,
             pos_label=pos_label,
             embeddings=embeddings_cfg
-=======
-        return self.run_evaluation_suite(
-            current_df=current_df,
-            reference_df=reference_df,
-            column_mapping_cfg=column_mapping_cfg,
-            modules=["drift"],
-            drift_options_cfg=drift_options_cfg,
-            report_name_prefix="drift",
->>>>>>> bfdb21d (Update evidently_engine configuration)
         )
 
-    def run_evaluation_suite(
-        self,
-        current_df: pd.DataFrame,
-        reference_df: Optional[pd.DataFrame] = None,
-        column_mapping_cfg: Optional[Dict[str, Any]] = None,
-        modules: Optional[List[str]] = None,
-        drift_options_cfg: Optional[Dict[str, Any]] = None,
-        recsys_k: int = 10,
-        report_name_prefix: str = "comprehensive",
-    ) -> Dict[str, Any]:
-        """
-        Đánh giá đa mô-đun: Drift, Quality, Classification, Regression, Text/LLM Evals, RecSys.
-        
-        :param modules: Danh sách các mô-đun cần chạy:
-            - 'drift': Data & Embeddings Drift
-            - 'quality': Data Quality & Integrity
-            - 'classification': Hiệu năng mô hình Phân loại
-            - 'regression': Hiệu năng mô hình Hồi quy
-            - 'text_llm': Đánh giá Văn bản & LLM Evals / RAG
-            - 'recsys': Hệ thống Gợi ý & Xếp hạng
-        """
-        logger.info(f"--- [GIAO ĐOẠN 2] Thực thi Evidently AI Multi-Module Report [{modules}] ---")
-        column_mapping_cfg = column_mapping_cfg or {}
-        drift_options_cfg = drift_options_cfg or {}
-        modules = modules or ["drift", "quality"]
-
-        # 1. Khai báo DataDefinition & Dataset
-        data_def = self._build_data_definition(column_mapping_cfg)
         curr_dataset = Dataset.from_pandas(current_df, data_definition=data_def)
-        ref_dataset = Dataset.from_pandas(reference_df, data_definition=data_def) if reference_df is not None else None
+        ref_dataset = Dataset.from_pandas(reference_df, data_definition=data_def)
 
-<<<<<<< HEAD
         # 2. Cấu hình Mô-đun Dịch chuyển Dữ liệu & Embeddings (Data Drift & Embeddings Drift)
         # Hỗ trợ tự động hoặc cấu hình linh hoạt các StatTests (ks, wasserstein, chisquare, psi...), 
         # Text Drift và Embeddings Drift (Distance, Model, Ratio, MMD).
@@ -755,169 +696,3 @@ class EvidentlyEngine:
                 logger.error("Hàm log_metrics không tồn tại trong MLOpsTracker.")
         else:
             logger.info("Không tìm thấy chỉ số cốt lõi nào để log lên MLflow.")
-=======
-        # 2. Khởi tạo danh sách Metric Presets theo mô-đun yêu cầu
-        metrics_list = []
-
-        if "drift" in modules and ref_dataset is not None:
-            drift_preset = DataDriftPreset(
-                drift_share=drift_options_cfg.get("dataset_drift_share", 0.5),
-                method=drift_options_cfg.get("default_method", "ks"),
-                threshold=drift_options_cfg.get("p_value_alpha", 0.05),
-                num_method=drift_options_cfg.get("numerical", {}).get("method", "wasserstein"),
-                num_threshold=drift_options_cfg.get("numerical", {}).get("wasserstein_distance", 0.1),
-                per_column_method=drift_options_cfg.get("per_feature_stattest"),
-                per_column_threshold=drift_options_cfg.get("per_feature_threshold"),
-            )
-            metrics_list.extend([DataSummaryPreset(), drift_preset])
-
-        if "quality" in modules:
-            metrics_list.append(DataQualityPreset())
-
-        if "classification" in modules:
-            metrics_list.append(ClassificationPreset())
-
-        if "regression" in modules:
-            metrics_list.append(RegressionPreset())
-
-        if "text_llm" in modules:
-            metrics_list.append(TextEvals())
-
-        if "recsys" in modules:
-            metrics_list.append(RecsysPreset(k=recsys_k))
-
-        # 3. Chạy Report
-        report = Report(metrics=metrics_list)
-        snapshot = report.run(current_data=curr_dataset, reference_data=ref_dataset)
-
-        # 4. Lưu Artifacts (HTML & JSON)
-        html_path = os.path.join(self.artifact_dir, f"{report_name_prefix}_report.html")
-        json_path = os.path.join(self.artifact_dir, f"{report_name_prefix}_metrics.json")
-        
-        report.save_html(html_path)  # type: ignore
-        with open(json_path, "w", encoding="utf-8") as f:
-            f.write(report.json())  # type: ignore
-
-        logger.info(f"✓ Báo cáo HTML đã lưu tại: {html_path}")
-        logger.info(f"✓ Chỉ số JSON đã lưu tại: {json_path}")
-
-        # 5. Đồng bộ Remote Workspace
-        self._sync_to_workspace(snapshot)
-
-        with open(json_path, "r", encoding="utf-8") as f:
-            return json.load(f)
-
-    # =========================================================================
-    # GIAI ĐOẠN 3: KIỂM THỬ TỰ ĐỘNG PASS/FAIL (TEST SUITE)
-    # =========================================================================
-    def run_test_suite(
-        self,
-        current_df: pd.DataFrame,
-        reference_df: Optional[pd.DataFrame] = None,
-        column_mapping_cfg: Optional[Dict[str, Any]] = None,
-        test_types: Optional[List[str]] = None,
-    ) -> Tuple[bool, Dict[str, Any]]:
-        """
-        Chạy bộ kiểm thử tự động Test Suite với các điều kiện Pass/Fail.
-        
-        :return: (is_passed, test_results_dict)
-        """
-        logger.info("--- [KIỂM THỬ TỰ ĐỘNG] Thực thi Evidently TestSuite (Pass/Fail) ---")
-        column_mapping_cfg = column_mapping_cfg or {}
-        test_types = test_types or ["data_drift", "data_quality"]
-
-        data_def = self._build_data_definition(column_mapping_cfg)
-        curr_dataset = Dataset.from_pandas(current_df, data_definition=data_def)
-        ref_dataset = Dataset.from_pandas(reference_df, data_definition=data_def) if reference_df is not None else None
-
-        test_presets = []
-        if "data_drift" in test_types and ref_dataset is not None:
-            test_presets.append(DataDriftTestPreset())
-        if "data_quality" in test_types:
-            test_presets.append(DataQualityTestPreset())
-        if "data_stability" in test_types and ref_dataset is not None:
-            test_presets.append(DataStabilityTestPreset())
-        if "binary_classification" in test_types:
-            test_presets.append(BinaryClassificationTestPreset())
-        if "regression" in test_types:
-            test_presets.append(RegressionTestPreset())
-
-        suite = TestSuite(tests=test_presets)
-        suite.run(current_data=curr_dataset, reference_data=ref_dataset)
-
-        # Lưu báo cáo Test Suite
-        test_html_path = os.path.join(self.artifact_dir, "test_suite_report.html")
-        test_json_path = os.path.join(self.artifact_dir, "test_suite_results.json")
-        suite.save_html(test_html_path)  # type: ignore
-        
-        test_json_str = suite.json()
-        with open(test_json_path, "w", encoding="utf-8") as f:
-            f.write(test_json_str)  # type: ignore
-
-        test_result_data = json.loads(test_json_str)
-        
-        # Kiểm tra kết quả tổng thể (Pass/Fail)
-        summary = test_result_data.get("summary", {})
-        all_passed = summary.get("all_passed", False) or (summary.get("failed_tests", 0) == 0)
-
-        if all_passed:
-            logger.info("✅ Tất cả các bài kiểm thử TestSuite đã PASSED!")
-        else:
-            logger.warning(f"❌ TestSuite FAILED: {summary.get('failed_tests', 0)} bài kiểm thử không đạt.")
-
-        return all_passed, test_result_data
-
-    # =========================================================================
-    # GIAI ĐOẠN 4: NẠP METRICS & ARTIFACTS LÊN MLFLOW
-    # =========================================================================
-    def log_metrics_to_mlflow(self, validation_json: Dict[str, Any]) -> None:
-        """
-        Đẩy chỉ số Drift/Quality/Performance và Artifacts lên MLflow.
-        """
-        logger.info("--- [GIAO ĐOẠN 4] Đồng bộ Metrics & Artifacts lên MLflow Tracker ---")
-        metrics_results = validation_json.get("metrics", [])
-        extracted_metrics: Dict[str, float] = {}
-
-        for item in metrics_results:
-            result = item.get("result", {})
-            # Extract Drift metrics
-            if "drift_share" in result:
-                extracted_metrics["drift_share"] = float(result.get("drift_share", 0))
-                extracted_metrics["number_of_drifted_columns"] = float(result.get("number_of_drifted_columns", 0))
-                extracted_metrics["dataset_drift_detected"] = float(int(result.get("dataset_drift", False)))
-            # Extract Regression metrics
-            if "rmse" in result:
-                extracted_metrics["rmse"] = float(result.get("rmse", 0))
-                extracted_metrics["mae"] = float(result.get("mae", 0))
-                extracted_metrics["r2_score"] = float(result.get("r2_score", 0))
-            # Extract Classification metrics
-            if "accuracy" in result:
-                extracted_metrics["accuracy"] = float(result.get("accuracy", 0))
-                extracted_metrics["f1"] = float(result.get("f1", 0))
-
-        # Log qua Tracker của hệ thống nếu khả dụng
-        if self.tracker and extracted_metrics:
-            self.tracker.log_params_and_metrics(metrics=extracted_metrics)
-
-        # Upload System Logs / Artifacts HTML & JSON
-        if self.tracker:
-            for fname in os.listdir(self.artifact_dir):
-                fpath = os.path.join(self.artifact_dir, fname)
-                if os.path.isfile(fpath) and (fname.endswith(".html") or fname.endswith(".json")):
-                    self.tracker.upload_system_logs(fpath)
-
-    def _sync_to_workspace(self, snapshot: Any) -> None:
-        """Đồng bộ Snapshot lên Evidently Remote Workspace."""
-        if self.evidently_workspace_url:
-            try:
-                ws = RemoteWorkspace(self.evidently_workspace_url)
-                project = ws.get_or_create_project(self.project_name)  # type: ignore
-                ws.add_run(project.id, snapshot)
-                logger.info(f"✓ Đã đồng bộ Snapshot lên Evidently Remote Workspace thành công.")
-            except Exception as e:
-                logger.warning(f"⚠️ Không thể kết nối Evidently UI Server: {e}")
-
-
-# Alias để giữ nguyên tương thích ngược với mã nguồn cũ
-EvidentlyDriftEngine = EvidentlyEngine
->>>>>>> bfdb21d (Update evidently_engine configuration)
