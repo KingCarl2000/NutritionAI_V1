@@ -141,7 +141,7 @@ class EvidentlyDriftEngine:
         """
         Giai đoạn 1: Kiểm tra Lược đồ Dữ liệu động với Pandera Schema.
         """
-        logger.info("--- [GIAO ĐOẠN 1] Thực thi Pandera Schema Validation ---")
+        logger.info("--- [GIAI ĐOẠN 1] Thực thi Pandera Schema Validation ---")
         try:
             validated_df = schema_model.validate(df)
             logger.info("✓ Pandera Validation: PASSED!")
@@ -160,8 +160,11 @@ class EvidentlyDriftEngine:
     ) -> Dict[str, Any]:
         """
         Giai đoạn 2: Phát hiện Drift bằng Evidently AI dựa trên cấu hình YAML.
+
+        Trả về cả Report và Snapshot đã chạy để caller có thể dùng Report cho
+        cấu hình hoặc tái chạy, và Snapshot nhất quán cho export/serialization.
         """
-        logger.info("--- [GIAO ĐOẠN 2] Thực thi Evidently AI Drift Detection Engine ---")
+        logger.info("--- [GIAI ĐOẠN 2] Thực thi Evidently AI Drift Detection Engine ---")
 
         # 1. Trích xuất Schema linh hoạt từ configuration
         num_cols = column_mapping_cfg.get("numerical_features", [])
@@ -474,6 +477,7 @@ class EvidentlyDriftEngine:
 
         return {
             "report": report,
+            "snapshot": snapshot,
             "test_suite": test_suite
         }
 
@@ -481,7 +485,7 @@ class EvidentlyDriftEngine:
         """
         Giai đoạn 3: Đẩy các chỉ số (Drift, Quality, Performance) và kết quả Test (CI/CD) lên MLflow.
         """
-        logger.info("--- [GIAO ĐOẠN 3] Đồng bộ Metrics & Test Results lên MLflow Tracker ---")
+        logger.info("--- [GIAI ĐOẠN 3] Đồng bộ Metrics & Test Results lên MLflow Tracker ---")
         
         if not self.tracker:
             logger.warning("MLOpsTracker không khả dụng. Bỏ qua bước log MLflow.")
@@ -534,5 +538,5 @@ class EvidentlyDriftEngine:
 
 #**Một số điểm lưu ý sau khi nâng cấp:**
 #* File này đã giải quyết hoàn toàn lỗi `ImportError` ở môi trường ảo.
-#* Biến `kwargs` đã được bổ sung vào khai báo hàm `run_drift_detection(...)` để nó có thể nhận cấu hình bổ sung (`data_quality_options`, `regression_options`, v.v.) mà không báo lỗi biến không tồn tại.
-#* Dữ liệu bóc tách cho MLflow (như `DriftedColumnsCount`) đã được đổi chuỗi để đảm bảo JSON parser có thể nhận diện chính xác các metric được sinh ra từ API của evidently 0.7.23.
+#* Biến `kwargs` đã được bổ sung vào khai báo hàm `run_drift_detection(...)` để nó có thể nhận cấu hình bổ sung (`data_quality_options`, `regression_options`, v.v.) mà caller cần truyền.
+#* Dữ liệu bóc tách cho MLflow (như `DriftedColumnsCount`) đã được đổi chuỗi để đảm bảo JSON parser có thể nhận diện chính xác các metric được sinh ra từ Evidently.
