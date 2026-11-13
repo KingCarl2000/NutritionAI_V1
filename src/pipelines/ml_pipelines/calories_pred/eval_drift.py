@@ -19,39 +19,67 @@ class CaloriesDriftEvaluator:
         self.tracker = mlops_tracker
         self.logger = logger
         
-        # [Nhiệm vụ 4] Khởi tạo Engine (Đã bao gồm kết nối Local/Cloud Workspace)
+        # YAML đặt các thiết lập khởi tạo trong engine_config.
+        engine_config = self.config.get("engine_config", {})
         self.engine = EvidentlyDriftEngine(
-            artifact_dir=self.config.get("artifact_dir", "Artifacts/reports/ml_calories/data_drift"),
-            project_name=self.config.get("project_name", "Calories_Prediction_Drift"),
-            evidently_workspace_url=self.config.get("workspace_url", "Artifacts/evidently_workspace"),
+            artifact_dir=engine_config.get(
+                "report_dir", "Artifacts/reports/ml_calories/data_drift"
+            ),
+            project_name=engine_config.get(
+                "project_name", "Calories_Prediction_Drift"
+            ),
+            # None trong YAML có nghĩa là không đồng bộ lên Workspace.
+            evidently_workspace_url=engine_config.get("evidently_workspace_url"),
             mlops_tracker=self.tracker
         )
 
     def _prepare_drift_options(self) -> Dict[str, Any]:
         """
-        [Nhiệm vụ 2]: Cấu hình DataDriftPreset từ YAML.
-        Ánh xạ các thông số drift_share, stattest, num_stattest, cat_stattest, threshold...
+        Chuẩn hóa data_drift trong YAML sang cấu trúc mà EvidentlyDriftEngine
+        nhận qua drift_options_cfg.
         """
-        drift_cfg = self.config.get("drift_options", {})
-        
+        drift_cfg = self.config.get("data_drift", self.config.get("drift_options", {}))
+
+        # YAML dùng per_column_options: {column: {stattest, threshold}}.
+        # EvidentlyDriftEngine hiện nhận per_feature_stattest dưới dạng
+        # {column: stattest}; phần threshold riêng từng cột chưa được engine dùng.
+        per_column_options = drift_cfg.get("per_column_options", {})
+        per_feature_stattest = drift_cfg.get("per_column_stattest")
+        if per_feature_stattest is None and per_column_options:
+            per_feature_stattest = {
+                column: options["stattest"]
+                for column, options in per_column_options.items()
+                if isinstance(options, dict) and options.get("stattest") is not None
+            }
+
         return {
-            "dataset_drift_share": drift_cfg.get("drift_share", 0.5),
-            "default_method": drift_cfg.get("stattest", None),
-            "p_value_alpha": drift_cfg.get("threshold", None),
+            "dataset_drift_share": drift_cfg.get(
+                "dataset_drift_share", drift_cfg.get("drift_share", 0.5)
+            ),
+            "default_method": drift_cfg.get(
+                "default_method", drift_cfg.get("stattest")
+            ),
+            "p_value_alpha": drift_cfg.get(
+                "p_value_alpha", drift_cfg.get("threshold")
+            ),
             "numerical": {
-                "method": drift_cfg.get("num_stattest", None),
-                "threshold": drift_cfg.get("num_threshold", None)
+                "method": drift_cfg.get("num_stattest"),
+                "threshold": drift_cfg.get(
+                    "num_stattest_threshold", drift_cfg.get("num_threshold")
+                ),
             },
             "categorical": {
-                "method": drift_cfg.get("cat_stattest", None),
-                "threshold": drift_cfg.get("cat_threshold", None)
+                "method": drift_cfg.get("cat_stattest"),
+                "threshold": drift_cfg.get(
+                    "cat_stattest_threshold", drift_cfg.get("cat_threshold")
+                ),
             },
             "text": {
-                "method": drift_cfg.get("text_stattest", None),
-                "threshold": drift_cfg.get("text_threshold", None)
+                "method": drift_cfg.get("text_stattest"),
+                "threshold": drift_cfg.get("text_stattest_threshold", drift_cfg.get("text_threshold")),
             },
-            "per_feature_stattest": drift_cfg.get("per_column_stattest", None),
-            "columns_to_check_drift": drift_cfg.get("columns", [])
+            "per_feature_stattest": per_feature_stattest,
+            "columns_to_check_drift": drift_cfg.get("columns", []),
         }
 
     def execute_evaluation(self, current_df: pd.DataFrame, reference_df: pd.DataFrame):
