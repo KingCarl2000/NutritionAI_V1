@@ -1,4 +1,5 @@
 import os
+import json
 import datetime
 import pandas as pd
 from typing import Dict, Any
@@ -120,9 +121,45 @@ class CaloriesDriftEvaluator:
             "columns_to_check_drift": drift_cfg.get("columns", []),
         }
 
+    @staticmethod
+    def _snapshot_to_dict(snapshot: Any) -> Dict[str, Any]:
+        """Chuyển snapshot đã chạy thành dict, ưu tiên các API trên Snapshot."""
+        for method_name in ("dict", "dump_dict", "as_dict"):
+            method = getattr(snapshot, method_name, None)
+            if callable(method):
+                value = method()
+                if isinstance(value, dict):
+                    return value
+                if isinstance(value, str):
+                    return json.loads(value)
+        raise TypeError("Snapshot không cung cấp dict(), dump_dict() hoặc as_dict() hợp lệ.")
+
+    @staticmethod
+    def _write_snapshot_serialization(snapshot: Any, path: str) -> None:
+        """Lưu serialization đầy đủ của snapshot, không gọi các hàm trên Report."""
+        save_method = getattr(snapshot, "save", None)
+        if callable(save_method):
+            save_method(path)
+            return
+
+        dumps_method = getattr(snapshot, "dumps", None)
+        if callable(dumps_method):
+            with open(path, "w", encoding="utf-8") as file:
+                file.write(dumps_method())
+            return
+
+        dump_dict_method = getattr(snapshot, "dump_dict", None)
+        if callable(dump_dict_method):
+            with open(path, "w", encoding="utf-8") as file:
+                json.dump(dump_dict_method(), file, ensure_ascii=False, indent=2, default=str)
+            return
+
+        raise TypeError("Snapshot không cung cấp save(), dumps() hoặc dump_dict() để serialize.")
+
     def execute_evaluation(self, current_df: pd.DataFrame, reference_df: pd.DataFrame):
         """
         Thực thi toàn bộ luồng Drift Detection, Export và Monitoring.
+        Tất cả artifact của report được tạo từ snapshot của lần chạy này.
         """
         self.logger.info("Bắt đầu quy trình đánh giá Data Drift...")
         
@@ -145,25 +182,60 @@ class CaloriesDriftEvaluator:
             test_suite_options=test_suite_options
         )
         
-        report = engine_result.get("report")
+        snapshot = engine_result.get("snapshot")
         test_suite = engine_result.get("test_suite")
-
-        # Xuất báo cáo đa định dạng.
         artifact_dir = self.engine.artifact_dir
-        if report:
-            report.save_html(os.path.join(artifact_dir, "drift_report.html"))
-            report.save_json(os.path.join(artifact_dir, "drift_report.json"))
-            report.save(os.path.join(artifact_dir, "drift_snapshot.json"))
-            report_dict = report.as_dict()
-            try:
-                metrics_data = report_dict.get("metrics", [])
-                if metrics_data:
-                    pd.DataFrame(metrics_data).to_csv(os.path.join(artifact_dir, "drift_metrics.csv"), index=False)
-            except Exception as e:
-                self.logger.warning(f"⚠️ Lỗi khi xuất Pandas DataFrame: {e}")
-            self.logger.info(f"✓ Đã xuất 5 định dạng Report (HTML, JSON, Dict, DataFrame, Snapshot) tại {artifact_dir}")
+        report_dict: Dict[str, Any] = {}
+
+        if snapshot is not None:
+            # HTML: kết xuất HTML của snapshot, hoặc dùng API chuỗi HTML.
+            html_path = os.path.join(artifact_dir, "drift_report.html")
+            save_html = getattr(snapshot, "save_html", None)
+            if callable(save_html):
+                save_html(html_path)
+            else:
+                get_html_str = getattr(snapshot, "get_html_str", None)
+                if not callable(get_html_str):
+                    raise TypeError("Snapshot không hỗ trợ save_html() hoặc get_html_str().")
+                with open(html_path, "w", encoding="utf-8") as file:
+                    file.write(get_html_str())
+
+            # JSON của kết quả metrics từ chính snapshot.
+            json_path = os.path.join(artifact_dir, "drift_report.json")
+            save_json = getattr(snapshot, "save_json", None)
+            if callable(save_json):
+                save_json(json_path)
+            else:
+                json_method = getattr(snapshot, "json", None)
+                if callable(json_method):
+                    with open(json_path, "w", encoding="utf-8") as file:
+                        file.write(json_method())
+                else:
+                    with open(json_path, "w", encoding="utf-8") as file:
+                        json.dump(self._snapshot_to_dict(snapshot), file, ensure_ascii=False, indent=2, default=str)
+
+            # Serialization snapshot đầy đủ.
+            self._write_snapshot_serialization(
+                snapshot, os.path.join(artifact_dir, "drift_snapshot.json")
+            )
+
+            # Dict export và dữ liệu chuẩn để gửi cho MLflow.
+            report_dict = self._snapshot_to_dict(snapshot)
+
+            # CSV là bảng phẳng hóa các metric trong dict snapshot.
+            metrics_data = report_dict.get("metrics", [])
+            if isinstance(metrics_data, list) and metrics_data:
+                pd.json_normalize(metrics_data).to_csv(
+                    os.path.join(artifact_dir, "drift_metrics.csv"), index=False
+                )
+            else:
+                self.logger.warning("Snapshot không có danh sách metrics để xuất drift_metrics.csv.")
+
+            self.logger.info(
+                f"✓ Đã xuất artifact từ snapshot (HTML, JSON, Dict, CSV, full snapshot) tại {artifact_dir}"
+            )
         else:
-            report_dict = {}
+            self.logger.warning("Engine không trả về snapshot; bỏ qua export report và MLflow report metrics.")
 
         if test_suite:
             test_suite.save_html(os.path.join(artifact_dir, "test_suite_report.html"))
