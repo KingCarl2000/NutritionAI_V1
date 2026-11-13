@@ -33,6 +33,44 @@ class CaloriesDriftEvaluator:
             mlops_tracker=self.tracker
         )
 
+    def _prepare_column_mapping(self) -> Dict[str, Any]:
+        """Chuẩn hóa các tên khóa YAML thành mapping mà EvidentlyDriftEngine dùng."""
+        mapping_cfg = dict(self.config.get("column_mapping", {}))
+
+        # Engine/DataDefinition dùng datetime_columns; YAML hiện tại khai báo datetime.
+        datetime_cols = mapping_cfg.get(
+            "datetime_features", mapping_cfg.get("datetime_columns", mapping_cfg.get("datetime"))
+        )
+        if datetime_cols is not None:
+            mapping_cfg["datetime_features"] = (
+                [datetime_cols] if isinstance(datetime_cols, str) else list(datetime_cols)
+            )
+
+        # DataDefinition trong engine nhận một id_column. Hỗ trợ alias user/item ID
+        # khi config không khai báo id_column trực tiếp.
+        if not mapping_cfg.get("id_column"):
+            mapping_cfg["id_column"] = mapping_cfg.get("user_id") or mapping_cfg.get("item_id") or mapping_cfg.get("id")
+
+        # EvidentlyDriftEngine dùng một trường prediction. Ưu tiên nhãn dự đoán,
+        # sau đó mới dùng xác suất nếu cấu hình không có prediction tổng quát.
+        if not mapping_cfg.get("prediction"):
+            mapping_cfg["prediction"] = (
+                mapping_cfg.get("prediction_labels")
+                or mapping_cfg.get("prediction_label")
+                or mapping_cfg.get("prediction_probas")
+                or mapping_cfg.get("prediction_proba")
+            )
+
+        # Chuẩn hóa các nhóm cột để DataDefinition luôn nhận danh sách.
+        for key in ("numerical_features", "categorical_features", "text_features", "datetime_features"):
+            value = mapping_cfg.get(key)
+            if isinstance(value, str):
+                mapping_cfg[key] = [value]
+            elif value is None:
+                mapping_cfg[key] = []
+
+        return mapping_cfg
+
     def _prepare_drift_options(self) -> Dict[str, Any]:
         """
         Chuẩn hóa data_drift trong YAML sang cấu trúc mà EvidentlyDriftEngine
@@ -88,17 +126,15 @@ class CaloriesDriftEvaluator:
         """
         self.logger.info("Bắt đầu quy trình đánh giá Data Drift...")
         
-        # [Nhiệm vụ 1]: Chuẩn hóa & Khai báo dữ liệu (DataDefinition)
-        # engine sẽ tự nạp numerical_features, categorical_features, target, task...
-        column_mapping_cfg = self.config.get("column_mapping", {})
+        # Chuẩn hóa mapping YAML (datetime, id, prediction aliases, ...) trước khi
+        # chuyển vào Engine để dựng DataDefinition.
+        column_mapping_cfg = self._prepare_column_mapping()
         
-        # Lấy cấu hình Drift (Nhiệm vụ 2) và các cấu hình khác
         drift_options_cfg = self._prepare_drift_options()
         data_quality_options = self.config.get("data_quality_options", {})
         regression_options = self.config.get("regression_options", {})
         test_suite_options = self.config.get("test_suite_options", {})
 
-        # Gọi Engine để tạo Report, chạy TestSuite và đẩy (add_report) lên Workspace
         engine_result = self.engine.run_drift_detection(
             current_df=current_df,
             reference_df=reference_df,
@@ -112,27 +148,19 @@ class CaloriesDriftEvaluator:
         report = engine_result.get("report")
         test_suite = engine_result.get("test_suite")
 
-        # [Nhiệm vụ 3]: Xuất báo cáo Đa định dạng (Multiformat Export)
+        # Xuất báo cáo đa định dạng.
         artifact_dir = self.engine.artifact_dir
         if report:
-            # 1. HTML Export
             report.save_html(os.path.join(artifact_dir, "drift_report.html"))
-            # 2. JSON Export
             report.save_json(os.path.join(artifact_dir, "drift_report.json"))
-            # 5. Full Snapshot Serialization (.json thay vì get_json)
             report.save(os.path.join(artifact_dir, "drift_snapshot.json"))
-            
-            # 3. Python Dict Export (Chuyển đổi trên RAM)
             report_dict = report.as_dict()
-            
-            # 4. Pandas DataFrame Export (Chuyển list metrics thành CSV/Dataframe)
             try:
                 metrics_data = report_dict.get("metrics", [])
                 if metrics_data:
                     pd.DataFrame(metrics_data).to_csv(os.path.join(artifact_dir, "drift_metrics.csv"), index=False)
             except Exception as e:
                 self.logger.warning(f"⚠️ Lỗi khi xuất Pandas DataFrame: {e}")
-                
             self.logger.info(f"✓ Đã xuất 5 định dạng Report (HTML, JSON, Dict, DataFrame, Snapshot) tại {artifact_dir}")
         else:
             report_dict = {}
@@ -143,7 +171,6 @@ class CaloriesDriftEvaluator:
         else:
             test_suite_dict = None
 
-        # Đồng bộ Metrics lên MLflow (Đã tích hợp trong Engine)
         self.engine.log_metrics_to_mlflow(
             report_json=report_dict,
             test_suite_json=test_suite_dict
@@ -156,7 +183,6 @@ if __name__ == "__main__":
     import yaml
     import numpy as np
     
-    # 1. Nạp file cấu hình từ YAML
     config_path = "config/pipelines/ml_calories/evidently_profile.yaml"
     try:
         with open(config_path, "r", encoding="utf-8") as f:
@@ -165,67 +191,48 @@ if __name__ == "__main__":
     except FileNotFoundError:
         logger.warning(f"Không tìm thấy {config_path}. Đang sử dụng cấu hình mặc định để test.")
         config = {
-            "artifact_dir": "Artifacts/reports/ml_calories/data_drift",
-            "project_name": "Calories_Prediction_Drift_Test",
-            # Giả lập mapping cơ bản nếu không có yaml
+            "engine_config": {
+                "report_dir": "Artifacts/reports/ml_calories/data_drift",
+                "project_name": "Calories_Prediction_Drift_Test",
+                "evidently_workspace_url": None,
+            },
             "column_mapping": {
-                "numerical_features": ["Age", "Weight", "Duration", "Heart_Rate", "Body_Temp"],
-                "categorical_features": ["Gender"],
-                "target": "Calories",
-                "prediction": "Prediction",
+                "numerical_features": ["age", "weight", "duration", "heart_rate", "body_temp"],
+                "categorical_features": ["gender"],
+                "target": "calories",
+                "prediction": "predicted_calories",
                 "task": "regression"
             },
-            "drift_options": {"drift_share": 0.5}
+            "data_drift": {"dataset_drift_share": 0.5}
         }
 
-    # 2. Tạo hàm phát sinh dữ liệu giả (Mock Data) để chạy thử
     def generate_mock_data(n_samples=200, simulate_drift=False):
-        """
-        Tạo dữ liệu mô phỏng bài toán Calories Prediction.
-        Nếu simulate_drift=True, cố tình làm sai lệch phân phối của Weight và Heart_Rate.
-        """
-        weight_mean = 85 if simulate_drift else 70  # Tạo drift mạnh ở cân nặng
-        hr_mean = 140 if simulate_drift else 110    # Tạo drift ở nhịp tim
-
+        """Tạo dữ liệu mock theo tên cột trong evidently_profile.yaml."""
+        weight_mean = 85 if simulate_drift else 70
+        hr_mean = 140 if simulate_drift else 110
         return pd.DataFrame({
-            "Age": np.random.randint(18, 60, n_samples),
-            "Gender": np.random.choice(["male", "female"], n_samples),
-            "Weight": np.random.normal(weight_mean, 10, n_samples),
-            "Duration": np.random.normal(30, 10, n_samples),
-            "Heart_Rate": np.random.normal(hr_mean, 15, n_samples),
-            "Body_Temp": np.random.normal(37.5, 0.5, n_samples),
-            "Calories": np.random.normal(300, 50, n_samples),     # Target thực tế
-            "Prediction": np.random.normal(310, 55, n_samples)    # Target dự đoán từ mô hình
+            "User_ID": np.arange(n_samples),
+            "created_at": pd.date_range(datetime.datetime.now(), periods=n_samples, freq="h"),
+            "age": np.random.randint(18, 60, n_samples),
+            "gender": np.random.choice(["male", "female"], n_samples),
+            "weight": np.random.normal(weight_mean, 10, n_samples),
+            "height": np.random.normal(170, 10, n_samples),
+            "duration": np.random.normal(30, 10, n_samples),
+            "heart_rate": np.random.normal(hr_mean, 15, n_samples),
+            "body_temp": np.random.normal(37.5, 0.5, n_samples),
+            "calories": np.random.normal(300, 50, n_samples),
+            "predicted_calories": np.random.normal(310, 55, n_samples)
         })
 
     logger.info("Đang tạo Reference Data và Current Data (Mock)...")
     df_reference = generate_mock_data(n_samples=500, simulate_drift=False)
-    
-    # Ở tập hiện tại, ta bật simulate_drift=True để Evidently bắt được Data Drift
-    df_current = generate_mock_data(n_samples=200, simulate_drift=True) 
+    df_current = generate_mock_data(n_samples=200, simulate_drift=True)
 
-    # 3. (Tùy chọn) Khởi tạo MLflow Tracker
-    # Nếu MLOpsTracker chưa setup DB hoàn chỉnh, có thể truyền None để engine bỏ qua ghi log MLflow
-    tracker = None 
-    
-    # Nếu bạn muốn test luôn MLflow, hãy bỏ comment đoạn dưới đây:
-    # from src.nutrition_core.logging.mlflow_tracker import MLOpsTracker
-    # tracker = MLOpsTracker(experiment_name="Test_Calories_Drift")
-    # tracker.start_run("test_evidently_engine_run")
-
-    # 4. Khởi tạo Evaluator và thực thi
+    tracker = None
     evaluator = CaloriesDriftEvaluator(config=config, mlops_tracker=tracker)
-    
     try:
-        results = evaluator.execute_evaluation(
-            current_df=df_current, 
-            reference_df=df_reference
-        )
-        logger.info(f"✅ Chạy thử nghiệm thành công! Vui lòng mở trình duyệt và xem báo cáo tại:")
+        evaluator.execute_evaluation(current_df=df_current, reference_df=df_reference)
+        logger.info("✅ Chạy thử nghiệm thành công! Vui lòng xem báo cáo tại:")
         logger.info(f"   -> {os.path.abspath(os.path.join(evaluator.engine.artifact_dir, 'drift_report.html'))}")
-        
     except Exception as e:
         logger.error(f"❌ Lỗi trong quá trình chạy thử nghiệm: {e}")
-        
-    # if tracker:
-    #     tracker.end_run()
