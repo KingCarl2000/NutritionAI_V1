@@ -4,6 +4,7 @@ Description: Engine tích hợp giữa Pandera Schema Validation, Evidently AI D
 """ 
 import json 
 import os 
+from datetime import datetime
 from typing import Any, Dict, Optional, Tuple 
 import pandas as pd 
 import pandera as pa 
@@ -14,9 +15,9 @@ from pandera.errors import SchemaError
 # ------------------------------------------------------------------------- 
 from evidently import DataDefinition, Dataset, Report
 from evidently.ui.workspace import RemoteWorkspace, Workspace
+from evidently.sdk.models import PanelMetric
 from evidently.sdk.panels import (
     DashboardPanelPlot,
-    PanelMetric,
     bar_plot_panel,
     counter_panel,
     line_plot_panel,
@@ -150,6 +151,77 @@ class EvidentlyDriftEngine:
             logger.error(f"❌ Pandera Validation FAILED: {err}")
             return False, None
 
+    @staticmethod
+    def _configure_workspace_dashboard(project: Any, column_mapping_cfg: Dict[str, Any]) -> None:
+        """Thêm các panel giám sát mặc định mà không tạo trùng lặp khi chạy lại."""
+        dashboard = project.dashboard
+        dashboard_model = dashboard.model()
+        existing_titles = {panel.title for panel in dashboard_model.panels}
+
+        panels = [
+            counter_panel(
+                title="Evaluation Row Count",
+                description="Số bản ghi trong tập current qua các lần đánh giá.",
+                values=[PanelMetric(metric="RowCount", legend="rows")],
+                size="half",
+                aggregation="last",
+            ),
+            counter_panel(
+                title="Share of Drifted Columns",
+                description="Tỷ lệ cột bị đánh dấu drift qua các lần đánh giá.",
+                values=[
+                    PanelMetric(
+                        metric="DriftedColumnsCount",
+                        legend="drift share",
+                        metric_labels={"value_type": "share"},
+                    )
+                ],
+                size="half",
+                aggregation="last",
+            ),
+        ]
+
+        drift_columns = []
+        for key in ("numerical_features", "categorical_features", "text_features"):
+            columns = column_mapping_cfg.get(key, []) or []
+            if isinstance(columns, str):
+                columns = [columns]
+            drift_columns.extend(columns)
+        for key in ("target", "prediction"):
+            column = column_mapping_cfg.get(key)
+            if column:
+                drift_columns.append(column)
+
+        # Một panel line tổng hợp các cột đã khai báo trong pipeline. Giới hạn danh sách
+        # để dashboard không phình to khi schema có nhiều đặc trưng.
+        drift_columns = list(dict.fromkeys(drift_columns))[:8]
+        if drift_columns:
+            panels.append(
+                line_plot_panel(
+                    title="Feature Drift Over Runs",
+                    description="Drift score theo từng lần chạy cho các cột được cấu hình.",
+                    values=[
+                        PanelMetric(
+                            metric="ValueDrift",
+                            legend=column,
+                            metric_labels={"column": column},
+                        )
+                        for column in drift_columns
+                    ],
+                    size="full",
+                )
+            )
+
+        changed = False
+        for panel in panels:
+            if panel.title not in existing_titles:
+                dashboard.add_panel(panel)
+                existing_titles.add(panel.title)
+                changed = True
+
+        if changed:
+            project.save()
+
     def run_drift_detection(
         self,
         current_df: pd.DataFrame,
@@ -162,7 +234,7 @@ class EvidentlyDriftEngine:
         Giai đoạn 2: Phát hiện Drift bằng Evidently AI dựa trên cấu hình YAML.
 
         Trả về cả Report và Snapshot đã chạy để caller có thể dùng Report cho
-        cấu hình hoặc tái chạy, và Snapshot nhất quán cho export/serialization.
+        cấu hình hoặc Snapshot nhất quán cho export/serialization.
         """
         logger.info("--- [GIAI ĐOẠN 2] Thực thi Evidently AI Drift Detection Engine ---")
 
@@ -242,21 +314,15 @@ class EvidentlyDriftEngine:
         
         columns_to_check_dq = data_quality_cfg.get("columns_to_check", [])
         for col in columns_to_check_dq:
-            # 1. Missing values
             dq_metrics.append(MissingValueCount(
                 column_name=col, 
                 missing_values=custom_missing_values
             ))
             
-            # 2. RegExp (Sử dụng Legacy API)
             reg_exp_rule = data_quality_cfg.get("regexp_rules", {}).get(col, None)
             if reg_exp_rule:
-                dq_metrics.append(ColumnRegExpMetric(
-                    column_name=col, 
-                    reg_exp=reg_exp_rule
-                ))
+                dq_metrics.append(ColumnRegExpMetric(column_name=col, reg_exp=reg_exp_rule))
                 
-            # 3. Range Validation (Out of range)
             range_rules = data_quality_cfg.get("range_rules", {}).get(col, {})
             if range_rules:
                 dq_metrics.append(OutRangeValueCount(
@@ -265,13 +331,9 @@ class EvidentlyDriftEngine:
                     right=range_rules.get("right", None)
                 ))
                 
-            # 4. List Validation (Out of list)
             list_rules = data_quality_cfg.get("list_rules", {}).get(col, None)
             if list_rules:
-                dq_metrics.append(OutListValueCount(
-                    column_name=col, 
-                    values=list_rules
-                ))
+                dq_metrics.append(OutListValueCount(column_name=col, values=list_rules))
 
         active_metrics.extend(dq_metrics)
 
@@ -283,12 +345,7 @@ class EvidentlyDriftEngine:
             probas_threshold = classification_cfg.get("probas_threshold", None)
             k_val = classification_cfg.get("k", None)
             
-            class_metrics.append(
-                ClassificationPreset(
-                    probas_threshold=probas_threshold, 
-                    k=k_val
-                )
-            )
+            class_metrics.append(ClassificationPreset(probas_threshold=probas_threshold, k=k_val))
 
             if classification_cfg.get("enable_dummy_metrics", False):
                 class_metrics.extend([
@@ -305,9 +362,7 @@ class EvidentlyDriftEngine:
             reg_metrics.append(RegressionPreset())
 
             if regression_cfg.get("enable_dummy_metrics", False):
-                reg_metrics.extend([
-                    DummyMAE(), DummyMAPE(), DummyRMSE()
-                ])
+                reg_metrics.extend([DummyMAE(), DummyMAPE(), DummyRMSE()])
                 
             active_metrics.extend(reg_metrics)
 
@@ -322,9 +377,6 @@ class EvidentlyDriftEngine:
             llm_judge_cfg = llm_evals_cfg.get("llm_judge", {})
             if llm_judge_cfg:
                 llm_provider = llm_judge_cfg.get("provider", "openai") 
-                
-                # Xác định cột văn bản mục tiêu cần để LLM Judge đánh giá
-                # Ưu tiên: Cấu hình yaml -> Cột prediction -> Cột text đầu tiên trong Lược đồ
                 eval_col = llm_judge_cfg.get("column_name", prediction_col)
                 if not eval_col and text_cols:
                     eval_col = text_cols[0]
@@ -383,17 +435,19 @@ class EvidentlyDriftEngine:
                 user_ids_to_check = recsys_cfg.get("user_ids", None)
                 display_features = recsys_cfg.get("display_features", None)
                 recsys_metrics.append(
-                    RecCasesTable(
-                        user_ids=user_ids_to_check, 
-                        display_features=display_features
-                    )
+                    RecCasesTable(user_ids=user_ids_to_check, display_features=display_features)
                 )
 
             active_metrics.extend(recsys_metrics)
 
-        # Chạy tổng hợp Report (Metrics)
+        # Chạy Report tại một timestamp duy nhất và sử dụng Snapshot này cho Workspace/export.
         report = Report(metrics=active_metrics)
-        snapshot = report.run(current_data=curr_dataset, reference_data=ref_dataset)
+        run_timestamp = kwargs.get("timestamp") or datetime.now()
+        snapshot = report.run(
+            current_data=curr_dataset,
+            reference_data=ref_dataset,
+            timestamp=run_timestamp,
+        )
 
         # =====================================================================
         # 8. Mô-đun Kiểm thử Tự động (Legacy Test Suites cho CI/CD)
@@ -445,32 +499,38 @@ class EvidentlyDriftEngine:
                     logger.info("✓ Tất cả các bài kiểm thử đều PASSED!")
 
         # =====================================================================
-        # 9. Quản lý Workspace & Monitoring UI
+        # 9. Đồng bộ Snapshot và Dashboard lên Evidently Workspace
         # =====================================================================
         if self.evidently_workspace_url:
-            logger.info("--- Đồng bộ kết quả lên Evidently Workspace ---")
+            logger.info("--- Đồng bộ Snapshot lên Evidently Workspace ---")
             try:
                 if self.evidently_workspace_url.startswith("http"):
                     workspace = RemoteWorkspace(self.evidently_workspace_url)
                 else:
-                    workspace = Workspace.create(self.evidently_workspace_url) 
+                    workspace = Workspace.create(self.evidently_workspace_url)
                 
                 existing_projects = workspace.search_project(self.project_name)
-                
-                if not existing_projects:
-                    project = workspace.create_project(self.project_name)
+                if existing_projects:
+                    project = existing_projects[0]
                     project.description = f"Automated MLOps tracking for {self.project_name}"
                     project.save()
-                    logger.info(f"Đã tạo mới Project trong Workspace: {self.project_name}")
                 else:
-                    project = existing_projects[0]
-                
-                workspace.add_report(project.id, report)
-                
+                    project = workspace.create_project(
+                        self.project_name,
+                        description=f"Automated MLOps tracking for {self.project_name}",
+                    )
+                    logger.info(f"Đã tạo mới Project trong Workspace: {self.project_name}")
+
+                self._configure_workspace_dashboard(project, column_mapping_cfg)
+                workspace.add_run(project.id, snapshot)
+
                 if test_suite:
                     workspace.add_test_suite(project.id, test_suite)
-                    
-                logger.info(f"✓ Đã đẩy Snapshots thành công lên Workspace: {self.evidently_workspace_url}")
+
+                logger.info(
+                    f"✓ Đã thêm Snapshot (timestamp={run_timestamp.isoformat()}) vào project "
+                    f"{self.project_name} tại Workspace: {self.evidently_workspace_url}"
+                )
                 
             except Exception as e:
                 logger.error(f"❌ Lỗi khi đồng bộ Workspace: {e}")
