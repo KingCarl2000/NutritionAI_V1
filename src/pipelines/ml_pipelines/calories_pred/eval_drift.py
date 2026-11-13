@@ -3,7 +3,7 @@ import yaml
 from typing import Dict, Any
 from typing import Any, Dict
 import pandas as pd
-
+import os
 
 class CaloriesDriftEvaluator:
     def __init__(self, evidently_config_path: str):
@@ -16,7 +16,7 @@ class CaloriesDriftEvaluator:
         # Nhiệm vụ 1: Chuẩn hóa & Khai báo dữ liệu
         self.column_mapping = self._create_data_definition(self.config.get("column_mapping", {}))
 
-def _create_data_definition(self, mapping_cfg: Dict[str, Any]) -> ColumnMapping:
+    def _create_data_definition(self, mapping_cfg: Dict[str, Any]) -> ColumnMapping:
         """
         Khởi tạo DataDefinition (ColumnMapping) dựa trên cấu hình khai báo.
         Phân tách các nhóm cột chuyên biệt phục vụ Data Drift.
@@ -107,7 +107,56 @@ def _create_data_definition(self, mapping_cfg: Dict[str, Any]) -> ColumnMapping:
         self.logger.info("Thực thi DataDriftPreset hoàn tất.")
         return result
 
+    # ... các hàm _prepare_drift_options và execute_drift_report cũ ...
 
+    def export_reports(self, engine_result: Dict[str, Any], output_dir: str) -> Dict[str, Any]:
+        """
+        Nhiệm vụ 3: Xuất báo cáo Đa định dạng từ Evidently.
+        Xử lý đối tượng Report và xuất ra HTML, JSON, Dictionary và Snapshot.
+        """
+        self.logger.info(f"Bắt đầu xuất báo cáo đa định dạng tại thư mục: {output_dir}")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        report = engine_result.get("report")
+        if not report:
+            self.logger.error("Không tìm thấy đối tượng Report trong kết quả của Engine.")
+            return {}
+
+        # 1. Báo cáo HTML Tương tác (HTML Export)
+        html_path = os.path.join(output_dir, "drift_report.html")
+        report.save_html(html_path)
+        self.logger.info(f"✓ Đã lưu HTML Report tại: {html_path}")
+
+        # 2. Dữ liệu Chuẩn hóa JSON (JSON Export)
+        json_path = os.path.join(output_dir, "drift_report.json")
+        report.save_json(json_path)
+        self.logger.info(f"✓ Đã lưu JSON Report tại: {json_path}")
+
+        # 3. Python Dictionary (Dict Export)
+        # Sử dụng as_dict() để chuyển đổi báo cáo thành dictionary trên bộ nhớ (RAM)
+        # Phục vụ cho việc bóc tách thông số đẩy lên MLflow
+        dict_results = report.as_dict()
+        self.logger.info("✓ Đã trích xuất thành công đối tượng Python Dictionary.")
+
+        # 5. Mô hình Snapshot Đầy đủ (Full Snapshot Serialization)
+        # Lưu trữ đầy đủ trạng thái (metadata, layout, config) để nạp lại vào Workspace sau này
+        snapshot_path = os.path.join(output_dir, "drift_snapshot.json")
+        report.save(snapshot_path)
+        self.logger.info(f"✓ Đã lưu Full Snapshot Serialization tại: {snapshot_path}")
+
+        # 4. Bảng Dữ liệu pandas.DataFrame (Pandas Export)
+        # Trích xuất nhanh các chỉ số từ dict_results thành DataFrame để dễ dàng lọc/tính toán
+        try:
+            metrics_data = dict_results.get("metrics", [])
+            if metrics_data:
+                df_metrics = pd.DataFrame(metrics_data)
+                csv_path = os.path.join(output_dir, "drift_metrics.csv")
+                df_metrics.to_csv(csv_path, index=False)
+                self.logger.info(f"✓ Đã xuất Pandas DataFrame (CSV) tại: {csv_path}")
+        except Exception as e:
+            self.logger.warning(f"⚠️ Không thể xuất DataFrame từ metrics: {e}")
+
+        return dict_results
 
 # --- Ví dụ sử dụng ---
 if __name__ == "__main__":
@@ -121,3 +170,22 @@ if __name__ == "__main__":
     print(f"- Numerical: {evaluator.column_mapping.numerical_features}")
     print(f"- Categorical: {evaluator.column_mapping.categorical_features}")
     print(f"- Task: {evaluator.column_mapping.task}")
+
+    # ... (Khởi tạo Evaluator, nạp DataFrame hiện tại và tham chiếu) ...
+        
+        # Thực thi Nhiệm vụ 2
+    engine_result = evaluator.execute_drift_report(
+        current_df=current_df, 
+        reference_df=reference_df
+    )
+        
+        # Thực thi Nhiệm vụ 3
+        # Đặt đường dẫn lưu báo cáo (thường là thư mục Artifacts của DVC)
+    output_directory = "Artifacts/reports/ml_calories/data_drift"
+    dict_metrics = evaluator.export_reports(
+        engine_result=engine_result, 
+        output_dir=output_directory
+        )
+        
+        # Sau đó có thể dùng dict_metrics này truyền vào log_metrics_to_mlflow của Engine
+        # evaluator.engine.log_metrics_to_mlflow(report_json=dict_metrics)
