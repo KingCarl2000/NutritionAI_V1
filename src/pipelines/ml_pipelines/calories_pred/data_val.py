@@ -8,6 +8,7 @@ import pandas as pd
 import yaml
 
 from src.nutrition_core.logging.mlflow_tracker import MLOpsTracker
+from src.nutrition_core.pandera.api.base import BaseSchema
 from src.nutrition_core.pandera.backends.pandas_executor import NutritionPandasBackend
 from src.nutrition_core.pandera.config import setup_pandera_validation
 from src.nutrition_core.exception.val_exception import DataValidationError
@@ -91,17 +92,29 @@ def validate_with_pandas_backend(
     df: pd.DataFrame,
     schema_class: Type[Any],
     lazy: bool = True,
+    tracker: MLOpsTracker = None,
 ) -> Tuple[pd.DataFrame, List[dict]]:
-    """Validate through NutritionPandasBackend and return the processed data and errors."""
-    core_schema = schema_class.to_schema()
-    backend = NutritionPandasBackend(
-        schema=core_schema,
-        lazy=lazy,
-        drop_invalid_rows=False,
-    )
-
+    """Use BaseSchema's shared implementation where supported; retain a backend fallback."""
     try:
+        if isinstance(schema_class, type) and issubclass(schema_class, BaseSchema):
+            validated_df, errors = schema_class.validate_df(
+                df,
+                lazy=lazy,
+                drop_invalid_rows=False,
+                mlflow_tracker=tracker,
+                return_errors=True,
+            )
+            return validated_df, errors
+
+        core_schema = schema_class.to_schema()
+        backend = NutritionPandasBackend(
+            schema=core_schema,
+            lazy=lazy,
+            drop_invalid_rows=False,
+        )
         return backend.run_pipeline(df)
+    except DataValidationError:
+        raise
     except Exception as exc:
         logger.error(f"Lỗi không xác định trong quá trình validate backend: {exc}")
         raise DataValidationError(f"Backend Error: {exc}") from exc
@@ -120,7 +133,9 @@ def run_validation_pipeline(
     import os
 
     logger.info(f"Bắt đầu Validation Pipeline (Mode: {mode}) với {len(df)} dòng dữ liệu.")
-    validated_df, error_cases = validate_with_pandas_backend(df, schema_class, lazy=True)
+    validated_df, error_cases = validate_with_pandas_backend(
+        df, schema_class, lazy=True, tracker=tracker
+    )
 
     total_records = len(df)
     known_error_indices = set()
@@ -241,8 +256,6 @@ if __name__ == "__main__":
     tracker = MLOpsTracker(experiment_name="calories_pred")
     try:
         with tracker.start_run(run_name="calories_validate_and_drift"):
-            # Apply the configured Pandera ValidationDepth while the validation
-            # and downstream drift evaluation execute. The context resets on exit.
             with setup_pandera_validation(mlflow_tracker=tracker):
                 try:
                     validated_df = run_validation_pipeline(
@@ -264,7 +277,6 @@ if __name__ == "__main__":
                         reference_df=reference_df,
                     )
                 finally:
-                    # DVC declares this exact file as its metrics output.
                     generated_report = config_manager.output_dir / "validation_report_train.json"
                     if generated_report.is_file():
                         shutil.copy2(generated_report, dvc_report_path)
