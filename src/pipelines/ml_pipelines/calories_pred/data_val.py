@@ -11,6 +11,7 @@ from src.nutrition_core.logging.mlflow_tracker import MLOpsTracker
 from src.nutrition_core.pandera.backends.pandas_executor import NutritionPandasBackend
 from src.nutrition_core.exception.val_exception import DataValidationError
 from src.nutrition_core.logging.logger import logger
+from src.pipelines.ml_pipelines.calories_pred.eval_drift import CaloriesDriftEvaluator
 
 
 def load_class_from_registry(api_path: str) -> Any:
@@ -209,8 +210,7 @@ if __name__ == "__main__":
     if not input_file.is_file():
         raise FileNotFoundError(f"Không tìm thấy dữ liệu đầu vào để validation: {input_file}")
 
-    with input_file.open("r", encoding="utf-8") as file:
-        current_df = pd.read_csv(file)
+    current_df = pd.read_csv(input_file)
 
     train_schema = config_manager.get_schema(mode="train")
     validation_params = config_manager.pipeline_config.get("validation_params", {})
@@ -218,7 +218,20 @@ if __name__ == "__main__":
     if error_threshold is None:
         error_threshold = config_manager.warning_threshold
     if error_threshold is None:
-        raise ValueError("Thiếu validation_params.error_threshold và mlops_thresholds.data_failure_rate.warning_threshold")
+        raise ValueError(
+            "Thiếu validation_params.error_threshold và "
+            "mlops_thresholds.data_failure_rate.warning_threshold"
+        )
+
+    evidently_config = config_manager.evidently_config
+    engine_config = evidently_config.get("engine_config", {})
+    reference_data_value = engine_config.get("reference_data")
+    if not reference_data_value:
+        raise ValueError("Thiếu engine_config.reference_data trong evidently_profile.yaml")
+    reference_file = config_manager.base_dir / reference_data_value
+    if not reference_file.is_file():
+        raise FileNotFoundError(f"Không tìm thấy dữ liệu tham chiếu cho drift evaluation: {reference_file}")
+    reference_df = pd.read_csv(reference_file)
 
     report_dir = config_manager.base_dir / "Artifacts/reports/ml_calories/validation"
     dvc_report_path = report_dir / "validation_report.json"
@@ -226,9 +239,9 @@ if __name__ == "__main__":
 
     tracker = MLOpsTracker(experiment_name="calories_pred")
     try:
-        with tracker.start_run(run_name="calories_validate"):
+        with tracker.start_run(run_name="calories_validate_and_drift"):
             try:
-                run_validation_pipeline(
+                validated_df = run_validation_pipeline(
                     df=current_df,
                     schema_class=train_schema,
                     mode="train",
@@ -237,13 +250,23 @@ if __name__ == "__main__":
                     quarantine_dir=str(config_manager.quarantine_dir),
                     output_dir=str(config_manager.output_dir),
                 )
+
+                # Run Evidently drift evaluation on successfully validated current data.
+                drift_evaluator = CaloriesDriftEvaluator(
+                    config=evidently_config,
+                    mlops_tracker=tracker,
+                )
+                drift_evaluator.execute_evaluation(
+                    current_df=validated_df,
+                    reference_df=reference_df,
+                )
             finally:
                 # DVC declares this exact file as its metrics output.
                 generated_report = config_manager.output_dir / "validation_report_train.json"
                 if generated_report.is_file():
                     shutil.copy2(generated_report, dvc_report_path)
     except Exception:
-        logger.exception("Calories validation pipeline failed.")
+        logger.exception("Calories validation and drift pipeline failed.")
         raise
 
-    logger.info("Calories validation pipeline completed successfully.")
+    logger.info("Calories validation and drift evaluation completed successfully.")
