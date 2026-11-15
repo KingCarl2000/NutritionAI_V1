@@ -221,5 +221,5 @@ Data/
 data/
 # Artifacts/data/
 
-
+!Artifacts/**/*.dvc
 
