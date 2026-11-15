@@ -22,7 +22,10 @@ dvc stage add --force -n calories_ingest \
 # 2. Stage: Data validation & data drift detection (Kiểm tra dữ liệu)
 dvc stage add --force -n calories_validate \
   -d src/pipelines/ml_pipelines/calories_pred/data_val.py \
+  ## current data
   -d Artifacts/data/ml_calories/raw/train.csv \
+  ## reference data
+  -d Artifacts/data/ml_calories/trainning/train.csv \
   -d src/pipelines/ml_pipelines/calories_pred/eval_drift.py \
   -d src/nutrition_core/pandera/api/base.py \
   -d src/nutrition_core/pandera/api/check.py \
