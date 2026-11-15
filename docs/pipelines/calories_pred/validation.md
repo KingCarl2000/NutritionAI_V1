@@ -151,3 +151,444 @@ Tóm tắt các YAML cấu hình cho bước kiểm định dữ liệu và theo
       def log_artifact_file(self, local_path: str, artifact_path: str | None = None) -> None: ...
   ```
 - **Lưu ý:** Gọi các phương thức ghi MLflow trong ngữ cảnh run đang hoạt động. Khởi tạo tracker thiết lập tracking URI/experiment và cố gắng bật system metrics; `end_run()` tải các file log lên MLflow trước khi kết thúc run. `log_validation_errors()` ghi JSON cục bộ dưới `Artifacts/reports/ml_calories/validation` rồi upload; đóng gói model đọc dependencies từ thư mục `requirements/`. `enable_llm_tracing` hiện nằm trong khối chuỗi nhiều dòng/comment nên không phải API khả dụng.
+
+### `exception.py` (`src/nutrition_core/exception/exception.py`)
+- **Vai trò:** Định nghĩa các ngoại lệ dùng chung cho pipeline dữ liệu, ML và cơ sở dữ liệu; kèm thông tin file và dòng lỗi từ traceback.
+- **Import chuẩn:**
+  ```python
+  from src.nutrition_core.exception.exception import (
+      NutritionBaseException,
+      DataPipelineException,
+      DataTransformationError,
+      DataCleansingError,
+      MLPipelineException,
+      ModelTrainingError,
+      ModelEvaluationError,
+      DatabaseException,
+      DatabaseConnectionError,
+      QueryExecutionError,
+      BulkLoadError,
+      CDCStreamError,
+      DataNotFoundError,
+      RemoteStorageError,
+      VersionNotFoundError,
+  )
+  ```
+- **Public Interface (Stub):**
+  ```python
+  import sys
+  from types import ModuleType
+
+  class NutritionBaseException(Exception):
+      def __init__(
+          self,
+          error_message: str,
+          error_details: ModuleType = sys,
+      ) -> None: ...
+
+      @staticmethod
+      def _get_detailed_error_info(error_details: ModuleType): ...
+
+      def __str__(self) -> str: ...
+
+  class DataPipelineException(NutritionBaseException): ...
+  class DataTransformationError(DataPipelineException): ...
+  class DataCleansingError(DataPipelineException): ...
+
+  class MLPipelineException(NutritionBaseException): ...
+  class ModelTrainingError(MLPipelineException): ...
+  class ModelEvaluationError(MLPipelineException): ...
+
+  class DatabaseException(NutritionBaseException): ...
+  class DatabaseConnectionError(DatabaseException): ...
+  class QueryExecutionError(DatabaseException): ...
+  class BulkLoadError(DatabaseException): ...
+  class CDCStreamError(DatabaseException): ...
+
+  class DataNotFoundError(DataPipelineException): ...
+  class RemoteStorageError(DataPipelineException): ...
+  class VersionNotFoundError(DataPipelineException): ...
+  ```
+- **Lưu ý:** `NutritionBaseException` lưu thông điệp lỗi trong `error_message` và cố gắng lấy tên file cùng số dòng từ `error_details.exc_info()`. Nếu không có traceback phù hợp, thông tin vị trí lỗi được đặt thành `"Unknown"`. Module cũng import `logger` từ `src.nutrition_core.logging`.
+
+### `val_exception.py` (`src/nutrition_core/exception/val_exception.py`)
+- **Vai trò:** Chuẩn hóa lỗi kiểm định Pandera thành `DataValidationError` và trích xuất chi tiết lỗi từ eager hoặc lazy validation.
+- **Import chuẩn:**
+  ```python
+  from src.nutrition_core.exception.val_exception import (
+      DataValidationError,
+      PanderaErrorHandler,
+  )
+  ```
+- **Public Interface (Stub):**
+  ```python
+  from typing import Any, Dict, List, Union
+  from pandera.errors import SchemaError, SchemaErrors
+
+  class DataValidationError(Exception):
+      def __init__(
+          self,
+          message: str,
+          errors: List[Dict[str, Any]] = None,
+      ) -> None: ...
+      # Thuộc tính: errors
+
+  class PanderaErrorHandler:
+      @staticmethod
+      def parse_lazy_errors(
+          err: SchemaErrors,
+      ) -> List[Dict[str, Any]]: ...
+
+      @staticmethod
+      def parse_eager_error(
+          err: SchemaError,
+      ) -> List[Dict[str, Any]]: ...
+
+      @classmethod
+      def handle_validation_error(
+          cls,
+          err: Union[SchemaError, SchemaErrors],
+          schema_name: str,
+      ) -> DataValidationError: ...
+  ```
+- **Lưu ý:** `parse_lazy_errors` đọc các trường lỗi từ `failure_cases` dạng DataFrame; `parse_eager_error` trích xuất chi tiết lỗi đơn lẻ. `handle_validation_error` tạo và trả về `DataValidationError` cùng thông điệp có tên schema và danh sách lỗi đã chuẩn hóa. Module phụ thuộc vào Pandas và Pandera.
+
+### `base.py` (`src/nutrition_core/pandera/api/base.py`)
+- **Vai trò:** Cung cấp schema Pandera cơ sở và phương thức kiểm định DataFrame qua backend Pandas, đồng thời ghi kết quả và lỗi lên log/MLflow.
+- **Import chuẩn:**
+  ```python
+  from src.nutrition_core.pandera.api.base import BaseSchema
+  ```
+- **Public Interface (Stub):**
+  ```python
+  from typing import Type, TypeVar
+  import pandas as pd
+  import pandera.pandas as pa
+
+  SchemaModelT = TypeVar("SchemaModelT", bound=pa.DataFrameModel)
+
+  class BaseSchema(pa.DataFrameModel):
+      class Config:
+          coerce = True
+          strict = False
+          ordered = False
+          unique_column_names = True
+          add_missing_columns = True
+
+      @classmethod
+      def validate_df(
+          cls: Type[SchemaModelT],
+          df: pd.DataFrame,
+          lazy: bool = True,
+          drop_invalid_rows: bool = False,
+      ) -> pd.DataFrame: ...
+  ```
+- **Lưu ý:** `validate_df` chuyển schema thành `DataFrameSchema`, gọi `NutritionPandasBackend.run_pipeline` và ghi trạng thái, số lỗi cùng chi tiết validation lên MLflow. Khi phát hiện lỗi mà không bật `drop_invalid_rows`, phương thức ném `DataValidationError`.
+
+### `check.py` (`src/nutrition_core/pandera/api/check.py`)
+- **Vai trò:** Định nghĩa các custom check vectorized và factory tạo quy tắc kiểm định đa cột, theo nhóm, regex và cảnh báo outlier.
+- **Import chuẩn:**
+  ```python
+  from src.nutrition_core.pandera.api.check import (
+      is_in_numeric_range,
+      is_valid_string_length,
+      GenericCheckFactory,
+  )
+  ```
+- **Public Interface (Stub):**
+  ```python
+  from typing import Any, List, Optional
+  import pandas as pd
+  import pandera.pandas as pa
+
+  def is_in_numeric_range(
+      pandas_obj: pd.Series,
+      *,
+      min_val: float = 0.0,
+      max_val: float = 1e9,
+  ) -> pd.Series: ...
+
+  def is_valid_string_length(
+      pandas_obj: pd.Series,
+      *,
+      min_len: int = 1,
+      max_len: int = 255,
+  ) -> pd.Series: ...
+
+  class GenericCheckFactory:
+      @staticmethod
+      def check_sum_le_total(
+          component_cols: List[str],
+          total_col: str,
+          error_msg: Optional[str] = None,
+      ) -> pa.Check: ...
+
+      @staticmethod
+      def check_range_validity(
+          min_col: str,
+          target_col: str,
+          max_col: str,
+          error_msg: Optional[str] = None,
+      ) -> pa.Check: ...
+
+      @staticmethod
+      def check_group_mean_comparison(
+          groupby_col: str,
+          target_col: str,
+          lower_group: Any,
+          higher_group: Any,
+          error_msg: Optional[str] = None,
+      ) -> pa.Check: ...
+
+      @staticmethod
+      def check_regex_pattern(
+          pattern: str,
+          error_msg: Optional[str] = None,
+      ) -> pa.Check: ...
+
+      @staticmethod
+      def create_outlier_warning(
+          upper_threshold: float,
+          warning_msg: Optional[str] = None,
+      ) -> pa.Check: ...
+  ```
+- **Lưu ý:** Hai hàm kiểm tra số và độ dài chuỗi được đăng ký làm Pandera check methods. Các factory trả về `pa.Check` để schema của pipeline có thể cấu hình và tái sử dụng.
+
+### `pandas_executor.py` (`src/nutrition_core/pandera/backends/pandas_executor.py`)
+- **Vai trò:** Thực thi kiểm định `pandas.DataFrame`, bao gồm kiểm tra đầu vào, ép kiểu, gom lỗi và tùy chọn loại bỏ các dòng không hợp lệ.
+- **Import chuẩn:**
+  ```python
+  from src.nutrition_core.pandera.backends.pandas_executor import (
+      NutritionPandasBackend,
+      validate_with_pandas_backend,
+  )
+  ```
+- **Public Interface (Stub):**
+  ```python
+  from typing import Any, Dict, List, Tuple
+  import pandas as pd
+  import pandera as pa
+
+  class NutritionPandasBackend:
+      def __init__(
+          self,
+          schema: pa.DataFrameSchema,
+          lazy: bool = True,
+          drop_invalid_rows: bool = False,
+      ) -> None: ...
+
+      @classmethod
+      def resolve_backend(cls, data: Any) -> bool: ...
+
+      def run_pipeline(
+          self,
+          df: pd.DataFrame,
+      ) -> Tuple[pd.DataFrame, List[Dict[str, Any]]]: ...
+
+  def validate_with_pandas_backend(
+      schema: pa.DataFrameSchema,
+      df: pd.DataFrame,
+      **kwargs,
+  ) -> pd.DataFrame: ...
+  ```
+- **Lưu ý:** Backend làm việc trên bản sao của DataFrame khi tiền xử lý và ép kiểu. `resolve_backend` ném `TypeError` nếu đầu vào không phải `pandas.DataFrame`. Khi `drop_invalid_rows=True`, các dòng bị đánh dấu không hợp lệ sẽ bị loại bỏ; nếu không, lỗi được trả về hoặc ném dưới dạng `DataValidationError` tùy cách gọi và chế độ validation.
+
+### `config.py` (`src/nutrition_core/pandera/config.py`)
+- **Vai trò:** Cấu hình mức độ kiểm định Pandera toàn cục dựa trên biến môi trường và tùy chọn ghi cấu hình lên MLflow.
+- **Import chuẩn:**
+  ```python
+  from src.nutrition_core.pandera.config import setup_pandera_validation
+  ```
+- **Public Interface (Stub):**
+  ```python
+  from typing import Optional
+  from pandera.config import config_context
+  from src.nutrition_core.logging.mlflow_tracker import MLOpsTracker
+
+  def setup_pandera_validation(
+      mlflow_tracker: Optional[MLOpsTracker] = None,
+  ) -> config_context: ...
+  ```
+- **Lưu ý:** Đọc biến môi trường `PANDERA_VALIDATION_DEPTH`. Các giá trị hỗ trợ là `SCHEMA_ONLY`, `DATA_ONLY` và `SCHEMA_AND_DATA`; nếu giá trị thiếu hoặc không hợp lệ, mặc định dùng `SCHEMA_AND_DATA`. Hàm được bọc bởi `monitor_performance(time_limit=2.0)` và trả về `config_context` để áp dụng cấu hình.
+
+### `decorators.py` (`src/nutrition_core/pandera/decorators.py`)
+- **Vai trò:** Cung cấp decorator kiểm định kiểu dữ liệu hoặc I/O bằng Pandera, chuẩn hóa lỗi thành `DataValidationError` và tùy chọn ghi nhận lỗi validation.
+- **Import chuẩn:**
+  ```python
+  from src.nutrition_core.pandera.decorators import (
+      nutrition_check_types,
+      nutrition_check_io,
+  )
+  ```
+- **Public Interface (Stub):**
+  ```python
+  from typing import Any, Callable
+
+  def nutrition_check_types(*args: Any, **kwargs: Any) -> Callable: ...
+
+  def nutrition_check_io(
+      head: int = 5,
+      tail: int = 5,
+      **kwargs: Any,
+  ) -> Callable: ...
+  ```
+- **Lưu ý:** `nutrition_check_types` bọc `pandera.check_types`; `nutrition_check_io` bọc `pandera.check_io`. Hai decorator ghi log và chuyển `SchemaError`/`SchemaErrors` thành `DataValidationError`. Trong mã hiện tại, các nhánh xử lý lỗi gọi `PanderaErrorHandler.extract_errors`; hãy bảo đảm phương thức này được định nghĩa hoặc cập nhật cách gọi cho khớp với `val_exception.py`.
+
+### `evidently_engine.py` (`src/nutrition_core/pandera/evidently_engine.py`)
+- **Vai trò:** Kết hợp kiểm định schema Pandera với phát hiện drift, kiểm tra chất lượng dữ liệu, Evidently Workspace và ghi metrics lên MLflow.
+- **Import chuẩn:**
+  ```python
+  from src.nutrition_core.pandera.evidently_engine import EvidentlyDriftEngine
+  ```
+- **Public Interface (Stub):**
+  ```python
+  from typing import Any, Dict, Optional, Tuple
+  import pandas as pd
+  import pandera as pa
+
+  class EvidentlyDriftEngine:
+      def __init__(
+          self,
+          artifact_dir: str,
+          project_name: str,
+          evidently_workspace_url: Optional[str] = None,
+          mlops_tracker: Optional[Any] = None,
+      ) -> None: ...
+
+      def validate_schema(
+          self,
+          df: pd.DataFrame,
+          schema_model: pa.DataFrameModel,
+      ) -> Tuple[bool, Optional[pd.DataFrame]]: ...
+
+      @staticmethod
+      def _configure_workspace_dashboard(
+          project: Any,
+          column_mapping_cfg: Dict[str, Any],
+      ) -> None: ...
+
+      def run_drift_detection(
+          self,
+          current_df: pd.DataFrame,
+          reference_df: pd.DataFrame,
+          column_mapping_cfg: Dict[str, Any],
+          drift_options_cfg: Dict[str, Any],
+          **kwargs: Any,
+      ) -> Dict[str, Any]: ...
+
+      def log_metrics_to_mlflow(
+          self,
+          report_json: Dict[str, Any],
+          test_suite_json: Optional[Dict[str, Any]] = None,
+      ) -> None: ...
+  ```
+- **Lưu ý:** Khởi tạo engine tạo thư mục `artifact_dir` nếu chưa tồn tại. `run_drift_detection` nhận cấu hình bổ sung qua `kwargs` (ví dụ: chất lượng dữ liệu, đánh giá regression/classification, LLM, RecSys và test suite) và trả về report, snapshot cùng test suite nếu có. Đồng bộ Workspace chỉ được thực hiện khi có `evidently_workspace_url`; ghi metrics MLflow chỉ hoạt động khi tracker được truyền vào.
+
+### `dvc_handler.py` (`src/data_io/dvc_handler.py`)
+- **Vai trò:** Cung cấp adapter cho DVC để đồng bộ dữ liệu, tải dataset/mô hình/metrics/tệp ảnh và chuẩn hóa metrics bằng Pydantic.
+- **Import chuẩn:**
+  ```python
+  from src.data_io.dvc_handler import (
+      DVCHandler,
+      DVCMetricsNormalizedSchema,
+      GlobalSummaryMetrics,
+      PerClassMetric,
+      EpochMetrics,
+      ExecutionMetadata,
+  )
+  ```
+- **Public Interface (Stub):**
+  ```python
+  from typing import Any, Dict, Optional
+  from pydantic import BaseModel
+
+  class PerClassMetric(BaseModel):
+      precision: float
+      recall: float
+      f1_score: float
+      support: int
+
+  class GlobalSummaryMetrics(BaseModel):
+      accuracy: float
+      f1_score: float
+      precision: float
+      recall: float
+      loss: float
+      roc_auc: Optional[float] = None
+
+  class EpochMetrics(BaseModel):
+      best_epoch: int
+      total_epochs: int
+      train_loss_final: float
+      val_loss_final: float
+
+  class ExecutionMetadata(BaseModel):
+      dataset_version: Optional[str] = None
+      execution_time_seconds: float
+      num_samples_eval: int
+      framework: Optional[str] = None
+
+  class DVCMetricsNormalizedSchema(BaseModel):
+      summary: GlobalSummaryMetrics
+      class_metrics: Optional[Dict[str, PerClassMetric]] = None
+      epoch_metrics: Optional[EpochMetrics] = None
+      metadata: Optional[ExecutionMetadata] = None
+
+  class DVCHandler:
+      def __init__(
+          self,
+          repo: Optional[str] = None,
+          rev: Optional[str] = None,
+      ) -> None: ...
+
+      def sync_data(self) -> None: ...
+      def is_data_updated(self) -> bool: ...
+
+      def get_dataset(
+          self,
+          data_path: str,
+          format_type: str = "csv",
+      ) -> pd.DataFrame: ...
+
+      def get_latest_model(
+          self,
+          model_path: str,
+          framework: str = "sklearn",
+      ) -> Any: ...
+
+      def get_metrics(
+          self,
+          metrics_path: str = "metrics.json",
+      ) -> DVCMetricsNormalizedSchema: ...
+
+      def get_image_base64(self, image_path: str) -> str: ...
+      def add_data(self, file_path: str) -> None: ...
+  ```
+- **Lưu ý:** Các thao tác DVC được bọc bởi `dvc_error_handler` để xử lý thử lại và lỗi. `get_dataset` hỗ trợ CSV và Parquet; nếu tải thất bại, decorator được cấu hình với hàm fallback đọc dữ liệu từ `data/raw/`. `get_latest_model` hỗ trợ `sklearn` và `pytorch`. `add_data` hiện chỉ ghi cảnh báo; lệnh `dvc add` đã bị vô hiệu hóa trong thân hàm.
+
+### `eval_drift.py` (`src/pipelines/ml_pipelines/calories_pred/eval_drift.py`)
+- **Vai trò:** Điều phối đánh giá drift cho pipeline Calories, chuẩn hóa cấu hình, gọi `EvidentlyDriftEngine` và xuất báo cáo cùng metrics.
+- **Import chuẩn:**
+  ```python
+  from src.pipelines.ml_pipelines.calories_pred.eval_drift import CaloriesDriftEvaluator
+  ```
+- **Public Interface (Stub):**
+  ```python
+  from typing import Any, Dict, Optional
+  import pandas as pd
+  from src.nutrition_core.logging.mlflow_tracker import MLOpsTracker
+
+  class CaloriesDriftEvaluator:
+      def __init__(
+          self,
+          config: Dict[str, Any],
+          mlops_tracker: Optional[MLOpsTracker] = None,
+      ) -> None: ...
+
+      def execute_evaluation(
+          self,
+          current_df: pd.DataFrame,
+          reference_df: pd.DataFrame,
+      ) -> Dict[str, Any]: ...
+  ```
+- **Lưu ý:** `config` là cấu hình đã được nạp (thường từ `evidently_profile.yaml`). Bộ đánh giá chuẩn hóa mapping cột và tùy chọn drift trước khi gọi engine. Khi có snapshot, xuất HTML, JSON, serialization đầy đủ và CSV vào thư mục báo cáo; nếu có test suite thì cũng xuất báo cáo HTML. Tracker MLflow là tùy chọn. Trong cấu hình `per_column_options`, tên phép kiểm định được chuyển tiếp, nhưng ngưỡng riêng từng cột hiện chưa được engine sử dụng.
