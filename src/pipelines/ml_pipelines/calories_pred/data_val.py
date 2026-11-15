@@ -143,7 +143,8 @@ def run_validation_pipeline(
 ) -> pd.DataFrame:
     """
     Hàm điều phối chính thực thi kiểm định dữ liệu.
-    Xử lý tỷ lệ lỗi, ghi nhận vào MLflow Tracker, xuất file báo cáo và xử lý logic Fail-Fast/Quarantine.
+    Tỷ lệ lỗi tính theo số dòng lỗi duy nhất; lỗi không gắn được với một index cụ thể
+    được xem là lỗi toàn tập dữ liệu để tránh đánh giá thiếu mức độ nghiêm trọng.
     """
     import os
     
@@ -153,14 +154,44 @@ def run_validation_pipeline(
     validated_df, error_cases = validate_with_pandas_backend(df, schema_class, lazy=True)
     
     total_records = len(df)
-    error_count = len(error_cases)
-    error_rate = error_count / total_records if total_records > 0 else 0.0
+    known_error_indices = set()
+    unknown_index_error_count = 0
+
+    for error in error_cases:
+        error_index = error.get("index")
+        # Các lỗi thiếu index, null, hoặc index không có trong DataFrame
+        # không thể ánh xạ an toàn tới một dòng cụ thể.
+        try:
+            index_is_valid = (
+                error_index is not None
+                and not pd.isna(error_index)
+                and error_index in df.index
+            )
+        except (TypeError, ValueError):
+            index_is_valid = False
+
+        if index_is_valid:
+            known_error_indices.add(error_index)
+        else:
+            unknown_index_error_count += 1
+
+    # Nếu có lỗi không thể gắn với dòng cụ thể (ví dụ thiếu cột bắt buộc),
+    # xem toàn bộ tập dữ liệu là không hợp lệ. Đây là cách bảo thủ để không
+    # cho phép pipeline tiếp tục chỉ vì lỗi schema thiếu thông tin index.
+    invalid_record_count = (
+        total_records
+        if unknown_index_error_count > 0
+        else len(known_error_indices)
+    )
+    error_rate = invalid_record_count / total_records if total_records > 0 else 0.0
     
     # 2. Tạo báo cáo Validation Report
     report = {
         "mode": mode,
         "total_records": total_records,
-        "error_count": error_count,
+        "error_count": invalid_record_count,
+        "invalid_record_count": invalid_record_count,
+        "unknown_index_error_count": unknown_index_error_count,
         "error_rate": error_rate,
         "errors_detail": error_cases[:100]  # Giới hạn ghi 100 lỗi đầu tiên để tránh file quá lớn
     }
@@ -176,31 +207,36 @@ def run_validation_pipeline(
     if tracker:
         tracker.log_params_and_metrics(metrics={
             "validation_error_rate": error_rate,
-            "validation_error_count": float(error_count),
+            "validation_error_count": float(invalid_record_count),
         })
         tracker.log_artifact_file(report_path)
 
-    # 3. Phân luồng dựa trên ngưỡng lỗi (Threshold Routing)
+    # 3. Phân luồng dựa trên tỷ lệ dòng lỗi
     if error_rate > error_threshold:
-        # Fail-Fast hoặc chuyển vùng cách ly (Quarantine)
         quarantine_file = os.path.join(quarantine_dir, f"quarantine_{mode}.csv")
         df.to_csv(quarantine_file, index=False)
-        logger.error(f"Validation thất bại! Tỷ lệ lỗi {error_rate*100:.2f}% vượt ngưỡng {error_threshold*100:.2f}%. Dữ liệu đã được đưa vào Quarantine.")
+        logger.error(
+            f"Validation thất bại! Tỷ lệ dòng lỗi {error_rate*100:.2f}% "
+            f"vượt ngưỡng {error_threshold*100:.2f}%. Dữ liệu đã được đưa vào Quarantine."
+        )
         
-        # Track dataset hỏng nếu cần
         if tracker:
             tracker.log_artifact_file(quarantine_file)
             
-        raise DataValidationError(f"Tỷ lệ vi phạm dữ liệu quá cao ({error_rate:.2%}). Dừng pipeline.")
+        raise DataValidationError(f"Tỷ lệ dòng vi phạm dữ liệu quá cao ({error_rate:.2%}). Dừng pipeline.")
     
-    elif error_count > 0:
-        logger.warning(f"Validation hoàn thành với {error_count} cảnh báo nhỏ. Tỷ lệ lỗi ({error_rate*100:.2f}%) nằm trong ngưỡng an toàn.")
-        # Loại bỏ các dòng lỗi trước khi đưa ra bản sạch (logic tùy thuộc nghiệp vụ)
-        if error_cases:
-            error_indices = [err["index"] for err in error_cases if err.get("index") != "N/A"]
-            valid_df = df.drop(index=error_indices).reset_index(drop=True)
-        else:
-            valid_df = validated_df
+    elif invalid_record_count > 0:
+        logger.warning(
+            f"Validation hoàn thành với {invalid_record_count} dòng lỗi. "
+            f"Tỷ lệ dòng lỗi ({error_rate*100:.2f}%) nằm trong ngưỡng an toàn."
+        )
+        if unknown_index_error_count > 0:
+            # Không thể xác định các dòng hợp lệ một cách an toàn.
+            raise DataValidationError(
+                "Không thể xác định index của một hoặc nhiều lỗi validation; "
+                "không thể tạo tập dữ liệu sạch an toàn."
+            )
+        valid_df = df.drop(index=list(known_error_indices)).reset_index(drop=True)
     else:
         logger.info("Validation thành công tuyệt đối, không có dòng vi phạm.")
         valid_df = validated_df
