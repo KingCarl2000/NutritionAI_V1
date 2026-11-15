@@ -3,6 +3,7 @@
 Tóm tắt các YAML cấu hình cho bước kiểm định dữ liệu và theo dõi drift của pipeline `ml_calories`.
 
 ### `data_val.yaml` (`config/pipelines/ml_calories/data_val.yaml`)
+
 - **Vai trò:** Cấu hình schema Pandera, các thư mục dữ liệu của pipeline Calories và ngưỡng lỗi riêng cho bước kiểm định.
 - **Cách gọi trong code:** `DataValidationConfig(pipeline_config_path="config/pipelines/ml_calories/data_val.yaml")` trong `src/pipelines/ml_pipelines/calories_pred/data_val.py`; lớp này nạp YAML và dùng `get_schema(mode="train" | "inference")` để tải schema theo chế độ chạy.
 - **Cây cấu trúc (Schema rút gọn):**
@@ -23,6 +24,7 @@ Tóm tắt các YAML cấu hình cho bước kiểm định dữ liệu và theo
 - **Lưu ý:** Các đường dẫn schema là chuỗi định danh lớp dùng để nạp động. Trong mã `DataValidationConfig._extract_configs`, phần trích xuất thư mục được thể hiện là đọc `pipeline_paths.dvc_tracked_dirs.*`, trong khi YAML này đặt `input_dir`, `output_dir`, `quarantine_dir` trực tiếp dưới `pipeline_paths`; cần đồng bộ cấu trúc này để cấu hình đường dẫn được áp dụng đúng.
 
 ### `evidently_profile.yaml` (`config/pipelines/ml_calories/evidently_profile.yaml`)
+
 - **Vai trò:** Cấu hình Evidently cho báo cáo và phát hiện drift dữ liệu của pipeline Calories.
 - **Cách gọi trong code:** `CaloriesDriftEvaluator(evidently_config_path="config/pipelines/ml_calories/evidently_profile.yaml")` trong `src/pipelines/orchestrators.py`; lớp đánh giá drift được triển khai tại `src/pipelines/ml_pipelines/calories_pred/eval_drift.py`.
 - **Cây cấu trúc (Schema rút gọn):**
@@ -30,6 +32,7 @@ Tóm tắt các YAML cấu hình cho bước kiểm định dữ liệu và theo
   engine_config:
     project_name: "Calories_Prediction_Drift_Monitoring"
     reference_data: "Artifacts/data/ml_calories/trainning/train.csv"
+    current_data: "Artifacts/data/ml_calories/validated/train.csv"
     report_dir: "Artifacts/reports/ml_calories/evidently"
     evidently_workspace_url: null
   column_mapping:
@@ -55,6 +58,7 @@ Tóm tắt các YAML cấu hình cho bước kiểm định dữ liệu và theo
 - **Lưu ý:** `per_column_options` cho phép cấu hình riêng phép kiểm định và ngưỡng, hiện có `age` (`ks`, `0.05`) và `gender` (`psi`, `0.1`). Đường dẫn tham chiếu hiện ghi `trainning`; xác nhận tên thư mục này khớp với dữ liệu thực tế.
 
 ### `global.yaml` (`config/pipelines/global.yaml`)
+
 - **Vai trò:** Cấu hình dùng chung cho các pipeline, gồm đường dẫn API lõi, MLflow và các ngưỡng MLOps.
 - **Cách gọi trong code:** `DataValidationConfig(global_config_path="config/pipelines/global.yaml")` trong `src/pipelines/ml_pipelines/calories_pred/data_val.py`; bước trích xuất cấu hình đọc `mlops_thresholds.data_failure_rate.info_threshold` và `warning_threshold`.
 - **Cây cấu trúc (Schema rút gọn):**
@@ -82,6 +86,7 @@ Tóm tắt các YAML cấu hình cho bước kiểm định dữ liệu và theo
 ## Module Python liên quan
 
 ### `logger.py` (`src/nutrition_core/logging/logger.py`)
+
 - **Vai trò:** Khởi tạo logger dùng chung, ghi log theo mức độ và cung cấp decorator đo hiệu năng, xử lý lỗi DVC và xử lý lỗi kiểm định Pandera.
 - **Import chuẩn:** `from src.nutrition_core.logging.logger import logger, PROJECT_ROOT, OPER_LOG_FILE_PATH, WARM_LOG_FILE_PATH, ERROR_LOG_FILE_PATH, monitor_performance, dvc_error_handler, validation_error_handler`
 - **Public Interface (Stub):**
@@ -115,6 +120,7 @@ Tóm tắt các YAML cấu hình cho bước kiểm định dữ liệu và theo
 - **Lưu ý:** Khi import module, nó tạo thư mục log theo ngày dưới `logs/oper_logs`, `logs/warm_logs`, `logs/error_logs` và gắn các file/console handlers cho logger. Decorator DVC tham chiếu các ngoại lệ trong `src.nutrition_core.exception.exception`; decorator validation bắt các lỗi Pandera và `DataValidationError`, sau đó vẫn raise lỗi để luồng gọi xử lý.
 
 ### `mlflow_tracker.py` (`src/nutrition_core/logging/mlflow_tracker.py`)
+
 - **Vai trò:** Bao bọc các thao tác MLflow cho run, metrics, lineage, model, artifacts, system logs và báo cáo lỗi validation.
 - **Import chuẩn:** `from src.nutrition_core.logging.mlflow_tracker import MLOpsTracker`
 - **Public Interface (Stub):**
@@ -153,6 +159,7 @@ Tóm tắt các YAML cấu hình cho bước kiểm định dữ liệu và theo
 - **Lưu ý:** Gọi các phương thức ghi MLflow trong ngữ cảnh run đang hoạt động. Khởi tạo tracker thiết lập tracking URI/experiment và cố gắng bật system metrics; `end_run()` tải các file log lên MLflow trước khi kết thúc run. `log_validation_errors()` ghi JSON cục bộ dưới `Artifacts/reports/ml_calories/validation` rồi upload; đóng gói model đọc dependencies từ thư mục `requirements/`. `enable_llm_tracing` hiện nằm trong khối chuỗi nhiều dòng/comment nên không phải API khả dụng.
 
 ### `exception.py` (`src/nutrition_core/exception/exception.py`)
+
 - **Vai trò:** Định nghĩa các ngoại lệ dùng chung cho pipeline dữ liệu, ML và cơ sở dữ liệu; kèm thông tin file và dòng lỗi từ traceback.
 - **Import chuẩn:**
   ```python
@@ -212,6 +219,7 @@ Tóm tắt các YAML cấu hình cho bước kiểm định dữ liệu và theo
 - **Lưu ý:** `NutritionBaseException` lưu thông điệp lỗi trong `error_message` và cố gắng lấy tên file cùng số dòng từ `error_details.exc_info()`. Nếu không có traceback phù hợp, thông tin vị trí lỗi được đặt thành `"Unknown"`. Module cũng import `logger` từ `src.nutrition_core.logging`.
 
 ### `val_exception.py` (`src/nutrition_core/exception/val_exception.py`)
+
 - **Vai trò:** Chuẩn hóa lỗi kiểm định Pandera thành `DataValidationError` và trích xuất chi tiết lỗi từ eager hoặc lazy validation.
 - **Import chuẩn:**
   ```python
@@ -254,6 +262,7 @@ Tóm tắt các YAML cấu hình cho bước kiểm định dữ liệu và theo
 - **Lưu ý:** `parse_lazy_errors` đọc các trường lỗi từ `failure_cases` dạng DataFrame; `parse_eager_error` trích xuất chi tiết lỗi đơn lẻ. `handle_validation_error` tạo và trả về `DataValidationError` cùng thông điệp có tên schema và danh sách lỗi đã chuẩn hóa. Module phụ thuộc vào Pandas và Pandera.
 
 ### `base.py` (`src/nutrition_core/pandera/api/base.py`)
+
 - **Vai trò:** Cung cấp schema Pandera cơ sở và phương thức kiểm định DataFrame qua backend Pandas, đồng thời ghi kết quả và lỗi lên log/MLflow.
 - **Import chuẩn:**
   ```python
@@ -286,6 +295,7 @@ Tóm tắt các YAML cấu hình cho bước kiểm định dữ liệu và theo
 - **Lưu ý:** `validate_df` chuyển schema thành `DataFrameSchema`, gọi `NutritionPandasBackend.run_pipeline` và ghi trạng thái, số lỗi cùng chi tiết validation lên MLflow. Khi phát hiện lỗi mà không bật `drop_invalid_rows`, phương thức ném `DataValidationError`.
 
 ### `check.py` (`src/nutrition_core/pandera/api/check.py`)
+
 - **Vai trò:** Định nghĩa các custom check vectorized và factory tạo quy tắc kiểm định đa cột, theo nhóm, regex và cảnh báo outlier.
 - **Import chuẩn:**
   ```python
@@ -355,6 +365,7 @@ Tóm tắt các YAML cấu hình cho bước kiểm định dữ liệu và theo
 - **Lưu ý:** Hai hàm kiểm tra số và độ dài chuỗi được đăng ký làm Pandera check methods. Các factory trả về `pa.Check` để schema của pipeline có thể cấu hình và tái sử dụng.
 
 ### `pandas_executor.py` (`src/nutrition_core/pandera/backends/pandas_executor.py`)
+
 - **Vai trò:** Thực thi kiểm định `pandas.DataFrame`, bao gồm kiểm tra đầu vào, ép kiểu, gom lỗi và tùy chọn loại bỏ các dòng không hợp lệ.
 - **Import chuẩn:**
   ```python
@@ -394,6 +405,7 @@ Tóm tắt các YAML cấu hình cho bước kiểm định dữ liệu và theo
 - **Lưu ý:** Backend làm việc trên bản sao của DataFrame khi tiền xử lý và ép kiểu. `resolve_backend` ném `TypeError` nếu đầu vào không phải `pandas.DataFrame`. Khi `drop_invalid_rows=True`, các dòng bị đánh dấu không hợp lệ sẽ bị loại bỏ; nếu không, lỗi được trả về hoặc ném dưới dạng `DataValidationError` tùy cách gọi và chế độ validation.
 
 ### `config.py` (`src/nutrition_core/pandera/config.py`)
+
 - **Vai trò:** Cấu hình mức độ kiểm định Pandera toàn cục dựa trên biến môi trường và tùy chọn ghi cấu hình lên MLflow.
 - **Import chuẩn:**
   ```python
@@ -412,6 +424,7 @@ Tóm tắt các YAML cấu hình cho bước kiểm định dữ liệu và theo
 - **Lưu ý:** Đọc biến môi trường `PANDERA_VALIDATION_DEPTH`. Các giá trị hỗ trợ là `SCHEMA_ONLY`, `DATA_ONLY` và `SCHEMA_AND_DATA`; nếu giá trị thiếu hoặc không hợp lệ, mặc định dùng `SCHEMA_AND_DATA`. Hàm được bọc bởi `monitor_performance(time_limit=2.0)` và trả về `config_context` để áp dụng cấu hình.
 
 ### `decorators.py` (`src/nutrition_core/pandera/decorators.py`)
+
 - **Vai trò:** Cung cấp decorator kiểm định kiểu dữ liệu hoặc I/O bằng Pandera, chuẩn hóa lỗi thành `DataValidationError` và tùy chọn ghi nhận lỗi validation.
 - **Import chuẩn:**
   ```python
@@ -435,6 +448,7 @@ Tóm tắt các YAML cấu hình cho bước kiểm định dữ liệu và theo
 - **Lưu ý:** `nutrition_check_types` bọc `pandera.check_types`; `nutrition_check_io` bọc `pandera.check_io`. Hai decorator ghi log và chuyển `SchemaError`/`SchemaErrors` thành `DataValidationError`. Trong mã hiện tại, các nhánh xử lý lỗi gọi `PanderaErrorHandler.extract_errors`; hãy bảo đảm phương thức này được định nghĩa hoặc cập nhật cách gọi cho khớp với `val_exception.py`.
 
 ### `evidently_engine.py` (`src/nutrition_core/pandera/evidently_engine.py`)
+
 - **Vai trò:** Kết hợp kiểm định schema Pandera với phát hiện drift, kiểm tra chất lượng dữ liệu, Evidently Workspace và ghi metrics lên MLflow.
 - **Import chuẩn:**
   ```python
@@ -485,6 +499,7 @@ Tóm tắt các YAML cấu hình cho bước kiểm định dữ liệu và theo
 - **Lưu ý:** Khởi tạo engine tạo thư mục `artifact_dir` nếu chưa tồn tại. `run_drift_detection` nhận cấu hình bổ sung qua `kwargs` (ví dụ: chất lượng dữ liệu, đánh giá regression/classification, LLM, RecSys và test suite) và trả về report, snapshot cùng test suite nếu có. Đồng bộ Workspace chỉ được thực hiện khi có `evidently_workspace_url`; ghi metrics MLflow chỉ hoạt động khi tracker được truyền vào.
 
 ### `dvc_handler.py` (`src/data_io/dvc_handler.py`)
+
 - **Vai trò:** Cung cấp adapter cho DVC để đồng bộ dữ liệu, tải dataset/mô hình/metrics/tệp ảnh và chuẩn hóa metrics bằng Pydantic.
 - **Import chuẩn:**
   ```python
@@ -567,6 +582,7 @@ Tóm tắt các YAML cấu hình cho bước kiểm định dữ liệu và theo
 - **Lưu ý:** Các thao tác DVC được bọc bởi `dvc_error_handler` để xử lý thử lại và lỗi. `get_dataset` hỗ trợ CSV và Parquet; nếu tải thất bại, decorator được cấu hình với hàm fallback đọc dữ liệu từ `data/raw/`. `get_latest_model` hỗ trợ `sklearn` và `pytorch`. `add_data` hiện chỉ ghi cảnh báo; lệnh `dvc add` đã bị vô hiệu hóa trong thân hàm.
 
 ### `eval_drift.py` (`src/pipelines/ml_pipelines/calories_pred/eval_drift.py`)
+
 - **Vai trò:** Điều phối đánh giá drift cho pipeline Calories, chuẩn hóa cấu hình, gọi `EvidentlyDriftEngine` và xuất báo cáo cùng metrics.
 - **Import chuẩn:**
   ```python
