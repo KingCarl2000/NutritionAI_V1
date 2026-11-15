@@ -73,11 +73,11 @@ class DataValidationConfig:
 
     def _extract_configs(self):
         """Khởi tạo các tham số định tuyến và pipeline specific."""
-        # 1. Đường dẫn thư mục DVC
-        dvc_paths = self.pipeline_config.get("pipeline_paths", {}).get("dvc_tracked_dirs", {})
-        self.input_dir = self.base_dir / dvc_paths.get("input_dir")
-        self.output_dir = self.base_dir / dvc_paths.get("output_dir")
-        self.quarantine_dir = self.base_dir / dvc_paths.get("quarantine_dir")
+        # 1. Đường dẫn thư mục DVC được khai báo trực tiếp dưới pipeline_paths.
+        pipeline_paths = self.pipeline_config.get("pipeline_paths", {})
+        self.input_dir = self.base_dir / pipeline_paths.get("input_dir")
+        self.output_dir = self.base_dir / pipeline_paths.get("output_dir")
+        self.quarantine_dir = self.base_dir / pipeline_paths.get("quarantine_dir")
         
         # 2. Lấy API paths của Pandera Schema
         schema_classes = self.pipeline_config.get("schema_classes", {})
