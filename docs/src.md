@@ -222,14 +222,20 @@ Phân hệ này quản lý vòng đời dữ liệu đầu vào, kiểm định 
 
 *File:* [eval_drift.py](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/pipelines/ml_pipelines/calories_pred/eval_drift.py)
 
-* **`load_yaml_config(path: str)`**: Hàm trợ giúp đọc file cấu hình YAML, tích hợp bắt lỗi và ghi log khi file không tồn tại.
-* **`CaloriesDriftEvaluator`**: Lớp cốt lõi đánh giá độ trôi lệch dữ liệu (Data Drift), thiết kế đọc tham số động từ các file cấu hình `evidently_profile.yaml` và `global.yaml`.
-  * **Khởi tạo (`__init__`)**: Tự động trích xuất các đường dẫn I/O (dữ liệu tham chiếu, thư mục xuất report), các ngưỡng cảnh báo MLOps (`psi_warning`, `psi_critical`, `p_value_alpha`) và ánh xạ cột (`column_mapping`).
-  * **`evaluate_drift(current_df, reference_df)`**: Phương thức đo lường chính, được giám sát hiệu năng với decorator `@monitor_performance(time_limit=10.0)`. Sử dụng `EvidentlyDriftEngine` để xuất báo cáo HTML và JSON. Trích xuất tỷ lệ trôi lệch (`drift_share`) và đối chiếu với các Thresholds để phát ra cảnh báo:
-    * **CRITICAL ALERT**: Vượt ngưỡng `psi_critical` (yêu cầu Retrain Model).
-    * **WARNING**: Vượt ngưỡng `psi_warning` (cần theo dõi).
-    * **INFO**: Dữ liệu ổn định.
-* **`run_drift_detection(...)`**: Hàm Wrapper (đóng gói) tiện ích. Cho phép Data Validation Pipeline hoặc Orchestrator gọi thẳng vào quy trình đánh giá Drift một cách gọn gàng, ẩn đi các chi tiết khởi tạo class và cấu hình bên dưới.
+* **`CaloriesDriftEvaluator`**: Bộ điều phối đánh giá Data Drift cho bài toán Calories Prediction, sử dụng `EvidentlyDriftEngine` làm lõi xử lý và nhận cấu hình cùng `MLOpsTracker` tùy chọn.
+  * **`__init__(config, mlops_tracker=None)`**: Khởi tạo engine từ `engine_config`, gồm thư mục artifact, tên project và URL Evidently Workspace.
+  * **`_prepare_column_mapping()`**: Chuẩn hóa cấu hình cột trước khi chuyển cho engine:
+    * Hỗ trợ alias cho cột thời gian (`datetime`, `datetime_columns`, `datetime_features`), ID người dùng/sản phẩm và cột dự đoán.
+    * Đảm bảo các nhóm cột numerical, categorical, text và datetime có dạng danh sách.
+  * **`_prepare_drift_options()`**: Chuyển cấu hình drift trong YAML sang định dạng engine nhận; hỗ trợ ngưỡng drift, phương pháp kiểm định mặc định, cấu hình riêng cho numerical/categorical/text, per-column stattest và danh sách cột cần kiểm tra.
+  * **`_snapshot_to_dict(snapshot)`** và **`_write_snapshot_serialization(snapshot, path)`**: Chuyển snapshot thành dict và lưu bản serialize đầy đủ, lần lượt thử các API mà snapshot hỗ trợ.
+  * **`execute_evaluation(current_df, reference_df)`**: Thực thi toàn bộ luồng đánh giá:
+    * Chuẩn hóa mapping và các tùy chọn drift, data quality, regression và test suite rồi gọi `EvidentlyDriftEngine.run_drift_detection(...)`.
+    * Xuất các artifact từ cùng snapshot của lần chạy: `drift_report.html`, `drift_report.json`, `drift_snapshot.json` và `drift_metrics.csv`.
+    * Lưu báo cáo test suite thành `test_suite_report.html` nếu có.
+    * Gửi metrics của snapshot và kết quả test suite lên MLflow qua `log_metrics_to_mlflow(...)`.
+    * Trả về kết quả do engine cung cấp.
+* **Chế độ chạy thử trực tiếp**: Khối `__main__` đọc cấu hình `evidently_profile.yaml`; nếu không tìm thấy file thì dùng cấu hình mẫu, tạo reference/current mock data và chạy thử quy trình đánh giá.
 
 ## 6. Data Validation (Hệ sinh thái Pandera & evidently AI)
 
@@ -308,17 +314,38 @@ Module cung cấp các Decorators tùy chỉnh hỗ trợ kiểm định dữ li
 
 *Mã nguồn:* [`src/nutrition_core/pandera/evidently_engine.py`](https://github.com/KingCarl2000/NutritionAI_V1/blob/main/src/nutrition_core/pandera/evidently_engine.py)
 
-Module cung cấp `EvidentlyDriftEngine` – engine tích hợp khép kín giữa kiểm định lược đồ dữ liệu động (Pandera Schema Validation), phân tích trôi lệch dữ liệu (Evidently AI Data Drift Engine), quản lý phiên bản (DVC Artifact Management) và giám sát MLOps (MLflow Logging) trong hệ thống `NutritionAI_V1`.
+Module cung cấp `EvidentlyDriftEngine` – engine tích hợp khép kín giữa kiểm định lược đồ dữ liệu động (Pandera Schema Validation), phân tích trôi lệch dữ liệu (Evidently AI Drift Detection), quản lý Artifact (DVC/Workspace) và ghi log MLOps lên MLflow.
 
-- **EvidentlyDriftEngine** *(Class)* : Lớp quản lý và điều phối toàn bộ chuỗi kiểm định dữ liệu và trôi lệch mô hình.
-    - `__init__(artifact_dir, project_name, evidently_workspace_url, mlops_tracker)` : Khởi tạo engine với thư mục lưu trữ artifact bắt buộc, tên dự án, đường dẫn workspace của Evidently và instance theo dõi MLOps. Tự động tạo thư mục đích nếu chưa tồn tại.
-    - `validate_schema(df, schema_model)` *(Giai đoạn 1)* : Thực thi kiểm tra cấu trúc/lược đồ DataFrame động thông qua Pandera Schema Model. Ghi log trạng thái thành công (`PASSED`) hoặc thất bại (`FAILED`) ra hệ thống.
-    - `run_drift_detection(current_df, reference_df, column_mapping_cfg, drift_options_cfg)` *(Giai đoạn 2)* : Phân tích trôi lệch dữ liệu bằng Evidently AI dựa trên file cấu hình YAML. 
-        - Trích xuất cấu hình đặc trưng (numerical, categorical, text) qua `DataDefinition`.
-        - Xây dựng preset kiểm định (`DataDriftPreset` kết hợp `DataSummaryPreset`) với các ngưỡng linh hoạt (`drift_share`, `p_value_alpha`, `wasserstein_distance`, v.v.).
-        - Xuất báo cáo tài nguyên dưới dạng file HTML (`drift_report.html`) và chỉ số định lượng JSON (`drift_metrics.json`) vào thư mục `artifact_dir`.
+- **`EvidentlyDriftEngine`** *(Class)* : Lớp quản lý và điều phối toàn bộ chuỗi kiểm định dữ liệu và trôi lệch mô hình.
+    - `__init__(artifact_dir, project_name, evidently_workspace_url, mlops_tracker)` : Khởi tạo engine với thư mục lưu trữ artifact bắt buộc, tên dự án, đường dẫn workspace của Evidently và tracker MLflow tuỳ chọn.
+    - `validate_schema(df, schema_model)` *(Giai đoạn 1)* : Thực thi kiểm tra cấu trúc/lược đồ DataFrame động thông qua Pandera Schema Model. Ghi log trạng thái thành công (`PASSED`) hoặc thất bại (`FAILED`) và trả về tuple `(bool, validated_df)`.
+    - `run_drift_detection(current_df, reference_df, column_mapping_cfg, drift_options_cfg, **kwargs)` *(Giai đoạn 2)* : Phân tích trôi lệch dữ liệu bằng Evidently AI dựa trên cấu hình YAML.
+        - Trích xuất cấu hình đặc trưng linh hoạt qua `DataDefinition`: `numerical_columns`, `categorical_columns`, `text_columns`, `datetime_columns`, `id_column`, `target`, `prediction`, `task`, `pos_label`, `embeddings`.
+        - Tạo dataset đối chiếu `Dataset.from_pandas(current_df, data_definition=...)` và `Dataset.from_pandas(reference_df, data_definition=...)`.
+        - Xây dựng preset kiểm định `DataDriftPreset` với các tham số linh hoạt: `drift_share`, `stattest`, `p_value_alpha`, `per_feature_stattest`, `numerical.method`, `categorical.method`.
+        - Cấu hình bộ metric cho Drift/Quality:
+          * `DriftedColumnsCount`
+          * `ValueDrift`
+          * `EmbeddingsDrift`
+          * `DatasetMissingValueCount`
+          * `DatasetCorrelations`
+          * `MissingValueCount`
+          * `OutRangeValueCount`
+          * `OutListValueCount`
+        - Hỗ trợ đánh giá chuyên biệt theo loại bài toán:
+          * `classification` -> `ClassificationPreset`, `DummyAccuracy`, `DummyPrecision`, `DummyRecall`, `DummyRocAuc`
+          * `regression` -> `RegressionPreset`, `DummyMAE`, `DummyMAPE`, `DummyRMSE`
+          * `recsys` -> `RecsysPreset`, `Personalization`, `ScoreDistribution`, `Novelty`, `Diversity`, `Serendipity`, `ItemBias`, `UserBias`, `RecCasesTable`
+          * `text/LLM` -> `TextEvals`, `ContextQualityLLMEval`, `FaithfulnessLLMEval`, `CorrectnessLLMEval`, `CompletenessLLMEval`, `PIILLMEval`, `ToxicityLLMEval`, `DeclineLLMEval`, `BiasLLMEval`, `NegativityLLMEval`
+        - Xuất báo cáo tài nguyên dưới dạng file HTML (`drift_report.html`) và JSON/Dict snapshot (`drift_report.json`, `drift_snapshot.json`, `drift_metrics.csv`) vào thư mục `artifact_dir`.
         - Hỗ trợ đồng bộ tự động Snapshot lên Evidently Remote Workspace UI nếu có cấu hình URL.
-    - `log_metrics_to_mlflow(validation_json)` *(Giai đoạn 3)* : Đẩy các chỉ số trôi lệch quan trọng (`drift_share`, `number_of_drifted_columns`, `dataset_drift_detected`) cùng bộ tệp báo cáo Artifacts lên hệ thống MLflow thông qua `MLOpsTracker`.
+    - `log_metrics_to_mlflow(report_json, test_suite_json=None)` *(Giai đoạn 3)* : Đẩy các chỉ số trôi lệch quan trọng lên MLflow: `dataset_drift_share`, `dataset_drift_flag`, `number_of_drifted_columns`, `dataset_missing_share`, `classification_accuracy`, `classification_f1`, `classification_roc_auc`, và các metric từ Test Suite (`test_suite_total_tests`, `test_suite_all_passed`, ...).
+    - `Dashboard Workspace Sync` : Hàm `_configure_workspace_dashboard` tự động thêm panel mặc định vào project Evidently:
+      * `Evaluation Row Count`
+      * `Share of Drifted Columns`
+      * `Feature Drift Over Runs`
+      để hệ thống dashboard không trùng panel khi chạy lại nhiều lần.
+    - `Legacy CI/CD Test Suite` : Hỗ trợ khởi tạo `TestSuite` và chạy bộ test theo preset: `DataDriftTestPreset`, `DataQualityTestPreset`, `DataStabilityTestPreset`, `BinaryClassificationTestPreset`, `MulticlassClassificationTestPreset`, `RegressionTestPreset`, `RecsysTestPreset`, `NoTargetPerformanceTestPreset`.
 
 ## 7. Database & CRUD (`src/nutrition_core/database`)
 

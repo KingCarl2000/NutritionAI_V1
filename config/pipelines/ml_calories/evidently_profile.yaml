@@ -8,7 +8,7 @@
 # 1. Tham số khởi tạo EvidentlyDriftEngine (__init__)
 engine_config:
   project_name: "Calories_Prediction_Drift_Monitoring"
-  reference_data: "Artifacts/data/ml_calories/raw/train.csv"
+  reference_data: "Artifacts/data/ml_calories/trainning/train.csv"
   report_dir: "Artifacts/reports/ml_calories/evidently"
   evidently_workspace_url: null
 
