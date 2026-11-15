@@ -2,7 +2,7 @@ import os
 import json
 import datetime
 import pandas as pd
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 from src.nutrition_core.pandera.evidently_engine import EvidentlyDriftEngine
 from src.nutrition_core.logging.logger import logger
@@ -15,7 +15,7 @@ class CaloriesDriftEvaluator:
     Sử dụng EvidentlyDriftEngine làm lõi xử lý trung tâm.
     """
     
-    def __init__(self, config: Dict[str, Any], mlops_tracker: MLOpsTracker = None):
+    def __init__(self, config: Dict[str, Any], mlops_tracker: Optional[MLOpsTracker] = None):
         self.config = config
         self.tracker = mlops_tracker
         self.logger = logger
@@ -145,7 +145,7 @@ class CaloriesDriftEvaluator:
         dumps_method = getattr(snapshot, "dumps", None)
         if callable(dumps_method):
             with open(path, "w", encoding="utf-8") as file:
-                file.write(dumps_method())
+                file.write(str(dumps_method()))
             return
 
         dump_dict_method = getattr(snapshot, "dump_dict", None)
@@ -198,7 +198,7 @@ class CaloriesDriftEvaluator:
                 if not callable(get_html_str):
                     raise TypeError("Snapshot không hỗ trợ save_html() hoặc get_html_str().")
                 with open(html_path, "w", encoding="utf-8") as file:
-                    file.write(get_html_str())
+                    file.write(str(get_html_str()))
 
             # JSON của kết quả metrics từ chính snapshot.
             json_path = os.path.join(artifact_dir, "drift_report.json")
@@ -209,7 +209,7 @@ class CaloriesDriftEvaluator:
                 json_method = getattr(snapshot, "json", None)
                 if callable(json_method):
                     with open(json_path, "w", encoding="utf-8") as file:
-                        file.write(json_method())
+                        file.write(str(json_method()))
                 else:
                     with open(json_path, "w", encoding="utf-8") as file:
                         json.dump(self._snapshot_to_dict(snapshot), file, ensure_ascii=False, indent=2, default=str)

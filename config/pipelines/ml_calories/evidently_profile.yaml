@@ -8,9 +8,9 @@
 # 1. Tham số khởi tạo EvidentlyDriftEngine (__init__)
 engine_config:
   project_name: "Calories_Prediction_Drift_Monitoring"
-  reference_data: "Artifacts/data/ml_calories/trainning/train.csv"
-  current_data: "Artifacts/data/ml_calories/validated/train.csv"
-  report_dir: "Artifacts/reports/ml_calories/evidently"
+  reference_data: "D:/NutritionAI_V1/Artifacts/data/ml_calories/training/train.csv"
+  current_data: "D:/NutritionAI_V1/Artifacts/data/ml_calories/validated/train.csv"
+  report_dir: "D:/NutritionAI_V1/Artifacts/reports/ml_calories/evidently"
   evidently_workspace_url: null
 
 # 2. Tham số truyền vào hàm run_drift_detection

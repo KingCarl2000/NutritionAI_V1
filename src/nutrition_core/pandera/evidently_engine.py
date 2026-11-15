@@ -239,17 +239,22 @@ class EvidentlyDriftEngine:
         logger.info("--- [GIAI ĐOẠN 2] Thực thi Evidently AI Drift Detection Engine ---")
 
         # 1. Trích xuất Schema linh hoạt từ configuration
-        num_cols = column_mapping_cfg.get("numerical_features", [])
-        cat_cols = column_mapping_cfg.get("categorical_features", [])
-        text_cols = column_mapping_cfg.get("text_features", [])
-        datetime_cols = column_mapping_cfg.get("datetime_features", [])
+        num_cols = list(column_mapping_cfg.get("numerical_features", []) or [])
+        cat_cols = column_mapping_cfg.get("categorical_features", []) or []
+        text_cols = column_mapping_cfg.get("text_features", []) or []
+        datetime_cols = column_mapping_cfg.get("datetime_features", []) or []
         id_col = column_mapping_cfg.get("id_column", None)
-        
+
         target_col = column_mapping_cfg.get("target", None)
         prediction_col = column_mapping_cfg.get("prediction", None)
-        task_type = column_mapping_cfg.get("task", None) 
+        task_type = column_mapping_cfg.get("task", None)
         pos_label = column_mapping_cfg.get("pos_label", None)
         embeddings_cfg = column_mapping_cfg.get("embeddings", None)
+
+        # Pipeline validation chạy trước khi có prediction; vẫn theo dõi drift
+        # của target (ví dụ calories) như một cột số.
+        if target_col and target_col not in num_cols:
+            num_cols.append(target_col)
 
         data_def = DataDefinition(
             numerical_columns=num_cols,
@@ -257,11 +262,6 @@ class EvidentlyDriftEngine:
             text_columns=text_cols,
             datetime_columns=datetime_cols,
             id_column=id_col,
-            target=target_col,
-            prediction=prediction_col,
-            task=task_type,
-            pos_label=pos_label,
-            embeddings=embeddings_cfg
         )
 
         curr_dataset = Dataset.from_pandas(current_df, data_definition=data_def)
@@ -272,14 +272,15 @@ class EvidentlyDriftEngine:
         default_stattest = drift_options_cfg.get("default_method", None) 
         default_threshold = drift_options_cfg.get("p_value_alpha", None)
         
-        drift_preset = DataDriftPreset(
-            drift_share=drift_share_val,
-            stattest=default_stattest,
-            stattest_threshold=default_threshold,
-            num_stattest=drift_options_cfg.get("numerical", {}).get("method", None),
-            cat_stattest=drift_options_cfg.get("categorical", {}).get("method", None),
-            per_column_stattest=drift_options_cfg.get("per_feature_stattest", None)
-        )
+        drift_kwargs = {
+            "drift_share": drift_share_val,
+            "stattest": default_stattest,
+            "num_stattest": drift_options_cfg.get("numerical", {}).get("method", None),
+            "cat_stattest": drift_options_cfg.get("categorical", {}).get("method", None),
+            "per_column_stattest": drift_options_cfg.get("per_feature_stattest", None),
+        }
+
+        drift_preset = DataDriftPreset(**drift_kwargs)
         
         # Các Metric đơn lẻ 
         dataset_drift_metric = DriftedColumnsCount(drift_share=drift_share_val)
@@ -343,9 +344,8 @@ class EvidentlyDriftEngine:
 
         if task_type == "classification" and target_col and prediction_col:
             probas_threshold = classification_cfg.get("probas_threshold", None)
-            k_val = classification_cfg.get("k", None)
             
-            class_metrics.append(ClassificationPreset(probas_threshold=probas_threshold, k=k_val))
+            class_metrics.append(ClassificationPreset(probas_threshold=probas_threshold))
 
             if classification_cfg.get("enable_dummy_metrics", False):
                 class_metrics.extend([
@@ -385,13 +385,28 @@ class EvidentlyDriftEngine:
                     logger.warning("⚠️ Không xác định được cột văn bản (column_name) để chạy LLM Evals.")
                 else:
                     if llm_judge_cfg.get("context_quality"):
-                        text_llm_metrics.append(ContextQualityLLMEval(column_name=eval_col, provider=llm_provider))
+                        text_llm_metrics.append(ContextQualityLLMEval(
+                            column_name=eval_col, 
+                            question=llm_judge_cfg.get("question", "Is the response relevant to the provided context?"), 
+                            provider=llm_provider))
                     if llm_judge_cfg.get("faithfulness"):
-                        text_llm_metrics.append(FaithfulnessLLMEval(column_name=eval_col, provider=llm_provider))
+                        text_llm_metrics.append(FaithfulnessLLMEval(
+                            column_name=eval_col,
+                            context=llm_judge_cfg.get("context_column", llm_judge_cfg.get("context")),
+                            provider=llm_provider,
+                        ))
                     if llm_judge_cfg.get("correctness"):
-                        text_llm_metrics.append(CorrectnessLLMEval(column_name=eval_col, provider=llm_provider))
+                        text_llm_metrics.append(CorrectnessLLMEval(
+                            column_name=eval_col,
+                            target_output=llm_judge_cfg.get("target_output", target_col),
+                            provider=llm_provider,
+                        ))
                     if llm_judge_cfg.get("completeness"):
-                        text_llm_metrics.append(CompletenessLLMEval(column_name=eval_col, provider=llm_provider))
+                        text_llm_metrics.append(CompletenessLLMEval(
+                            column_name=eval_col,
+                            context=llm_judge_cfg.get("context_column", llm_judge_cfg.get("context")),
+                            provider=llm_provider,
+                        ))
                     if llm_judge_cfg.get("pii"):
                         text_llm_metrics.append(PIILLMEval(column_name=eval_col, provider=llm_provider))
                     if llm_judge_cfg.get("toxicity"):

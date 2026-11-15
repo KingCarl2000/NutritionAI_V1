@@ -219,8 +219,7 @@ __marimo__/
 
 Data/
 data/
-# Artifacts/data/
-
-# Cho phép Git theo dõi các file .dvc trong thư mục Artifacts (hỗ trợ cả Windows & Linux)
-!Artifacts/**/*.dvc
-!Artifacts\**\*.dvc
+# Ngoại trừ dữ liệu trong Artifacts của DVC pipeline
+!Artifacts/data/
+!Artifacts/data/**/*.dvc
+!Artifacts\data\**\*.dvc
