@@ -197,7 +197,7 @@ def run_validation_pipeline(
         logger.info("Validation thành công tuyệt đối, không có dòng vi phạm.")
         valid_df = validated_df
 
-    output_file = os.path.join(output_dir, f"valid_{mode}.csv")
+    output_file = os.path.join(output_dir, f"{mode}.csv")
     valid_df.to_csv(output_file, index=False)
     logger.info(f"Đã lưu tập dữ liệu đạt chuẩn tại: {output_file}")
     return valid_df
