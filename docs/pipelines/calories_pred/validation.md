@@ -78,3 +78,76 @@ Tóm tắt các YAML cấu hình cho bước kiểm định dữ liệu và theo
     data_quality_and_model: <object>
   ```
 - **Lưu ý:** Ngưỡng tỷ lệ lỗi dữ liệu được dùng chung là 1% (info) và 5% (warning); `data_val.yaml` khai báo thêm `validation_params.error_threshold: 0.05` để cấu hình riêng cho pipeline.
+
+## Module Python liên quan
+
+### `logger.py` (`src/nutrition_core/logging/logger.py`)
+- **Vai trò:** Khởi tạo logger dùng chung, ghi log theo mức độ và cung cấp decorator đo hiệu năng, xử lý lỗi DVC và xử lý lỗi kiểm định Pandera.
+- **Import chuẩn:** `from src.nutrition_core.logging.logger import logger, PROJECT_ROOT, OPER_LOG_FILE_PATH, WARM_LOG_FILE_PATH, ERROR_LOG_FILE_PATH, monitor_performance, dvc_error_handler, validation_error_handler`
+- **Public Interface (Stub):**
+  ```python
+  import logging
+  from collections.abc import Callable
+  from typing import Any
+
+  PROJECT_ROOT: Path
+  OPER_LOG_FILE_PATH: str
+  WARM_LOG_FILE_PATH: str
+  ERROR_LOG_FILE_PATH: str
+  logger: logging.Logger
+
+  def monitor_performance(time_limit: float = 5.0) -> Callable[..., Any]:
+      """Decorator ghi thời gian chạy; cảnh báo nếu vượt ngưỡng."""
+      ...
+
+  def dvc_error_handler(
+      max_retries: int = 3,
+      retry_delay: int = 2,
+      fallback_func: Callable[..., Any] | None = None,
+  ) -> Callable[..., Any]:
+      """Decorator ánh xạ lỗi DVC, thử lại lỗi remote và có thể chạy fallback."""
+      ...
+
+  def validation_error_handler() -> Callable[..., Any]:
+      """Decorator ghi log lỗi Pandera/validation rồi ném lại ngoại lệ."""
+      ...
+  ```
+- **Lưu ý:** Khi import module, nó tạo thư mục log theo ngày dưới `logs/oper_logs`, `logs/warm_logs`, `logs/error_logs` và gắn các file/console handlers cho logger. Decorator DVC tham chiếu các ngoại lệ trong `src.nutrition_core.exception.exception`; decorator validation bắt các lỗi Pandera và `DataValidationError`, sau đó vẫn raise lỗi để luồng gọi xử lý.
+
+### `mlflow_tracker.py` (`src/nutrition_core/logging/mlflow_tracker.py`)
+- **Vai trò:** Bao bọc các thao tác MLflow cho run, metrics, lineage, model, artifacts, system logs và báo cáo lỗi validation.
+- **Import chuẩn:** `from src.nutrition_core.logging.mlflow_tracker import MLOpsTracker`
+- **Public Interface (Stub):**
+  ```python
+  from typing import Any
+  import pandas as pd
+
+  class MLOpsTracker:
+      def __init__(self, experiment_name: str, tracking_uri: str = "sqlite:///mlflow.db") -> None: ...
+
+      def start_run(self, run_name: str | None = None) -> Any:
+          """Bắt đầu MLflow run và trả về đối tượng run/context manager."""
+          ...
+
+      def upload_system_logs(self) -> None: ...
+
+      def log_params_and_metrics(
+          self,
+          params: dict[str, Any] | None = None,
+          metrics: dict[str, float] | None = None,
+          step: int | None = None,
+      ) -> None: ...
+
+      def log_error_and_tag(self, error_msg: str, tags: dict[str, str] | None = None) -> None: ...
+
+      def log_dataset_lineage(self, df: pd.DataFrame, dataset_name: str, source_uri: str) -> None: ...
+
+      def log_model(self, model: Any, artifact_path: str = "model", framework: str = "sklearn") -> None: ...
+
+      def log_validation_errors(self, schema_name: str, errors: list[dict[str, Any]]) -> None: ...
+
+      def end_run(self, status: str = "FINISHED") -> None: ...
+
+      def log_artifact_file(self, local_path: str, artifact_path: str | None = None) -> None: ...
+  ```
+- **Lưu ý:** Gọi các phương thức ghi MLflow trong ngữ cảnh run đang hoạt động. Khởi tạo tracker thiết lập tracking URI/experiment và cố gắng bật system metrics; `end_run()` tải các file log lên MLflow trước khi kết thúc run. `log_validation_errors()` ghi JSON cục bộ dưới `Artifacts/reports/ml_calories/validation` rồi upload; đóng gói model đọc dependencies từ thư mục `requirements/`. `enable_llm_tracing` hiện nằm trong khối chuỗi nhiều dòng/comment nên không phải API khả dụng.
