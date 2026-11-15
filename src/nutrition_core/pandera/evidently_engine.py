@@ -268,23 +268,50 @@ class EvidentlyDriftEngine:
         ref_dataset = Dataset.from_pandas(reference_df, data_definition=data_def)
 
         # 2. Cấu hình Mô-đun Dịch chuyển Dữ liệu & Embeddings
-        drift_share_val = drift_options_cfg.get("dataset_drift_share", None)
-        default_stattest = drift_options_cfg.get("default_method", None) 
-        default_threshold = drift_options_cfg.get("p_value_alpha", None)
-        
+        numerical_cfg = drift_options_cfg.get("numerical") or {}
+        categorical_cfg = drift_options_cfg.get("categorical") or {}
+
         drift_kwargs = {
-            "drift_share": drift_share_val,
-            "stattest": default_stattest,
-            "num_stattest": drift_options_cfg.get("numerical", {}).get("method", None),
-            "cat_stattest": drift_options_cfg.get("categorical", {}).get("method", None),
-            "per_column_stattest": drift_options_cfg.get("per_feature_stattest", None),
+            "drift_share": drift_options_cfg.get("dataset_drift_share"),
+            "method": drift_options_cfg.get(
+                "method",
+                drift_options_cfg.get(
+                    "stattest", drift_options_cfg.get("default_method")
+                ),
+            ),
+            "threshold": drift_options_cfg.get(
+                "threshold",
+                drift_options_cfg.get(
+                    "stattest_threshold", drift_options_cfg.get("p_value_alpha")
+                ),
+            ),
+            "num_method": numerical_cfg.get(
+                "method", drift_options_cfg.get("num_stattest")
+            ),
+            "cat_method": categorical_cfg.get(
+                "method", drift_options_cfg.get("cat_stattest")
+            ),
+            "per_column_method": drift_options_cfg.get(
+                "per_column_method",
+                drift_options_cfg.get("per_feature_stattest"),
+            ),
+            "num_threshold": numerical_cfg.get(
+                "threshold", drift_options_cfg.get("num_stattest_threshold")
+            ),
+            "cat_threshold": categorical_cfg.get(
+                "threshold", drift_options_cfg.get("cat_stattest_threshold")
+            ),
+            "per_column_threshold": drift_options_cfg.get(
+                "per_column_threshold",
+                drift_options_cfg.get("per_column_stattest_threshold"),
+            ),
+        }
+        drift_kwargs = {
+            key: value for key, value in drift_kwargs.items() if value is not None
         }
 
         drift_preset = DataDriftPreset(**drift_kwargs)
-        
-        # Các Metric đơn lẻ 
-        dataset_drift_metric = DriftedColumnsCount(drift_share=drift_share_val)
-        
+
         column_drift_metrics = []
         target_columns = drift_options_cfg.get("columns_to_check_drift", [])
         for col in target_columns:
@@ -292,19 +319,17 @@ class EvidentlyDriftEngine:
 
         embeddings_metrics = []
         if embeddings_cfg:
-            for emb_name in embeddings_cfg.keys():
+            for emb_name in embeddings_cfg:
                 embeddings_metrics.append(
                     EmbeddingsDrift(
                         embeddings_name=emb_name,
-                        drift_method=drift_options_cfg.get("embeddings_drift_method", None)
+                        drift_method=drift_options_cfg.get(
+                            "embeddings_drift_method"
+                        ),
                     )
                 )
 
-        active_metrics = [
-            DataSummaryPreset(),
-            drift_preset,
-        ] + embeddings_metrics + column_drift_metrics
-
+                
         # 3. Cấu hình Mô-đun Chất lượng & Tính toàn vẹn Dữ liệu
         data_quality_cfg = kwargs.get("data_quality_options", {})
         
