@@ -19,14 +19,15 @@ dvc stage add --force -n calories_ingest \
   -M Artifacts/reports/ml_calories/ingestion/ingestion_report.json \
   python src/pipelines/ml_pipelines/calories_pred/data_ingest.py
 
-# 2. Stage: Data validation & data drift detection (Kiểm tra dữ liệu)
+# 2. Stage: Data Validation & Data Drift Detection
+# - raw/train.csv: dữ liệu mới cần validate
+# - training/train.csv: reference data dùng để so sánh drift
+# - validated/: thư mục chứa train.csv sau validate (dùng nội bộ làm current_data) và drift_report.html
 dvc stage add --force -n calories_validate \
   -d src/pipelines/ml_pipelines/calories_pred/data_val.py \
-  ## current data
-  -d Artifacts/data/ml_calories/raw/train.csv \
-  ## reference data
-  -d Artifacts/data/ml_calories/trainning/train.csv \
   -d src/pipelines/ml_pipelines/calories_pred/eval_drift.py \
+  -d Artifacts/data/ml_calories/raw/train.csv \
+  -d Artifacts/data/ml_calories/training/train.csv \
   -d src/nutrition_core/pandera/api/base.py \
   -d src/nutrition_core/pandera/api/check.py \
   -d src/nutrition_core/pandera/backends/pandas_executor.py \
@@ -37,11 +38,9 @@ dvc stage add --force -n calories_validate \
   -d src/nutrition_core/logging/logger.py \
   -d src/nutrition_core/logging/mlflow_tracker.py \
   -d config/pipelines/ml_calories/calories_schema.py \
-  -p config/pipelines/ml_calories/data_val.yaml \
-  -p config/pipelines/ml_calories/evidently_profile.yaml \
-  -p config/pipelines/global.yaml \
+  -p config/pipelines/ml_calories/data_val.yaml: \
+  -p config/pipelines/ml_calories/evidently_profile.yaml: \
+  -p config/pipelines/global.yaml: \
   -o Artifacts/data/ml_calories/validated \
   -M Artifacts/reports/ml_calories/validation/validation_report.json \
   python src/pipelines/ml_pipelines/calories_pred/data_val.py
-
-# dvc stage add --force -n calories_preprocess ...

@@ -9,6 +9,7 @@
 engine_config:
   project_name: "Calories_Prediction_Drift_Monitoring"
   reference_data: "Artifacts/data/ml_calories/trainning/train.csv"
+  current_data: "Artifacts/data/ml_calories/validated/train.csv"
   report_dir: "Artifacts/reports/ml_calories/evidently"
   evidently_workspace_url: null
 
@@ -29,12 +30,6 @@ column_mapping:
   categorical_features:
     - "gender"
 
-
-# Thêm cấu hình nguồn dữ liệu đánh giá (Current Data)
-current_data:
-  source: "postgresql"
-  db_schema: "raw"
-  table_name: "calories"
 
 
 # 3. Cấu hình Data Drift Thresholds & Statistical Tests
