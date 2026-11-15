@@ -200,8 +200,11 @@ def run_validation_pipeline(
         
     # Track metadata lên MLflow
     if tracker:
-        tracker.log_metrics({"validation_error_rate": error_rate, "validation_error_count": error_count})
-        tracker.log_artifact(report_path)
+        tracker.log_params_and_metrics(metrics={
+            "validation_error_rate": error_rate,
+            "validation_error_count": float(error_count),
+        })
+        tracker.log_artifact_file(report_path)
 
     # 3. Phân luồng dựa trên ngưỡng lỗi (Threshold Routing)
     if error_rate > error_threshold:
@@ -212,7 +215,7 @@ def run_validation_pipeline(
         
         # Track dataset hỏng nếu cần
         if tracker:
-            tracker.log_artifact(quarantine_file)
+            tracker.log_artifact_file(quarantine_file)
             
         raise DataValidationError(f"Tỷ lệ vi phạm dữ liệu quá cao ({error_rate:.2%}). Dừng pipeline.")
     
