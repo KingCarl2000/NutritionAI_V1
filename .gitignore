@@ -221,5 +221,6 @@ Data/
 data/
 # Artifacts/data/
 
+# Cho phép Git theo dõi các file .dvc trong thư mục Artifacts (hỗ trợ cả Windows & Linux)
 !Artifacts/**/*.dvc
-
+!Artifacts\**\*.dvc
