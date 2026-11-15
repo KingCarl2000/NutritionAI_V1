@@ -28,6 +28,7 @@ dvc stage add --force -n calories_validate \
   -d src/pipelines/ml_pipelines/calories_pred/eval_drift.py \
   -d Artifacts/data/ml_calories/raw/train.csv \
   -d Artifacts/data/ml_calories/training/train.csv \
+  -d Artifacts/data/ml_calories/validated/train.csv \
   -d src/nutrition_core/pandera/api/base.py \
   -d src/nutrition_core/pandera/api/check.py \
   -d src/nutrition_core/pandera/backends/pandas_executor.py \

@@ -15,3 +15,29 @@ stages:
     metrics:
     - Artifacts/reports/ml_calories/ingestion/ingestion_report.json:
         cache: false
+  calories_validate:
+    cmd: python src/pipelines/ml_pipelines/calories_pred/data_val.py
+    deps:
+    - Artifacts/data/ml_calories/raw/train.csv
+    - Artifacts/data/ml_calories/training/train.csv
+    - config/pipelines/ml_calories/calories_schema.py
+    - src/data_io/dvc_handler.py
+    - src/nutrition_core/logging/logger.py
+    - src/nutrition_core/logging/mlflow_tracker.py
+    - src/nutrition_core/pandera/api/base.py
+    - src/nutrition_core/pandera/api/check.py
+    - src/nutrition_core/pandera/backends/pandas_executor.py
+    - src/nutrition_core/pandera/config.py
+    - src/nutrition_core/pandera/decorators.py
+    - src/nutrition_core/pandera/evidently_engine.py
+    - src/pipelines/ml_pipelines/calories_pred/data_val.py
+    - src/pipelines/ml_pipelines/calories_pred/eval_drift.py
+    params:
+    - config/pipelines/global.yaml:
+    - config/pipelines/ml_calories/data_val.yaml:
+    - config/pipelines/ml_calories/evidently_profile.yaml:
+    outs:
+    - Artifacts/data/ml_calories/validated
+    metrics:
+    - Artifacts/reports/ml_calories/validation/validation_report.json:
+        cache: false
