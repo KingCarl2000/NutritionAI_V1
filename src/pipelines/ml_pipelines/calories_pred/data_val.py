@@ -9,6 +9,7 @@ import yaml
 
 from src.nutrition_core.logging.mlflow_tracker import MLOpsTracker
 from src.nutrition_core.pandera.backends.pandas_executor import NutritionPandasBackend
+from src.nutrition_core.pandera.config import setup_pandera_validation
 from src.nutrition_core.exception.val_exception import DataValidationError
 from src.nutrition_core.logging.logger import logger
 from src.pipelines.ml_pipelines.calories_pred.eval_drift import CaloriesDriftEvaluator
@@ -240,31 +241,33 @@ if __name__ == "__main__":
     tracker = MLOpsTracker(experiment_name="calories_pred")
     try:
         with tracker.start_run(run_name="calories_validate_and_drift"):
-            try:
-                validated_df = run_validation_pipeline(
-                    df=current_df,
-                    schema_class=train_schema,
-                    mode="train",
-                    tracker=tracker,
-                    error_threshold=float(error_threshold),
-                    quarantine_dir=str(config_manager.quarantine_dir),
-                    output_dir=str(config_manager.output_dir),
-                )
+            # Apply the configured Pandera ValidationDepth while the validation
+            # and downstream drift evaluation execute. The context resets on exit.
+            with setup_pandera_validation(mlflow_tracker=tracker):
+                try:
+                    validated_df = run_validation_pipeline(
+                        df=current_df,
+                        schema_class=train_schema,
+                        mode="train",
+                        tracker=tracker,
+                        error_threshold=float(error_threshold),
+                        quarantine_dir=str(config_manager.quarantine_dir),
+                        output_dir=str(config_manager.output_dir),
+                    )
 
-                # Run Evidently drift evaluation on successfully validated current data.
-                drift_evaluator = CaloriesDriftEvaluator(
-                    config=evidently_config,
-                    mlops_tracker=tracker,
-                )
-                drift_evaluator.execute_evaluation(
-                    current_df=validated_df,
-                    reference_df=reference_df,
-                )
-            finally:
-                # DVC declares this exact file as its metrics output.
-                generated_report = config_manager.output_dir / "validation_report_train.json"
-                if generated_report.is_file():
-                    shutil.copy2(generated_report, dvc_report_path)
+                    drift_evaluator = CaloriesDriftEvaluator(
+                        config=evidently_config,
+                        mlops_tracker=tracker,
+                    )
+                    drift_evaluator.execute_evaluation(
+                        current_df=validated_df,
+                        reference_df=reference_df,
+                    )
+                finally:
+                    # DVC declares this exact file as its metrics output.
+                    generated_report = config_manager.output_dir / "validation_report_train.json"
+                    if generated_report.is_file():
+                        shutil.copy2(generated_report, dvc_report_path)
     except Exception:
         logger.exception("Calories validation and drift pipeline failed.")
         raise
