@@ -7,7 +7,6 @@ from typing import Type, Any, Dict, List, Tuple
 
 import json
 import pandas as pd
-import pandera.errors as pa_errors
 
 # Giả định import các thành phần Core đã có trong dự án
 from src.nutrition_core.logging.mlflow_tracker import MLOpsTracker
@@ -114,48 +113,23 @@ def validate_with_pandas_backend(
     lazy: bool = True
 ) -> Tuple[pd.DataFrame, List[dict]]:
     """
-    Hàm xử lý backend kiểm định thực tế cho Pandas.
-    Sử dụng cơ chế Lazy Validation để gom toàn bộ lỗi thay vì dừng lại ở lỗi đầu tiên.
-    
-    Args:
-        df (pd.DataFrame): Dữ liệu cần kiểm định.
-        schema_class (Type[Any]): Lớp Pandera Schema (thường kế thừa BaseSchema).
-        lazy (bool): Bật chế độ tổng hợp lỗi (Lazy Validation).
-        
-    Returns:
-        Tuple[pd.DataFrame, List[dict]]: DataFrame sau khi xử lý (hoặc gốc) và danh sách chi tiết lỗi.
+    Validate DataFrame bằng NutritionPandasBackend, bao gồm tiền xử lý,
+    ép kiểu, thực thi schema và thu thập các lỗi validation.
     """
-    errors = []
-    validated_df = df.copy()
-    
-    # Chuyển đổi DataFrameModel sang DataFrameSchema để tương thích với Backend (nếu cần)
     core_schema = schema_class.to_schema()
-    
-    # Khởi tạo backend thực thi
-    backend = NutritionPandasBackend(schema=core_schema, lazy=lazy, drop_invalid_rows=False)
-    
+    backend = NutritionPandasBackend(
+        schema=core_schema,
+        lazy=lazy,
+        drop_invalid_rows=False,
+    )
+
     try:
-        # Tùy thuộc vào thiết kế nội bộ của NutritionPandasBackend, hàm thực thi có thể là validate hoặc _preprocess_and_coerce
-        # Nếu Backend ném ra SchemaErrors (do lazy=True), ta sẽ bắt và trích xuất
-        validated_df = core_schema.validate(df, lazy=lazy)
-    except pa_errors.SchemaErrors as err:
-        # Gom các lỗi định dạng thành danh sách dict dễ đọc cho validation_report
-        for error in err.failure_cases.itertuples(index=False):
-            errors.append({
-                "column": getattr(error, "column", "N/A"),
-                "check": getattr(error, "check", "N/A"),
-                "failure_case": str(getattr(error, "failure_case", "N/A")),
-                "index": getattr(error, "index", "N/A")
-            })
-        
-        # Đồng bộ hóa với failure_cases của backend (tùy chọn)
-        backend.failure_cases = errors
-        
+        # Chạy toàn bộ pipeline của backend thay vì gọi trực tiếp core_schema.validate.
+        validated_df, errors = backend.run_pipeline(df)
+        return validated_df, errors
     except Exception as e:
         logger.error(f"Lỗi không xác định trong quá trình validate backend: {str(e)}")
-        raise DataValidationError(f"Backend Error: {str(e)}")
-        
-    return validated_df, errors
+        raise DataValidationError(f"Backend Error: {str(e)}") from e
 
 
 def run_validation_pipeline(
