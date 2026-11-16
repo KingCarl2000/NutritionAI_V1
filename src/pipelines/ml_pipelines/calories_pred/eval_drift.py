@@ -1,6 +1,5 @@
 import os
 import json
-import datetime
 import pandas as pd
 from typing import Dict, Any, Optional
 
@@ -38,14 +37,8 @@ class CaloriesDriftEvaluator:
         """Chuẩn hóa các tên khóa YAML thành mapping mà EvidentlyDriftEngine dùng."""
         mapping_cfg = dict(self.config.get("column_mapping", {}))
 
-        # Engine/DataDefinition dùng datetime_columns; YAML hiện tại khai báo datetime.
-        datetime_cols = mapping_cfg.get(
-            "datetime_features", mapping_cfg.get("datetime_columns", mapping_cfg.get("datetime"))
-        )
-        if datetime_cols is not None:
-            mapping_cfg["datetime_features"] = (
-                [datetime_cols] if isinstance(datetime_cols, str) else list(datetime_cols)
-            )
+        # Không đưa cột thời gian vào DataDefinition cho đánh giá drift.
+        mapping_cfg["datetime_features"] = []
 
         # DataDefinition trong engine nhận một id_column. Hỗ trợ alias user/item ID
         # khi config không khai báo id_column trực tiếp.
@@ -284,7 +277,6 @@ if __name__ == "__main__":
         hr_mean = 140 if simulate_drift else 110
         return pd.DataFrame({
             "User_ID": np.arange(n_samples),
-            "created_at": pd.date_range(datetime.datetime.now(), periods=n_samples, freq="h"),
             "age": np.random.randint(18, 60, n_samples),
             "gender": np.random.choice(["male", "female"], n_samples),
             "weight": np.random.normal(weight_mean, 10, n_samples),

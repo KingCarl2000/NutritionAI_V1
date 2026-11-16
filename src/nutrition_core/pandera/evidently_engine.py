@@ -239,10 +239,11 @@ class EvidentlyDriftEngine:
         logger.info("--- [GIAI ĐOẠN 2] Thực thi Evidently AI Drift Detection Engine ---")
 
         # 1. Trích xuất Schema linh hoạt từ configuration
+        available_columns = set(current_df.columns).intersection(reference_df.columns)
         num_cols = list(column_mapping_cfg.get("numerical_features", []) or [])
-        cat_cols = column_mapping_cfg.get("categorical_features", []) or []
-        text_cols = column_mapping_cfg.get("text_features", []) or []
-        datetime_cols = column_mapping_cfg.get("datetime_features", []) or []
+        cat_cols = list(column_mapping_cfg.get("categorical_features", []) or [])
+        text_cols = list(column_mapping_cfg.get("text_features", []) or [])
+        datetime_cols = list(column_mapping_cfg.get("datetime_features", []) or [])
         id_col = column_mapping_cfg.get("id_column", None)
 
         target_col = column_mapping_cfg.get("target", None)
@@ -250,18 +251,67 @@ class EvidentlyDriftEngine:
         task_type = column_mapping_cfg.get("task", None)
         pos_label = column_mapping_cfg.get("pos_label", None)
         embeddings_cfg = column_mapping_cfg.get("embeddings", None)
+        timestamp_col = (
+            column_mapping_cfg.get("timestamp")
+            or column_mapping_cfg.get("timestamp_column")
+            or column_mapping_cfg.get("time_col")
+            or None
+        )
+
+        missing_evaluation_columns = [
+            column
+            for column in (target_col, prediction_col)
+            if column and column not in available_columns
+        ]
+        if missing_evaluation_columns:
+            logger.warning(
+                "Tắt đánh giá mô hình vì cột target/prediction không có trong cả "
+                "current và reference DataFrame: %s",
+                missing_evaluation_columns,
+            )
+            if target_col not in available_columns:
+                target_col = None
+            if prediction_col not in available_columns:
+                prediction_col = None
 
         # Pipeline validation chạy trước khi có prediction; vẫn theo dõi drift
         # của target (ví dụ calories) như một cột số.
         if target_col and target_col not in num_cols:
             num_cols.append(target_col)
+        if task_type == "regression" and prediction_col and prediction_col not in num_cols:
+            num_cols.append(prediction_col)
+
+        configured_columns = (
+            num_cols
+            + cat_cols
+            + text_cols
+            + datetime_cols
+            + ([id_col] if id_col else [])
+        )
+        missing_columns = sorted(
+            set(configured_columns) - available_columns, key=str
+        )
+        if missing_columns:
+            logger.warning(
+                "Bỏ qua các cột không có trong cả current và reference DataFrame: %s",
+                missing_columns,
+            )
+
+        num_cols = [column for column in num_cols if column in available_columns]
+        cat_cols = [column for column in cat_cols if column in available_columns]
+        text_cols = [column for column in text_cols if column in available_columns]
+        datetime_cols = [
+            column for column in datetime_cols if column in available_columns
+        ]
+        if id_col not in available_columns:
+            id_col = None
 
         data_def = DataDefinition(
-            numerical_columns=num_cols,
-            categorical_columns=cat_cols,
-            text_columns=text_cols,
-            datetime_columns=datetime_cols,
-            id_column=id_col,
+            timestamp=timestamp_col if timestamp_col else None,
+            numerical_columns=num_cols if num_cols else None,
+            categorical_columns=cat_cols if cat_cols else None,
+            text_columns=text_cols if text_cols else None,
+            datetime_columns=datetime_cols if datetime_cols else None,
         )
 
         curr_dataset = Dataset.from_pandas(current_df, data_definition=data_def)
@@ -270,6 +320,10 @@ class EvidentlyDriftEngine:
         # 2. Cấu hình Mô-đun Dịch chuyển Dữ liệu & Embeddings
         numerical_cfg = drift_options_cfg.get("numerical") or {}
         categorical_cfg = drift_options_cfg.get("categorical") or {}
+        selected_drift_cols = drift_options_cfg.get("selected_drift_cols")
+        if isinstance(selected_drift_cols, str):
+            selected_drift_cols = [selected_drift_cols]
+        active_metrics = []
 
         drift_kwargs = {
             "drift_share": drift_options_cfg.get("dataset_drift_share"),
@@ -310,7 +364,8 @@ class EvidentlyDriftEngine:
             key: value for key, value in drift_kwargs.items() if value is not None
         }
 
-        drift_preset = DataDriftPreset(**drift_kwargs)
+        drift_cols = selected_drift_cols if selected_drift_cols else None
+        active_metrics.append(DataDriftPreset(columns=drift_cols))   
 
         column_drift_metrics = []
         target_columns = drift_options_cfg.get("columns_to_check_drift", [])
@@ -329,7 +384,7 @@ class EvidentlyDriftEngine:
                     )
                 )
 
-                
+
         # 3. Cấu hình Mô-đun Chất lượng & Tính toàn vẹn Dữ liệu
         data_quality_cfg = kwargs.get("data_quality_options", {})
         
@@ -383,7 +438,10 @@ class EvidentlyDriftEngine:
         regression_cfg = kwargs.get("regression_options", {})
         reg_metrics = []
 
-        if task_type == "regression" and target_col and prediction_col:
+        has_regression_columns = bool(
+            task_type == "regression" and target_col and prediction_col
+        )
+        if has_regression_columns:
             reg_metrics.append(RegressionPreset())
 
             if regression_cfg.get("enable_dummy_metrics", False):
@@ -481,6 +539,17 @@ class EvidentlyDriftEngine:
             active_metrics.extend(recsys_metrics)
 
         # Chạy Report tại một timestamp duy nhất và sử dụng Snapshot này cho Workspace/export.
+        logger.info(
+            "DataFrame trước khi chạy Evidently Report: "
+            "current shape=%s, columns=%s, dtypes=%s; "
+            "reference shape=%s, columns=%s, dtypes=%s",
+            current_df.shape,
+            current_df.columns.tolist(),
+            current_df.dtypes.astype(str).to_dict(),
+            reference_df.shape,
+            reference_df.columns.tolist(),
+            reference_df.dtypes.astype(str).to_dict(),
+        )
         report = Report(metrics=active_metrics)
         run_timestamp = kwargs.get("timestamp") or datetime.now()
         snapshot = report.run(
@@ -512,7 +581,7 @@ class EvidentlyDriftEngine:
                 elif test_suite_cfg.get("multiclass_classification"):
                     test_presets.append(MulticlassClassificationTestPreset())
             
-            elif task_type == "regression" and target_col:
+            elif has_regression_columns:
                 if test_suite_cfg.get("regression"):
                     test_presets.append(RegressionTestPreset())
                     
@@ -525,10 +594,13 @@ class EvidentlyDriftEngine:
 
             if test_presets:
                 test_suite = TestSuite(tests=test_presets)
+                additional_data = kwargs.get("additional_data")
+                if not isinstance(additional_data, dict):
+                    additional_data = {}
                 test_suite.run(
-                    current_data=curr_dataset, 
-                    reference_data=ref_dataset,
-                    additional_data=kwargs.get("additional_data", None)
+                    current_data=current_df,
+                    reference_data=reference_df,
+                    additional_data=additional_data
                 )
                 
                 test_summary = test_suite.as_dict()
@@ -565,7 +637,13 @@ class EvidentlyDriftEngine:
                 workspace.add_run(project.id, snapshot)
 
                 if test_suite:
-                    workspace.add_test_suite(project.id, test_suite)
+                    add_test_run = getattr(workspace, "add_test_run", None)
+                    if callable(add_test_run):
+                        add_test_run(project.id, test_suite)
+                    else:
+                        logger.warning(
+                            "Workspace client does not support storing test-suite runs."
+                        )
 
                 logger.info(
                     f"✓ Đã thêm Snapshot (timestamp={run_timestamp.isoformat()}) vào project "
@@ -626,12 +704,16 @@ class EvidentlyDriftEngine:
             raw_metrics["test_suite_warning_count"] = summary.get("warning_tests", 0)
 
         clean_metrics = {k: v for k, v in raw_metrics.items() if v is not None}
-        
+
         if clean_metrics:
-            try:
-                self.tracker.log_metrics(clean_metrics)
-                logger.info(f"✓ Đã ghi nhận {len(clean_metrics)} chỉ số lên MLflow.")
-            except AttributeError:
+            log_metrics_fn = getattr(self.tracker, "log_metrics", None)
+            if callable(log_metrics_fn):
+                try:
+                    log_metrics_fn(clean_metrics)
+                    logger.info(f"✓ Đã ghi nhận {len(clean_metrics)} chỉ số lên MLflow.")
+                except Exception as e:
+                    logger.error(f"Lỗi khi log metrics lên MLflow: {e}")
+            else:
                 logger.error("Hàm log_metrics không tồn tại trong MLOpsTracker.")
         else:
             logger.info("Không tìm thấy chỉ số cốt lõi nào để log lên MLflow.")

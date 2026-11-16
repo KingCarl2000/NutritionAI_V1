@@ -15,20 +15,19 @@ engine_config:
 
 # 2. Tham số truyền vào hàm run_drift_detection
 column_mapping:
-  target: "calories"
+  target: "Calories"
   id_column: "User_ID"
   prediction: "predicted_calories"
-  datetime: "created_at"
   task: "regression"
   numerical_features:
-    - "age"
-    - "weight"
-    - "height"
-    - "duration"
-    - "heart_rate"
-    - "body_temp"
+    - "Age"
+    - "Weight"
+    - "Height"
+    - "Duration"
+    - "Heart_Rate"
+    - "Body_Temp"
   categorical_features:
-    - "gender"
+    - "Gender"
 
 
 

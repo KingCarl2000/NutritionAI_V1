@@ -2,7 +2,7 @@ import importlib
 import json
 import shutil
 from pathlib import Path
-from typing import Type, Any, Dict, List, Tuple
+from typing import Type, Any, Dict, List, Optional, Tuple
 
 import pandas as pd
 import yaml
@@ -92,7 +92,7 @@ def validate_with_pandas_backend(
     df: pd.DataFrame,
     schema_class: Type[Any],
     lazy: bool = True,
-    tracker: MLOpsTracker = None,
+    tracker: Optional[MLOpsTracker] = None,
 ) -> Tuple[pd.DataFrame, List[dict]]:
     """Use BaseSchema's shared implementation where supported; retain a backend fallback."""
     try:

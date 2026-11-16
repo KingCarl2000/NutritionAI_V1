@@ -39,7 +39,6 @@ Tóm tắt các YAML cấu hình cho bước kiểm định dữ liệu và theo
     target: "calories"
     id_column: "User_ID"
     prediction: "predicted_calories"
-    datetime: "created_at"
     task: "regression"
     numerical_features: [age, weight, height, duration, heart_rate, body_temp]
     categorical_features: [gender]

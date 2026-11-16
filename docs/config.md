@@ -46,7 +46,7 @@ Tài liệu này tổng hợp danh sách các class và cấu hình schema thu�
 - **Thành phần chính**:
     - **Cấu hình Engine (`engine_config`)**: Thiết lập tên project (`Calories_Prediction_Drift_Monitoring`) và thư mục lưu trữ báo cáo HTML/JSON tại `Artifacts/reports/ml_calories/evidently`.
     - **Ánh xạ Đặc trưng (`column_mapping`)**: 
-        - Xác định vai trò của các cột quan trọng: `target` ("calories"), `datetime` ("created_at").
+        - Xác định vai trò của cột mục tiêu: `target` ("calories"). Không ánh xạ cột datetime trong cấu hình drift.
         - Phân nhóm biến cụ thể: `numerical_features` (age, weight, height, duration, heart_rate, body_temp) và `categorical_features` (gender) để áp dụng thuật toán kiểm định phù hợp.
     - **Nguồn Dữ liệu Đánh giá (`current_data`)**: Kết nối trực tiếp đến bảng `calories` trong không gian `raw` của cơ sở dữ liệu `postgresql`.
     - **Ngưỡng và Phép kiểm định Data Drift (`data_drift`)**:
