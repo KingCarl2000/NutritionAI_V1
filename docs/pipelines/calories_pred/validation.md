@@ -36,12 +36,12 @@ Tóm tắt các YAML cấu hình cho bước kiểm định dữ liệu và theo
     report_dir: "Artifacts/reports/ml_calories/evidently"
     evidently_workspace_url: null
   column_mapping:
-    target: "calories"
+    target: "Calories"
     id_column: "User_ID"
     prediction: "predicted_calories"
     task: "regression"
-    numerical_features: [age, weight, height, duration, heart_rate, body_temp]
-    categorical_features: [gender]
+    numerical_features: [Age, Weight, Height, Duration, Heart_Rate, Body_Temp]
+    categorical_features: [Gender]
   current_data:
     source: "postgresql"
     db_schema: "raw"
