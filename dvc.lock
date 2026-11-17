@@ -104,3 +104,200 @@ stages:
       hash: md5
       md5: 672c20e300622790292c9eb8b4a91f85
       size: 449
+  calories_validate:
+    cmd: python src/pipelines/ml_pipelines/calories_pred/data_val.py
+    deps:
+    - path: Artifacts/data/ml_calories/raw/train.csv
+      hash: md5
+      md5: 79b37526e6ec55b88e23b8963b0c524b
+      size: 530070
+    - path: Artifacts/data/ml_calories/training/train.csv
+      hash: md5
+      md5: 79b37526e6ec55b88e23b8963b0c524b
+      size: 530070
+    - path: config/pipelines/ml_calories/calories_schema.py
+      hash: md5
+      md5: d48df6fab2b210fa781989dd8a597db7
+      size: 1679
+    - path: src/data_io/dvc_handler.py
+      hash: md5
+      md5: 9eaecf1c726bfefb94747d9fa64c77c0
+      size: 7323
+    - path: src/nutrition_core/logging/logger.py
+      hash: md5
+      md5: 7bb1f8a296dc794ddfb4443ea3ff49fb
+      size: 9361
+    - path: src/nutrition_core/logging/mlflow_tracker.py
+      hash: md5
+      md5: a2b36c24c259342f027b603f530cd72f
+      size: 9243
+    - path: src/nutrition_core/pandera/api/base.py
+      hash: md5
+      md5: a5294f06fe8f05dc02889c5664e18520
+      size: 3337
+    - path: src/nutrition_core/pandera/api/check.py
+      hash: md5
+      md5: 70f9773f2c122838d95e85455bfaf857
+      size: 5259
+    - path: src/nutrition_core/pandera/backends/pandas_executor.py
+      hash: md5
+      md5: 69adadb5cf7921851662d94d9858c9cf
+      size: 5179
+    - path: src/nutrition_core/pandera/config.py
+      hash: md5
+      md5: 887733db69babcf17158d40a6904215e
+      size: 2236
+    - path: src/nutrition_core/pandera/decorators.py
+      hash: md5
+      md5: 6ea13ba441dc639858cbe9db090adfa7
+      size: 4564
+    - path: src/nutrition_core/pandera/evidently_engine.py
+      hash: md5
+      md5: 879c1e1426128a53e7e682f6ce26f356
+      size: 32809
+    - path: src/pipelines/ml_pipelines/calories_pred/data_val.py
+      hash: md5
+      md5: 131077c2b6afc64da7c328b83e910b2d
+      size: 12119
+    - path: src/pipelines/ml_pipelines/calories_pred/eval_drift.py
+      hash: md5
+      md5: 8f121d12c0e2d45ce940865619bd8f0a
+      size: 14283
+    params:
+      config/pipelines/global.yaml:
+        core_api_references:
+          base_schema: src.nutrition_core.pandera.api.base.BaseDataFrameModel
+          validate_df: 
+            src.nutrition_core.pandera.api.base.BaseDataFrameModel.validate_df
+          numeric_range_check: 
+            src.nutrition_core.pandera.api.check.is_in_numeric_range
+          string_length_check: 
+            src.nutrition_core.pandera.api.check.is_valid_string_length
+          data_validation_error: 
+            src.nutrition_core.exception.val_exception.DataValidationError
+          pandera_error_handler: 
+            src.nutrition_core.exception.val_exception.PanderaErrorHandler
+          handle_validation_error: 
+            src.nutrition_core.exception.val_exception.PanderaErrorHandler.handle_validation_error
+          validation_handler: 
+            src.nutrition_core.logging.logger.validation_error_handler
+          performance_monitor: 
+            src.nutrition_core.logging.logger.monitor_performance
+          dvc_handler: src.nutrition_core.logging.logger.dvc_error_handler
+          mlops_tracker: src.nutrition_core.logging.mlflow_tracker.MLOpsTracker
+        mlflow_config:
+          tracking_uri: sqlite:///mlflow.db
+          autologging:
+            enable_hardware_tracking: true
+            enable_llm_tracing: false
+          artifacts:
+            auto_upload_system_logs: true
+            base_reports_dir: Artifacts/reports
+          requirements_mapping:
+            base_file: base.txt
+            frameworks:
+              sklearn: ml.txt
+              xgboost: ml.txt
+              pytorch: dl.txt
+              tensorflow: dl.txt
+              openai: llm.txt
+              langchain: llm.txt
+        mlops_thresholds:
+          data_failure_rate:
+            info_threshold: 0.01
+            warning_threshold: 0.05
+          data_drift:
+            psi_warning: 0.1
+            psi_critical: 0.25
+            p_value_alpha: 0.05
+            dataset_drift_share: 0.5
+            default_method:
+            numerical:
+              method: wasserstein
+            categorical:
+              method: chisquare
+            embeddings_drift_method: model
+          validation_sla:
+            online_latency_max_ms: 50
+            batch_time_max_percentage: 0.1
+          service_availability:
+            max_consecutive_failures: 3
+            healthcheck_interval_sec: 60
+          api_error_rate:
+            http_5xx_warning_ratio: 0.01
+            http_5xx_critical_ratio: 0.05
+            min_requests_to_evaluate: 10
+          service_latency:
+            online_p50_max_ms: 50
+            online_p95_max_ms: 200
+            batch_time_max_percentage: 0.1
+          resource_saturation:
+            disk_usage_warning_percent: 0.85
+            ram_usage_warning_percent: 0.85
+            prediction_horizon_hours: 4
+          data_quality_and_model:
+            binary_classification_probas: 0.5
+            almost_constant_columns: 0.95
+            confidence_level: 0.95
+      config/pipelines/ml_calories/data_val.yaml:
+        pipeline_paths:
+          pandera_schema_path: config/pipelines/ml_calories/calories_schema.py
+          evidently_ai_profile_path: 
+            config/pipelines/ml_calories/evidently_profile.yaml
+          input_dir: Artifacts/data/ml_calories/raw
+          output_dir: Artifacts/data/ml_calories/validated
+          quarantine_dir: Artifacts/data/ml_calories/quarantine
+          evidently_report_dir: Artifacts/reports/ml_calories/evidently
+        schema_classes:
+          train_schema: 
+            config.pipelines.ml_calories.calories_schema.MlCaloriesTrainingSchema
+          inference_schema: 
+            config.pipelines.ml_calories.calories_schema.MlCaloriesInputSchema
+        validation_params:
+          error_threshold: 0.05
+      config/pipelines/ml_calories/evidently_profile.yaml:
+        column_mapping:
+          target: Calories
+          id_column: User_ID
+          prediction: predicted_calories
+          task: regression
+          numerical_features:
+          - Age
+          - Weight
+          - Height
+          - Duration
+          - Heart_Rate
+          - Body_Temp
+          categorical_features:
+          - Gender
+        data_drift:
+          dataset_drift_share: 0.5
+          num_stattest: wasserstein
+          num_stattest_threshold: 0.1
+          cat_stattest: jensenshannon
+          cat_stattest_threshold: 0.1
+          per_column_options:
+            age:
+              stattest: ks
+              threshold: 0.05
+            gender:
+              stattest: psi
+              threshold: 0.1
+        engine_config:
+          project_name: Calories_Prediction_Drift_Monitoring
+          reference_data: 
+            D:/NutritionAI_V1/Artifacts/data/ml_calories/training/train.csv
+          current_data: 
+            D:/NutritionAI_V1/Artifacts/data/ml_calories/validated/train.csv
+          report_dir: D:/NutritionAI_V1/Artifacts/reports/ml_calories/evidently
+          evidently_workspace_url:
+    outs:
+    - path: Artifacts/data/ml_calories/validated
+      hash: md5
+      md5: 4795d694d53ab764e97f2cc0ee0d561d.dir
+      size: 530266
+      nfiles: 2
+    - path: Artifacts/reports/ml_calories/validation/validation_report.json
+      hash: md5
+      md5: c425f7033a6bf184414d1d8e51efb7a6
+      size: 196
