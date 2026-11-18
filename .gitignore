@@ -223,3 +223,4 @@ data/
 !Artifacts/data/
 !Artifacts/data/**/*.dvc
 !Artifacts\data\**\*.dvc
+mlruns/

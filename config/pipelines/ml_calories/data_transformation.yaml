@@ -1,0 +1,22 @@
+# =============================================================================
+# PIPELINE-SPECIFIC CONFIGURATIONS
+# Cấu hình riêng biệt cho Data Validation của pipeline ml_calories
+# =============================================================================
+
+schema_classes:
+  # Schema Classes (Dynamic Import cho Pipeline ml_calories)
+  train_schema: "config.pipelines.ml_calories.calories_schema.MlCaloriesTrainingSchema"
+  inference_schema: "config.pipelines.ml_calories.calories_schema.MlCaloriesInputSchema"
+
+pipeline_paths:
+  # Đường dẫn module nội bộ
+  pandera_schema_path: "config/pipelines/ml_calories/calories_schema.py"
+  evidently_ai_profile_path: "config/pipelines/ml_calories/evidently_profile.yaml"
+  
+  # Đường dẫn xử lý dữ liệu để đồng bộ với DVC
+  input_dir: "Artifacts/data/ml_calories/validated"
+  output_dir: "Artifacts/data/ml_calories/transformed"
+
+validation_params:
+  # Các tham số ghi đè (override) ngưỡng chung cho pipeline này (nếu cần)
+  error_threshold: 0.05
