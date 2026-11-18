@@ -107,10 +107,18 @@ stages:
   calories_validate:
     cmd: python src/pipelines/ml_pipelines/calories_pred/data_val.py
     deps:
+    - path: Artifacts/data/ml_calories/raw/test.csv
+      hash: md5
+      md5: efd66d0fab5da77aa03093f1a28e8bcb
+      size: 113696
     - path: Artifacts/data/ml_calories/raw/train.csv
       hash: md5
       md5: 79b37526e6ec55b88e23b8963b0c524b
       size: 530070
+    - path: Artifacts/data/ml_calories/raw/val.csv
+      hash: md5
+      md5: 43e7ea323e9667172b8f0d4906c21ee3
+      size: 113667
     - path: Artifacts/data/ml_calories/training/train.csv
       hash: md5
       md5: 79b37526e6ec55b88e23b8963b0c524b
@@ -153,16 +161,16 @@ stages:
       size: 4564
     - path: src/nutrition_core/pandera/evidently_engine.py
       hash: md5
-      md5: 879c1e1426128a53e7e682f6ce26f356
-      size: 32809
+      md5: ea39328f551eff544242fef42651face
+      size: 32822
     - path: src/pipelines/ml_pipelines/calories_pred/data_val.py
       hash: md5
-      md5: 131077c2b6afc64da7c328b83e910b2d
-      size: 12119
+      md5: d9c8bc74331fa5242a73e5b5232f0400
+      size: 17994
     - path: src/pipelines/ml_pipelines/calories_pred/eval_drift.py
       hash: md5
-      md5: 8f121d12c0e2d45ce940865619bd8f0a
-      size: 14283
+      md5: 61ff2795109e48edcea304deb991ba0b
+      size: 14802
     params:
       config/pipelines/global.yaml:
         core_api_references:
@@ -294,10 +302,10 @@ stages:
     outs:
     - path: Artifacts/data/ml_calories/validated
       hash: md5
-      md5: 4795d694d53ab764e97f2cc0ee0d561d.dir
-      size: 530266
-      nfiles: 2
+      md5: 1120b8ec7f898a27bbdff6927e5d9fc3.dir
+      size: 757433
+      nfiles: 3
     - path: Artifacts/reports/ml_calories/validation/validation_report.json
       hash: md5
-      md5: c425f7033a6bf184414d1d8e51efb7a6
-      size: 196
+      md5: 02c74350c73b8d8c955365c29481ee40
+      size: 449
