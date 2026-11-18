@@ -1,6 +1,6 @@
 # =============================================================================
 # PIPELINE-SPECIFIC CONFIGURATIONS
-# Cấu hình riêng biệt cho Data Validation của pipeline ml_calories
+# Cấu hình riêng biệt cho Data Transformation & Pipelines ml_calories
 # =============================================================================
 
 schema_classes:
@@ -13,9 +13,21 @@ pipeline_paths:
   pandera_schema_path: "config/pipelines/ml_calories/calories_schema.py"
   evidently_ai_profile_path: "config/pipelines/ml_calories/evidently_profile.yaml"
   
-  # Đường dẫn xử lý dữ liệu để đồng bộ với DVC
+  # Đường dẫn xử lý dữ liệu để đồng bộ với DVC (Data Transformation & Validation Dirs)
   input_dir: "Artifacts/data/ml_calories/validated"
   output_dir: "Artifacts/data/ml_calories/transformed"
+  
+  # Bổ sung các đường dẫn chi tiết cho giai đoạn Validation & Transformation tương ứng
+  data_validation_dir: "Artifacts/data/ml_calories/validated"
+  valid_report_dir: "Artifacts/reports/ml_calories/validation"
+  valid_data_dir: "Artifacts/data/ml_calories/validated"
+  invalid_data_dir: "Artifacts/data/ml_calories/validated/quarantine"
+  valid_train_file_path: "Artifacts/data/ml_calories/validated/train.csv"
+  valid_test_file_path: "Artifacts/data/ml_calories/validated/test.csv"
+  valid_val_file_path: "Artifacts/data/ml_calories/validated/val.csv"
+  drift_report_file_path: "Artifacts/reports/ml_calories/evidently/drift_report.json"
+  drift_snapshot_file_path: "Artifacts/reports/ml_calories/evidently/drift_snapshot.json"
+  drift_metrics_file_path: "Artifacts/reports/ml_calories/evidently/drift_metrics.csv"
 
 validation_params:
   # Các tham số ghi đè (override) ngưỡng chung cho pipeline này (nếu cần)
