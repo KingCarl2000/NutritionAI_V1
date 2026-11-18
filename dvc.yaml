@@ -19,6 +19,8 @@ stages:
     cmd: python src/pipelines/ml_pipelines/calories_pred/data_val.py
     deps:
     - Artifacts/data/ml_calories/raw/train.csv
+    - Artifacts/data/ml_calories/raw/test.csv
+    - Artifacts/data/ml_calories/raw/val.csv
     - Artifacts/data/ml_calories/training/train.csv
     - config/pipelines/ml_calories/calories_schema.py
     - src/data_io/dvc_handler.py

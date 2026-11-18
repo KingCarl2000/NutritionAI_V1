@@ -1,5 +1,9 @@
 {
     "python-envs.defaultEnvManager": "ms-python.python:conda",
     "python-envs.defaultPackageManager": "ms-python.python:conda",
-    "python.terminal.useEnvFile": true
+    "python.terminal.useEnvFile": true,
+    "dataWrangler.experiments.datatypes.pyspark": true,
+    "dataWrangler.experiments.autoDetectCsvDelimiter": true,
+    "dataWrangler.experiments.fastCsvParsing": true,
+    "dataWrangler.debug": true
 }

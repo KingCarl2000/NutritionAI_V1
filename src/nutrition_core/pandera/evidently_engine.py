@@ -365,7 +365,7 @@ class EvidentlyDriftEngine:
         }
 
         drift_cols = selected_drift_cols if selected_drift_cols else None
-        active_metrics.append(DataDriftPreset(columns=drift_cols))   
+        active_metrics.append(DataDriftPreset(columns=drift_cols, **drift_kwargs))
 
         column_drift_metrics = []
         target_columns = drift_options_cfg.get("columns_to_check_drift", [])

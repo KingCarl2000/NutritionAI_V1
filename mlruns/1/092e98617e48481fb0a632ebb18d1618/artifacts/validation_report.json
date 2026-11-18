@@ -1,0 +1,21 @@
+{
+    "train": {
+        "status": "PASSED",
+        "total_records": 10500,
+        "error_count": 0,
+        "errors_detail": []
+    },
+    "test": {
+        "status": "PASSED",
+        "total_records": 2250,
+        "error_count": 0,
+        "errors_detail": []
+    },
+    "val": {
+        "status": "PASSED",
+        "total_records": 2250,
+        "error_count": 0,
+        "errors_detail": []
+    },
+    "status": "PASSED"
+}

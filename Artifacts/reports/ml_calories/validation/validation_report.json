@@ -1,9 +1,21 @@
 {
-    "mode": "train",
-    "total_records": 10500,
-    "error_count": 0,
-    "invalid_record_count": 0,
-    "unknown_index_error_count": 0,
-    "error_rate": 0.0,
-    "errors_detail": []
+    "train": {
+        "status": "PASSED",
+        "total_records": 10500,
+        "error_count": 0,
+        "errors_detail": []
+    },
+    "test": {
+        "status": "PASSED",
+        "total_records": 2250,
+        "error_count": 0,
+        "errors_detail": []
+    },
+    "val": {
+        "status": "PASSED",
+        "total_records": 2250,
+        "error_count": 0,
+        "errors_detail": []
+    },
+    "status": "PASSED"
 }

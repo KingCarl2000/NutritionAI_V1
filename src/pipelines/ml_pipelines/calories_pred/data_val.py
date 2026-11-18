@@ -1,6 +1,5 @@
 import importlib
 import json
-import shutil
 from pathlib import Path
 from typing import Type, Any, Dict, List, Optional, Tuple
 
@@ -220,66 +219,218 @@ def run_validation_pipeline(
     return valid_df
 
 
-if __name__ == "__main__":
-    config_manager = DataValidationConfig()
-    input_file = config_manager.input_dir / "train.csv"
-    if not input_file.is_file():
-        raise FileNotFoundError(f"Không tìm thấy dữ liệu đầu vào để validation: {input_file}")
-
-    current_df = pd.read_csv(input_file)
-
-    train_schema = config_manager.get_schema(mode="train")
-    validation_params = config_manager.pipeline_config.get("validation_params", {})
-    error_threshold = validation_params.get("error_threshold")
-    if error_threshold is None:
-        error_threshold = config_manager.warning_threshold
-    if error_threshold is None:
-        raise ValueError(
-            "Thiếu validation_params.error_threshold và "
-            "mlops_thresholds.data_failure_rate.warning_threshold"
+def validate_dataset_splits(
+    input_dir: Path,
+    schema_class: Type[Any],
+    tracker: MLOpsTracker,
+    report_path: Path,
+) -> Dict[str, pd.DataFrame]:
+    """Strictly validate every split and write one report before drift evaluation."""
+    split_paths = {
+        mode: input_dir / f"{mode}.csv"
+        for mode in ("train", "test", "val")
+    }
+    missing_paths = [path for path in split_paths.values() if not path.is_file()]
+    if missing_paths:
+        raise FileNotFoundError(
+            "Không tìm thấy các tập dữ liệu đầu vào: "
+            + ", ".join(str(path) for path in missing_paths)
         )
 
-    evidently_config = config_manager.evidently_config
-    engine_config = evidently_config.get("engine_config", {})
-    reference_data_value = engine_config.get("reference_data")
-    if not reference_data_value:
-        raise ValueError("Thiếu engine_config.reference_data trong evidently_profile.yaml")
-    reference_file = config_manager.base_dir / reference_data_value
-    if not reference_file.is_file():
-        raise FileNotFoundError(f"Không tìm thấy dữ liệu tham chiếu cho drift evaluation: {reference_file}")
-    reference_df = pd.read_csv(reference_file)
+    input_datasets = {
+        mode: pd.read_csv(path)
+        for mode, path in split_paths.items()
+    }
+    validated_datasets: Dict[str, pd.DataFrame] = {}
+    validation_report: Dict[str, Any] = {}
+    validation_errors: Dict[str, List[dict]] = {}
 
+    for mode, dataframe in input_datasets.items():
+        validated_df: Optional[pd.DataFrame] = None
+        try:
+            validated_df, errors = validate_with_pandas_backend(
+                dataframe,
+                schema_class,
+                lazy=True,
+                tracker=tracker,
+            )
+        except DataValidationError as exc:
+            errors = exc.errors or [{"reason": str(exc)}]
+            validated_df = None
+
+        status = "FAILED" if errors else "PASSED"
+        validation_report[mode] = {
+            "status": status,
+            "total_records": len(dataframe),
+            "error_count": len(errors),
+            "errors_detail": errors[:100],
+        }
+        tracker.log_params_and_metrics(
+            params={f"pandera_{mode}_status": status},
+            metrics={f"pandera_{mode}_error_count": float(len(errors))},
+        )
+
+        if errors:
+            validation_errors[mode] = errors
+        else:
+            if validated_df is None:
+                raise DataValidationError(
+                    f"Pandera returned no validated data for split '{mode}'."
+                )
+            validated_datasets[mode] = validated_df
+
+    overall_status = "FAILED" if validation_errors else "PASSED"
+    validation_report["status"] = overall_status
+    tracker.log_params_and_metrics(params={"pandera_validation_status": overall_status})
+
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    with report_path.open("w", encoding="utf-8") as file:
+        json.dump(validation_report, file, indent=4, ensure_ascii=False, default=str)
+    tracker.log_artifact_file(str(report_path))
+
+    if validation_errors:
+        failed_splits = ", ".join(validation_errors)
+        raise DataValidationError(
+            f"Pandera validation failed for: {failed_splits}. Drift evaluation stopped.",
+            errors=[
+                {"dataset": mode, "errors": errors}
+                for mode, errors in validation_errors.items()
+            ],
+        )
+
+    return validated_datasets
+
+
+def get_dataset_drift_status(
+    report_dict: Dict[str, Any],
+    drift_threshold: float,
+) -> Tuple[bool, Optional[float]]:
+    """Read Evidently's drift summary and apply the configured dataset threshold."""
+    if not 0 <= drift_threshold <= 1:
+        raise ValueError("dataset_drift_share must be between 0 and 1.")
+
+    for metric in report_dict.get("metrics", []):
+        metric_type = metric.get("metric")
+        if not metric_type:
+            metric_name = metric.get("metric_name", "")
+            metric_type = metric_name.split("(", 1)[0] if isinstance(metric_name, str) else ""
+        if metric_type != "DriftedColumnsCount":
+            continue
+
+        drift_count = metric.get("result")
+        if not isinstance(drift_count, dict):
+            drift_count = metric.get("value")
+        if not isinstance(drift_count, dict):
+            break
+
+        drift_share_value = drift_count.get("share", drift_count.get("drift_share"))
+        reported_status = drift_count.get("dataset_drift")
+        if drift_share_value is None and reported_status is None:
+            break
+
+        try:
+            drift_share = (
+                float(drift_share_value) if drift_share_value is not None else None
+            )
+        except (TypeError, ValueError) as exc:
+            raise DataValidationError(
+                "Evidently returned an invalid dataset drift share."
+            ) from exc
+
+        if reported_status is not None:
+            dataset_drift = bool(reported_status)
+        elif drift_share is not None:
+            dataset_drift = drift_share >= drift_threshold
+        else:
+            break
+        return dataset_drift, drift_share
+
+    raise DataValidationError("Evidently did not return a dataset drift result.")
+
+
+if __name__ == "__main__":
+    config_manager = DataValidationConfig()
+
+    train_schema = config_manager.get_schema(mode="train")
+    evidently_config = config_manager.evidently_config
     report_dir = config_manager.base_dir / "Artifacts/reports/ml_calories/validation"
-    dvc_report_path = report_dir / "validation_report.json"
-    report_dir.mkdir(parents=True, exist_ok=True)
+    validation_report_path = report_dir / "validation_report.json"
 
     tracker = MLOpsTracker(experiment_name="calories_pred")
     try:
         with tracker.start_run(run_name="calories_validate_and_drift"):
             with setup_pandera_validation(mlflow_tracker=tracker):
+                validated_datasets = validate_dataset_splits(
+                    input_dir=config_manager.input_dir,
+                    schema_class=train_schema,
+                    tracker=tracker,
+                    report_path=validation_report_path,
+                )
+
+                engine_config = evidently_config.get("engine_config", {})
+                reference_data_value = engine_config.get("reference_data")
+                if not reference_data_value:
+                    raise ValueError(
+                        "Thiếu engine_config.reference_data trong evidently_profile.yaml"
+                    )
+                reference_file = config_manager.base_dir / reference_data_value
+                if not reference_file.is_file():
+                    raise FileNotFoundError(
+                        f"Không tìm thấy dữ liệu tham chiếu cho drift evaluation: {reference_file}"
+                    )
+                reference_df = pd.read_csv(reference_file)
+
+                drift_evaluator = CaloriesDriftEvaluator(
+                    config=evidently_config,
+                    mlops_tracker=tracker,
+                )
+                drift_result = drift_evaluator.execute_evaluation(
+                    current_df=validated_datasets["train"],
+                    reference_df=reference_df,
+                )
+                drift_options = evidently_config.get(
+                    "data_drift", evidently_config.get("drift_options", {})
+                )
+                drift_threshold = float(
+                    drift_options.get(
+                        "dataset_drift_share",
+                        drift_options.get("drift_share", 0.5),
+                    )
+                )
                 try:
-                    validated_df = run_validation_pipeline(
-                        df=current_df,
-                        schema_class=train_schema,
-                        mode="train",
-                        tracker=tracker,
-                        error_threshold=float(error_threshold),
-                        quarantine_dir=str(config_manager.quarantine_dir),
-                        output_dir=str(config_manager.output_dir),
+                    dataset_drift, drift_share = get_dataset_drift_status(
+                        drift_result.get("report_dict", {}),
+                        drift_threshold,
+                    )
+                except DataValidationError:
+                    tracker.log_params_and_metrics(params={"drift_status": "FAILED"})
+                    raise
+
+                drift_metrics_to_log = {
+                    "validation_dataset_drift_flag": float(dataset_drift),
+                }
+                if drift_share is not None:
+                    drift_metrics_to_log["validation_dataset_drift_share"] = float(
+                        drift_share
+                    )
+                tracker.log_params_and_metrics(
+                    params={
+                        "drift_status": "FAILED" if dataset_drift else "PASSED",
+                    },
+                    metrics=drift_metrics_to_log,
+                )
+                if dataset_drift:
+                    raise DataValidationError(
+                        "Evidently detected dataset drift above the configured threshold; "
+                        "validated data were not packaged."
                     )
 
-                    drift_evaluator = CaloriesDriftEvaluator(
-                        config=evidently_config,
-                        mlops_tracker=tracker,
-                    )
-                    drift_evaluator.execute_evaluation(
-                        current_df=validated_df,
-                        reference_df=reference_df,
-                    )
-                finally:
-                    generated_report = config_manager.output_dir / "validation_report_train.json"
-                    if generated_report.is_file():
-                        shutil.copy2(generated_report, dvc_report_path)
+                config_manager.output_dir.mkdir(parents=True, exist_ok=True)
+                for mode, validated_df in validated_datasets.items():
+                    output_file = config_manager.output_dir / f"{mode}.csv"
+                    validated_df.to_csv(output_file, index=False)
+                    tracker.log_artifact_file(str(output_file))
+                    logger.info(f"Đã lưu tập dữ liệu đạt chuẩn tại: {output_file}")
     except Exception:
         logger.exception("Calories validation and drift pipeline failed.")
         raise

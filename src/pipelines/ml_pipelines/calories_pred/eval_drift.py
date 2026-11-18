@@ -84,6 +84,14 @@ class CaloriesDriftEvaluator:
                 if isinstance(options, dict) and options.get("stattest") is not None
             }
 
+        per_column_threshold = drift_cfg.get("per_column_stattest_threshold")
+        if per_column_threshold is None and per_column_options:
+            per_column_threshold = {
+                column: options["threshold"]
+                for column, options in per_column_options.items()
+                if isinstance(options, dict) and options.get("threshold") is not None
+            }
+
         return {
             "dataset_drift_share": drift_cfg.get(
                 "dataset_drift_share", drift_cfg.get("drift_share", 0.5)
@@ -111,6 +119,7 @@ class CaloriesDriftEvaluator:
                 "threshold": drift_cfg.get("text_stattest_threshold", drift_cfg.get("text_threshold")),
             },
             "per_feature_stattest": per_feature_stattest,
+            "per_column_stattest_threshold": per_column_threshold,
             "columns_to_check_drift": drift_cfg.get("columns", []),
         }
 
@@ -242,6 +251,7 @@ class CaloriesDriftEvaluator:
         )
 
         self.logger.info("✓ Hoàn tất toàn bộ luồng Data Drift Pipeline.")
+        engine_result["report_dict"] = report_dict
         return engine_result
 
 if __name__ == "__main__":
