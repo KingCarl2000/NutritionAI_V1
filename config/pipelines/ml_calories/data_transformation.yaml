@@ -1,34 +1,68 @@
-# =============================================================================
-# PIPELINE-SPECIFIC CONFIGURATIONS
-# Cấu hình riêng biệt cho Data Transformation & Pipelines ml_calories
-# =============================================================================
+# ==============================================================================
+# CẤU HÌNH GIAI ĐOẠN 3: DATA TRANSFORMATION (REGRESSION PIPELINE)
+# ==============================================================================
 
-schema_classes:
-  # Schema Classes (Dynamic Import cho Pipeline ml_calories)
-  train_schema: "config.pipelines.ml_calories.calories_schema.MlCaloriesTrainingSchema"
-  inference_schema: "config.pipelines.ml_calories.calories_schema.MlCaloriesInputSchema"
+# 1. Đường dẫn Input & Output Artifacts (Quản lý bởi DVC)
+artifacts:
+  root_dir: "Artifacts/data/ml_calories/transformed"
+  # Input từ giai đoạn Data Validation
+  valid_train_path: "Artifacts/data/ml_calories/validated/train.csv"
+  valid_val_path: "Artifacts/data/ml_calories/validated/val.csv"
+  valid_test_path: "Artifacts/data/ml_calories/validated/test.csv"
+  valid_report_path: "Artifacts/reports/ml_calories/validation/validation_report.json"
+  drift_report_path: "Artifacts/reports/ml_calories/evidently/drift_report.json"
 
-pipeline_paths:
-  # Đường dẫn module nội bộ
-  pandera_schema_path: "config/pipelines/ml_calories/calories_schema.py"
-  evidently_ai_profile_path: "config/pipelines/ml_calories/evidently_profile.yaml"
-  
-  # Đường dẫn xử lý dữ liệu để đồng bộ với DVC (Data Transformation & Validation Dirs)
-  input_dir: "Artifacts/data/ml_calories/validated"
-  output_dir: "Artifacts/data/ml_calories/transformed"
-  
-  # Bổ sung các đường dẫn chi tiết cho giai đoạn Validation & Transformation tương ứng
-  data_validation_dir: "Artifacts/data/ml_calories/validated"
-  valid_report_dir: "Artifacts/reports/ml_calories/validation"
-  valid_data_dir: "Artifacts/data/ml_calories/validated"
-  invalid_data_dir: "Artifacts/data/ml_calories/validated/quarantine"
-  valid_train_file_path: "Artifacts/data/ml_calories/validated/train.csv"
-  valid_test_file_path: "Artifacts/data/ml_calories/validated/test.csv"
-  valid_val_file_path: "Artifacts/data/ml_calories/validated/val.csv"
-  drift_report_file_path: "Artifacts/reports/ml_calories/evidently/drift_report.json"
-  drift_snapshot_file_path: "Artifacts/reports/ml_calories/evidently/drift_snapshot.json"
-  drift_metrics_file_path: "Artifacts/reports/ml_calories/evidently/drift_metrics.csv"
+  # Output sau khi biến đổi
+  transformed_train_path: "Artifacts/data/ml_calories/transformed/train.npy"
+  transformed_val_path: "Artifacts/data/ml_calories/transformed/val.npy"
+  transformed_test_path: "Artifacts/data/ml_calories/transformed/test.npy"
+  preprocessor_obj_path: "Artifacts/data/ml_calories/transformed/preprocessing.pkl"
+  transformed_report_path: "Artifacts/reports/ml_calories/transformation/transformation_report.json"
 
-validation_params:
-  # Các tham số ghi đè (override) ngưỡng chung cho pipeline này (nếu cần)
-  error_threshold: 0.05
+# 2. Định nghĩa Schema & Phân nhóm cột
+column_mapping:
+  target: "Calories"
+  id_column: "User_ID"
+  numerical_features:
+    - "Age"
+    - "Weight"
+    - "Height"
+    - "Duration"
+    - "Heart_Rate"
+    - "Body_Temp"
+  categorical_features:
+    - "Gender"
+
+# 3. Tham số cho Preprocessing Pipeline (ColumnTransformer)
+preprocessing:
+  # Nhánh 1: Xử lý biến số (Numerical)
+  numerical:
+    imputer:
+      type: knn                         # Lựa chọn: "knn" hoặc "simple"
+      n_neighbors: 5                    # Tham số cho KNNImputer
+      weights: uniform                  # "uniform" hoặc "distance"
+      strategy: median                  # Tham số dự phòng nếu dùng SimpleImputer
+    scaler:
+      type: robust                      # RobustScaler
+      with_centering: true
+      with_scaling: true
+      quantile_range: [25.0, 75.0]
+
+  # Nhánh 2: Xử lý biến phân loại (Categorical)
+  categorical:
+    imputer:
+      type: simple
+      strategy: most_frequent           # Hoặc "constant" kèm fill_value: "Missing"
+    encoder:
+      type: onehot                      # Lựa chọn: "onehot" hoặc "ordinal"
+      handle_unknown: ignore            # Tránh crash khi gặp nhãn lạ ở Production
+      sparse_output: false              # Trả về dense array để xuất thẳng ra .npy
+      drop: null                        # Có thể đặt "first" nếu dùng mô hình tuyến tính (Linear/Ridge)
+
+# 4. Cấu hình Tracking với MLflow
+mlflow:
+  experiment_name: ml_calories_pipeline
+  run_name: data_transformation
+  log_params: true                      # Tự động log toàn bộ tham số preprocessing
+  log_data_shapes: true                 # Log kích thước (rows, cols) của train/val/test
+  register_preprocessor: true           # Lưu preprocessing.pkl lên MLflow Artifacts
