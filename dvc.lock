@@ -9,8 +9,8 @@ stages:
       size: 7477
     - path: src/data_io/dvc_handler.py
       hash: md5
-      md5: 9eaecf1c726bfefb94747d9fa64c77c0
-      size: 7323
+      md5: 7ff70018973063f3e39b3028beda41fe
+      size: 7652
     - path: src/nutrition_core/logging/logger.py
       hash: md5
       md5: 7bb1f8a296dc794ddfb4443ea3ff49fb
@@ -102,7 +102,7 @@ stages:
       nfiles: 4
     - path: Artifacts/reports/ml_calories/ingestion/ingestion_report.json
       hash: md5
-      md5: 672c20e300622790292c9eb8b4a91f85
+      md5: 0662716e2ecd85d51e0a085c58756588
       size: 449
   calories_validate:
     cmd: python src/pipelines/ml_pipelines/calories_pred/data_val.py
@@ -129,8 +129,8 @@ stages:
       size: 1679
     - path: src/data_io/dvc_handler.py
       hash: md5
-      md5: 9eaecf1c726bfefb94747d9fa64c77c0
-      size: 7323
+      md5: 7ff70018973063f3e39b3028beda41fe
+      size: 7652
     - path: src/nutrition_core/logging/logger.py
       hash: md5
       md5: 7bb1f8a296dc794ddfb4443ea3ff49fb
@@ -309,3 +309,121 @@ stages:
       hash: md5
       md5: 02c74350c73b8d8c955365c29481ee40
       size: 449
+  calories_transform:
+    cmd: python src/pipelines/ml_pipelines/calories_pred/data_trans.py
+    deps:
+    - path: Artifacts/data/ml_calories/validated/test.csv
+      hash: md5
+      md5: efd66d0fab5da77aa03093f1a28e8bcb
+      size: 113696
+    - path: Artifacts/data/ml_calories/validated/train.csv
+      hash: md5
+      md5: 79b37526e6ec55b88e23b8963b0c524b
+      size: 530070
+    - path: Artifacts/data/ml_calories/validated/val.csv
+      hash: md5
+      md5: 43e7ea323e9667172b8f0d4906c21ee3
+      size: 113667
+    - path: Artifacts/reports/ml_calories/evidently/drift_report.json
+      hash: md5
+      md5: ee7c05cff20e6db896b5e1daffeda400
+      size: 8247
+    - path: Artifacts/reports/ml_calories/validation/validation_report.json
+      hash: md5
+      md5: 02c74350c73b8d8c955365c29481ee40
+      size: 449
+    - path: src/data_io/dvc_handler.py
+      hash: md5
+      md5: 7ff70018973063f3e39b3028beda41fe
+      size: 7652
+    - path: src/nutrition_core/exception/exception.py
+      hash: md5
+      md5: 52d48ecb4345eeb07520a754c64a0cd6
+      size: 4700
+    - path: src/nutrition_core/logging/logger.py
+      hash: md5
+      md5: 7bb1f8a296dc794ddfb4443ea3ff49fb
+      size: 9361
+    - path: src/nutrition_core/logging/mlflow_tracker.py
+      hash: md5
+      md5: a2b36c24c259342f027b603f530cd72f
+      size: 9243
+    - path: src/pipelines/ml_pipelines/calories_pred/data_trans.py
+      hash: md5
+      md5: 71bbb472a3b8f36cf6d4563d5533070e
+      size: 14011
+    - path: src/pipelines/ml_pipelines/calories_pred/preprocessing.py
+      hash: md5
+      md5: 26489f26a134ca27e86db42ecd84a286
+      size: 4423
+    params:
+      config/pipelines/ml_calories/data_transformation.yaml:
+        artifacts:
+          root_dir: Artifacts/data/ml_calories/transformed
+          valid_train_path: Artifacts/data/ml_calories/validated/train.csv
+          valid_val_path: Artifacts/data/ml_calories/validated/val.csv
+          valid_test_path: Artifacts/data/ml_calories/validated/test.csv
+          valid_report_path: 
+            Artifacts/reports/ml_calories/validation/validation_report.json
+          drift_report_path: 
+            Artifacts/reports/ml_calories/evidently/drift_report.json
+          transformed_train_path: 
+            Artifacts/data/ml_calories/transformed/train.npy
+          transformed_val_path: Artifacts/data/ml_calories/transformed/val.npy
+          transformed_test_path: Artifacts/data/ml_calories/transformed/test.npy
+          preprocessor_obj_path: 
+            Artifacts/data/ml_calories/transformed/preprocessing.pkl
+          transformed_report_path: 
+            Artifacts/reports/ml_calories/transformation/transformation_report.json
+        column_mapping:
+          target: Calories
+          id_column: User_ID
+          numerical_features:
+          - Age
+          - Weight
+          - Height
+          - Duration
+          - Heart_Rate
+          - Body_Temp
+          categorical_features:
+          - Gender
+        mlflow:
+          experiment_name: calories_pred
+          run_name: data_transformation
+          log_params: true
+          log_data_shapes: true
+          register_preprocessor: true
+        preprocessing:
+          numerical:
+            imputer:
+              type: knn
+              n_neighbors: 5
+              weights: uniform
+              strategy: median
+            scaler:
+              type: robust
+              with_centering: true
+              with_scaling: true
+              quantile_range:
+              - 25.0
+              - 75.0
+          categorical:
+            imputer:
+              type: simple
+              strategy: most_frequent
+            encoder:
+              type: onehot
+              handle_unknown: ignore
+              sparse_output: false
+              drop:
+    outs:
+    - path: Artifacts/data/ml_calories/transformed
+      hash: md5
+      md5: 7c04f47cf21459d5260a68a1ddfb8cb2.dir
+      size: 1651089
+      nfiles: 4
+    - path: 
+        Artifacts/reports/ml_calories/transformation/transformation_report.json
+      hash: md5
+      md5: 699b7b66365c62efb49d2bf5a4ba8393
+      size: 2208

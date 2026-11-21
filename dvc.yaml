@@ -43,3 +43,24 @@ stages:
     metrics:
     - Artifacts/reports/ml_calories/validation/validation_report.json:
         cache: false
+  calories_transform:
+    cmd: python src/pipelines/ml_pipelines/calories_pred/data_trans.py
+    deps:
+    - Artifacts/data/ml_calories/validated/test.csv
+    - Artifacts/data/ml_calories/validated/train.csv
+    - Artifacts/data/ml_calories/validated/val.csv
+    - Artifacts/reports/ml_calories/evidently/drift_report.json
+    - Artifacts/reports/ml_calories/validation/validation_report.json
+    - src/data_io/dvc_handler.py
+    - src/nutrition_core/exception/exception.py
+    - src/nutrition_core/logging/logger.py
+    - src/nutrition_core/logging/mlflow_tracker.py
+    - src/pipelines/ml_pipelines/calories_pred/data_trans.py
+    - src/pipelines/ml_pipelines/calories_pred/preprocessing.py
+    params:
+    - config/pipelines/ml_calories/data_transformation.yaml:
+    outs:
+    - Artifacts/data/ml_calories/transformed
+    metrics:
+    - Artifacts/reports/ml_calories/transformation/transformation_report.json:
+        cache: false
