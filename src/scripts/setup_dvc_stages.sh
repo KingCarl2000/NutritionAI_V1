@@ -52,9 +52,12 @@ dvc stage add --force -n calories_transform \
   -d Artifacts/data/ml_calories/validated/train.csv \
   -d Artifacts/data/ml_calories/validated/val.csv \
   -d Artifacts/data/ml_calories/validated/test.csv \
+  -d Artifacts/reports/ml_calories/validation/validation_report.json \
+  -d Artifacts/reports/ml_calories/evidently/drift_report.json \
   -d src/data_io/dvc_handler.py \
   -d src/nutrition_core/logging/logger.py \
   -d src/nutrition_core/logging/mlflow_tracker.py \
+  -d src/nutrition_core/exception/exception.py \
   -p config/pipelines/ml_calories/data_transformation.yaml: \
   -o Artifacts/data/ml_calories/transformed \
   -M Artifacts/reports/ml_calories/transformation/transformation_report.json \

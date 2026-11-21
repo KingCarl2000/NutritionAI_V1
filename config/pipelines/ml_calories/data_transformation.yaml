@@ -61,7 +61,7 @@ preprocessing:
 
 # 4. Cấu hình Tracking với MLflow
 mlflow:
-  experiment_name: ml_calories_pipeline
+  experiment_name: calories_pred
   run_name: data_transformation
   log_params: true                      # Tự động log toàn bộ tham số preprocessing
   log_data_shapes: true                 # Log kích thước (rows, cols) của train/val/test

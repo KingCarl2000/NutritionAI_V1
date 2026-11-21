@@ -1,0 +1,93 @@
+{
+  "pipeline_name": "calories_data_transformation",
+  "status": "SUCCESS",
+  "gatekeepers": {
+    "validation_status": "PASSED",
+    "drift_status": "PASSED",
+    "drift_share": 0.0
+  },
+  "parameters": {
+    "column_mapping": {
+      "target": "Calories",
+      "id_column": "User_ID",
+      "numerical_features": [
+        "Age",
+        "Weight",
+        "Height",
+        "Duration",
+        "Heart_Rate",
+        "Body_Temp"
+      ],
+      "categorical_features": [
+        "Gender"
+      ]
+    },
+    "preprocessing": {
+      "numerical": {
+        "imputer": {
+          "type": "knn",
+          "n_neighbors": 5,
+          "weights": "uniform",
+          "strategy": "median"
+        },
+        "scaler": {
+          "type": "robust",
+          "with_centering": true,
+          "with_scaling": true,
+          "quantile_range": [
+            25.0,
+            75.0
+          ]
+        }
+      },
+      "categorical": {
+        "imputer": {
+          "type": "simple",
+          "strategy": "most_frequent"
+        },
+        "encoder": {
+          "type": "onehot",
+          "handle_unknown": "ignore",
+          "sparse_output": false,
+          "drop": null
+        }
+      }
+    }
+  },
+  "missing_values_before_imputation": {
+    "train": 0,
+    "val": 0,
+    "test": 0
+  },
+  "dropped_identifier": "User_ID",
+  "transformed_feature_names": [
+    "numerical__Age",
+    "numerical__Weight",
+    "numerical__Height",
+    "numerical__Duration",
+    "numerical__Heart_Rate",
+    "numerical__Body_Temp",
+    "categorical__Gender_female",
+    "categorical__Gender_male"
+  ],
+  "output_shapes": {
+    "train": [
+      10500,
+      9
+    ],
+    "val": [
+      2250,
+      9
+    ],
+    "test": [
+      2250,
+      9
+    ]
+  },
+  "artifacts": {
+    "train": "D:\\NutritionAI_V1\\Artifacts\\data\\ml_calories\\transformed\\train.npy",
+    "val": "D:\\NutritionAI_V1\\Artifacts\\data\\ml_calories\\transformed\\val.npy",
+    "test": "D:\\NutritionAI_V1\\Artifacts\\data\\ml_calories\\transformed\\test.npy"
+  },
+  "preprocessor": "D:\\NutritionAI_V1\\Artifacts\\data\\ml_calories\\transformed\\preprocessing.pkl"
+}
