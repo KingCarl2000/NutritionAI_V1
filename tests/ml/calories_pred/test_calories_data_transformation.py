@@ -2,12 +2,16 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import Mock, call, patch
 
 import numpy as np
 import pandas as pd
+import yaml
 
 from src.nutrition_core.exception.exception import DataTransformationError
 from src.pipelines.ml_pipelines.calories_pred.data_trans import (
+    PROJECT_ROOT,
+    CaloriesDataTransformation,
     transform_splits,
     verify_gatekeeper_reports,
 )
@@ -92,6 +96,64 @@ class CaloriesTransformationTests(unittest.TestCase):
         np.testing.assert_array_equal(
             transformed["test"], np.array([[200.0, 40.0]])
         )
+
+    def test_load_datasets_uses_dvc_for_repo_artifacts(self):
+        config_path = self.temp_path / "data_transformation.yaml"
+        config = {
+            "artifacts": {
+                f"valid_{split}_path": (
+                    f"Artifacts/data/ml_calories/validated/{split}.csv"
+                )
+                for split in ("train", "val", "test")
+            },
+            "column_mapping": {
+                "numerical_features": ["Age"],
+                "categorical_features": ["Gender"],
+                "target": "Calories",
+                "id_column": "User_ID",
+            },
+            "preprocessing": {},
+        }
+        config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
+        dataset = pd.DataFrame(
+            {
+                "Age": [25],
+                "Gender": ["F"],
+                "Calories": [100],
+                "User_ID": [1],
+            }
+        )
+        dvc_handler = Mock()
+        dvc_handler.get_dataset.side_effect = [dataset.copy() for _ in range(3)]
+
+        with patch(
+            "src.pipelines.ml_pipelines.calories_pred.data_trans.DVCHandler",
+            return_value=dvc_handler,
+        ) as handler_class:
+            transformation = CaloriesDataTransformation(config_path)
+            datasets, missing_values = transformation._load_datasets()
+
+        handler_class.assert_called_once_with(repo=str(PROJECT_ROOT))
+        self.assertEqual(
+            dvc_handler.get_dataset.call_args_list,
+            [
+                call(
+                    data_path=f"Artifacts/data/ml_calories/validated/{split}.csv",
+                    format_type="csv",
+                    fallback_path=str(
+                        PROJECT_ROOT
+                        / "Artifacts"
+                        / "data"
+                        / "ml_calories"
+                        / "validated"
+                        / f"{split}.csv"
+                    ),
+                )
+                for split in ("train", "val", "test")
+            ],
+        )
+        self.assertEqual(set(datasets), {"train", "val", "test"})
+        self.assertEqual(missing_values, {"train": 0, "val": 0, "test": 0})
 
     def test_gatekeeper_reports_must_pass_validation_and_drift(self):
         validation_path, drift_path = self.write_gatekeeper_reports()

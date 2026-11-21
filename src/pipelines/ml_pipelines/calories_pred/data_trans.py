@@ -12,6 +12,7 @@ import pandas as pd
 import yaml
 from sklearn.compose import ColumnTransformer
 
+from src.data_io.dvc_handler import DVCHandler
 from src.nutrition_core.exception.exception import DataTransformationError
 from src.nutrition_core.logging.logger import logger
 from src.nutrition_core.logging.mlflow_tracker import MLOpsTracker
@@ -160,6 +161,7 @@ class CaloriesDataTransformation:
         with self.config_path.open("r", encoding="utf-8") as config_file:
             self.config = yaml.safe_load(config_file) or {}
 
+        self.dvc_handler = DVCHandler(repo=str(PROJECT_ROOT))
         self.artifacts = self.config["artifacts"]
         self.column_mapping = self.config["column_mapping"]
         self.preprocessing_config = self.config["preprocessing"]
@@ -169,12 +171,21 @@ class CaloriesDataTransformation:
         return path if path.is_absolute() else PROJECT_ROOT / path
 
     def _load_datasets(self) -> Tuple[Dict[str, pd.DataFrame], Dict[str, int]]:
-        datasets = {
-            split: pd.read_csv(
-                self._resolve_path(self.artifacts[f"valid_{split}_path"])
-            )
-            for split in EXPECTED_SPLITS
-        }
+        datasets: Dict[str, pd.DataFrame] = {}
+        for split in EXPECTED_SPLITS:
+            configured_path = self.artifacts[f"valid_{split}_path"]
+            local_path = self._resolve_path(configured_path).resolve()
+            try:
+                dvc_path = local_path.relative_to(PROJECT_ROOT.resolve()).as_posix()
+            except ValueError:
+                datasets[split] = pd.read_csv(local_path)
+            else:
+                datasets[split] = self.dvc_handler.get_dataset(
+                    data_path=dvc_path,
+                    format_type="csv",
+                    fallback_path=str(local_path),
+                )
+
         feature_columns = list(self.column_mapping["numerical_features"]) + list(
             self.column_mapping["categorical_features"]
         )

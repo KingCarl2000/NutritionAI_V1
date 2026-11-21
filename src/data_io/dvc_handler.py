@@ -65,10 +65,16 @@ class DVCHandler:
         logger.info(f"Khởi tạo DVCHandler (repo={self.repo}, rev={self.rev}).")
 
     # --- Cơ chế dự phòng (Fallback) ---
-    def _fallback_local_dataset(self, data_path: str, format_type: str = 'csv', **kwargs) -> pd.DataFrame:
+    def _fallback_local_dataset(
+        self,
+        data_path: str,
+        format_type: str = 'csv',
+        fallback_path: Optional[str] = None,
+        **kwargs
+    ) -> pd.DataFrame:
         """Đọc file từ thư mục local/cache nếu không thể kết nối tới DVC Remote"""
         file_name = os.path.basename(data_path)
-        local_path = os.path.join("data", "raw", file_name)
+        local_path = fallback_path or os.path.join("data", "raw", file_name)
         logger.info(f"[FALLBACK] Thử đọc dữ liệu từ local cache: {local_path}")
         
         if format_type == 'csv':
@@ -92,9 +98,18 @@ class DVCHandler:
         return "up to date" in result.stdout
 
     @dvc_error_handler(max_retries=3, retry_delay=2, fallback_func=_fallback_local_dataset)
-    def get_dataset(self, data_path: str, format_type: str = 'csv') -> pd.DataFrame:
+    def get_dataset(
+        self,
+        data_path: str,
+        format_type: str = 'csv',
+        fallback_path: Optional[str] = None,
+    ) -> pd.DataFrame:
         """Stream tệp dữ liệu từ DVC và trả về Pandas DataFrame."""
-        logger.info(f"Đang tải dataset từ {data_path} (định dạng {format_type})...")
+        fallback_info = f"; local fallback {fallback_path}" if fallback_path else ""
+        logger.info(
+            f"Đang tải dataset từ {data_path} (định dạng {format_type})"
+            f"{fallback_info}..."
+        )
         
         with dvc.api.open(data_path, repo=self.repo, rev=self.rev, mode='r') as f:
             if format_type == 'csv':
