@@ -496,7 +496,6 @@ Tóm tắt các YAML cấu hình cho bước kiểm định dữ liệu và theo
   - Hỗ trợ truyền thêm cấu hình mở rộng vào `run_drift_detection` qua `**kwargs` (như `data_quality_options`, `classification_options`, `regression_options`, `llm_evals_options`, `recsys_options`, `test_suite_options`, `timestamp`).
   - Cần truyền `evidently_workspace_url` (local path hoặc HTTP URL) để tự động đồng bộ Snapshot/Dashboard và `mlops_tracker` để đẩy metrics lên MLflow.
 
-
 ### `dvc_handler.py` (`src/data_io/dvc_handler.py`)
 
 - **Vai trò:** Cung cấp adapter cho DVC để đồng bộ dữ liệu, tải dataset/mô hình/metrics/tệp ảnh và chuẩn hóa metrics bằng Pydantic.
