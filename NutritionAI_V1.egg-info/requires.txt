@@ -33,6 +33,7 @@ pandera
 black
 evidently
 optuna
+optuna-dashboard
 hydra-core
 hydra-optuna-sweeper
 langchain
@@ -66,5 +67,6 @@ pandera
 black
 evidently
 optuna
+optuna-dashboard
 hydra-core
 hydra-optuna-sweeper

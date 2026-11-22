@@ -63,6 +63,7 @@ src/pipelines/ml_pipelines/calories_pred/data_val.py
 src/pipelines/ml_pipelines/calories_pred/eval_drift.py
 src/pipelines/ml_pipelines/calories_pred/model_train.py
 src/pipelines/ml_pipelines/calories_pred/preprocessing.py
+src/pipelines/ml_pipelines/calories_pred/search_space.py
 src/pipelines/ml_pipelines/calories_pred/trigger_retrain.py
 src/pipelines/ml_pipelines/clustering_customer/__init__.py
 src/pipelines/ml_pipelines/clustering_customer/data_evaluate.py
