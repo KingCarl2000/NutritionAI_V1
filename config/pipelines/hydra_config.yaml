@@ -1,0 +1,43 @@
+defaults:
+  - _self_
+  - ml_calories/train_params
+  - override hydra/sweeper: optuna
+  - override hydra/launcher: joblib
+
+task:
+  pipeline_name: calories_prediction
+  debug: false
+  seed: 42
+
+hydra:
+  mode: RUN
+  run:
+    dir: Artifacts/runs/ml_calories/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  sweep:
+    dir: Artifacts/runs/ml_calories/multirun/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    subdir: trial_${hydra.job.num}
+  job:
+    name: calories_training
+    chdir: false
+    env_set:
+      MLFLOW_EXPERIMENT_NAME: calories_pred
+  sweeper:
+    direction: minimize
+    n_trials: 20
+    n_jobs: 1
+    storage: sqlite:///Artifacts/optuna/calories.db
+    study_name: calories_regression
+    max_failure_rate: 0.0
+    sampler:
+      _target_: optuna.samplers.TPESampler
+      seed: 42
+      n_startup_trials: 5
+      n_ei_candidates: 24
+      multivariate: true
+      warn_independent_sampling: true
+    params:
+      train_params.batch_size: choice(16, 32, 64)
+      train_params.learning_rate: interval(0.0001, 0.1)
+      train_params.n_estimators: range(50, 501, 50)
+      train_params.max_depth: choice(4, 6, 8, 10)
+      train_params.model_type: choice(ridge, random_forest, xgboost)

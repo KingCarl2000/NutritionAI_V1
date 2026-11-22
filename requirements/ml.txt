@@ -32,5 +32,6 @@ evidently
 # Hyperparameter tuning
 optuna
 hydra-core
+hydra-optuna-sweeper
 
 

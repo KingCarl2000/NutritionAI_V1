@@ -1,0 +1,22 @@
+train_params:
+  random_state: 42
+  batch_size: 32
+  learning_rate: 0.001
+  n_estimators: 200
+  max_depth: 6
+  model_type: ridge
+
+  artifacts:
+    transformed_train_path: Artifacts/data/ml_calories/transformed/train.npy
+    transformed_val_path: Artifacts/data/ml_calories/transformed/val.npy
+    preprocessor_path: Artifacts/data/ml_calories/transformed/preprocessing.pkl
+    training_output_dir: Artifacts/data/ml_calories/training
+    training_report_path: Artifacts/reports/ml_calories/training/training_report.json
+
+  mlflow:
+    experiment_name: calories_pred
+    run_name: calories_training
+    tracking_uri: "${oc.env:MLFLOW_TRACKING_URI,sqlite:///mlflow.db}"
+    log_params: true
+    log_metrics: true
+    register_model: true
