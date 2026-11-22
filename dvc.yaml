@@ -64,3 +64,21 @@ stages:
     metrics:
     - Artifacts/reports/ml_calories/transformation/transformation_report.json:
         cache: false
+  calories_train:
+    cmd: python src/pipelines/ml_pipelines/calories_pred/model_train.py
+    deps:
+    - Artifacts/data/ml_calories/transformed/preprocessing.pkl
+    - Artifacts/data/ml_calories/transformed/train.npy
+    - Artifacts/data/ml_calories/transformed/val.npy
+    - Artifacts/reports/ml_calories/transformation/transformation_report.json
+    - config/pipelines/ml_calories/hydra_config.yaml
+    - config/pipelines/ml_calories/train_params.yaml
+    - src/nutrition_core/logging/logger.py
+    - src/pipelines/ml_pipelines/calories_pred/model_train.py
+    - utils/ml_utils/model/model_factory.py
+    - utils/ml_utils/model/model_trainer.py
+    outs:
+    - Artifacts/data/ml_calories/models
+    metrics:
+    - Artifacts/reports/ml_calories/training/training_report.json:
+        cache: false

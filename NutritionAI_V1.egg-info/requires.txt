@@ -36,6 +36,7 @@ optuna
 optuna-dashboard
 hydra-core
 hydra-optuna-sweeper
+hydra-joblib-launcher
 langchain
 langchain-community
 tiktoken
@@ -70,3 +71,4 @@ optuna
 optuna-dashboard
 hydra-core
 hydra-optuna-sweeper
+hydra-joblib-launcher

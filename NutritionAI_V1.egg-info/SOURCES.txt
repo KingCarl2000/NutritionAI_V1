@@ -89,6 +89,9 @@ src/scripts/generate_data_schema.py
 src/scripts/run_db_bulk_load.py
 tests/__init__.py
 tests/ml/__init__.py
+tests/ml/test_model_factory.py
+tests/ml/test_model_train_entrypoint.py
+tests/ml/test_model_trainer.py
 tests/ml/calories_pred/__init__.py
 tests/ml/calories_pred/test_calories_data_transformation.py
 utils/__init__.py
@@ -100,5 +103,5 @@ utils/ml_utils/__init__.py
 utils/ml_utils/metric/__init__.py
 utils/ml_utils/metric/regression_metric.py
 utils/ml_utils/model/__init__.py
-utils/ml_utils/model/estimator.py
 utils/ml_utils/model/model_factory.py
+utils/ml_utils/model/model_trainer.py

@@ -4,13 +4,20 @@ train_params:
   learning_rate: 0.001
   n_estimators: 200
   max_depth: 6
-  model_type: ridge
+  model_type: auto
+  metric_name: auto
+  metric_names:
+    - mean_squared_error
+    - r2_score
+    - root_mean_squared_error
+  direction: auto
 
   artifacts:
     transformed_train_path: Artifacts/data/ml_calories/transformed/train.npy
     transformed_val_path: Artifacts/data/ml_calories/transformed/val.npy
     preprocessor_path: Artifacts/data/ml_calories/transformed/preprocessing.pkl
-    training_output_dir: Artifacts/data/ml_calories/training
+    training_output_dir: Artifacts/data/ml_calories/models
+    best_model_path: Artifacts/data/ml_calories/models/best_model.pkl
     training_report_path: Artifacts/reports/ml_calories/training/training_report.json
 
   mlflow:

@@ -9,6 +9,17 @@ task:
   debug: false
   seed: 42
 
+training:
+  experiment_name: ${train_params.mlflow.experiment_name}
+  tracking_uri: ${train_params.mlflow.tracking_uri}
+  direction: auto
+  metric_name: ${train_params.metric_name}
+  metric_names: ${train_params.metric_names}
+  n_trials: 20
+  n_jobs: 1
+  model_name: ${train_params.model_type}
+  seed: ${task.seed}
+
 hydra:
   mode: RUN
 
@@ -90,4 +101,4 @@ hydra:
   help:
     app_name: NutritionAI Calories Training
     header: "== Calories Prediction Training Configuration =="
-    footer: "Use --multirun to enable Optuna parameter sweeps."
+    footer: "Set train_params.metric_name=auto to evaluate every configured metric."

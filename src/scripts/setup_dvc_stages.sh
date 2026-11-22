@@ -74,12 +74,10 @@ dvc stage add --force -n calories_train \
   -d src/nutrition_core/logging/logger.py \
   -d src/nutrition_core/logging/mlflow_tracker.py \
   -d src/nutrition_core/exception/exception.py \
-  -d src/utils/ml_utils/metric/regression_metric.py \
-  -d src/utils/ml_utils/model/estimator.py \
-  -d src/utils/ml_utils/model/model_factory.py \
-  -d src/utils/ml_utils/model/model_trainer.py \
+  -d utils/ml_utils/model/model_factory.py \
+  -d utils/ml_utils/model/model_trainer.py \
   -p config/pipelines/ml_calories/hydra_config.yaml: \
   -p config/pipelines/ml_calories/train_params.yaml: \
-  -o Artifacts/data/ml_calories/training \
+  -o Artifacts/data/ml_calories/models \
   -M Artifacts/reports/ml_calories/training/training_report.json \
   python src/pipelines/ml_pipelines/calories_pred/model_train.py

@@ -1,0 +1,41 @@
+task:
+  pipeline_name: calories_prediction
+  debug: false
+  seed: 42
+training:
+  experiment_name: ${train_params.mlflow.experiment_name}
+  tracking_uri: ${train_params.mlflow.tracking_uri}
+  direction: auto
+  metric_name: ${train_params.metric_name}
+  metric_names: ${train_params.metric_names}
+  n_trials: 20
+  n_jobs: 1
+  model_name: ${train_params.model_type}
+  seed: ${task.seed}
+train_params:
+  random_state: 42
+  batch_size: 32
+  learning_rate: 0.001
+  n_estimators: 200
+  max_depth: 6
+  model_type: auto
+  metric_name: auto
+  metric_names:
+  - mean_squared_error
+  - r2_score
+  - root_mean_squared_error
+  direction: auto
+  artifacts:
+    transformed_train_path: Artifacts/data/ml_calories/transformed/train.npy
+    transformed_val_path: Artifacts/data/ml_calories/transformed/val.npy
+    preprocessor_path: Artifacts/data/ml_calories/transformed/preprocessing.pkl
+    training_output_dir: Artifacts/data/ml_calories/models
+    best_model_path: Artifacts/data/ml_calories/models/best_model.pkl
+    training_report_path: Artifacts/reports/ml_calories/training/training_report.json
+  mlflow:
+    experiment_name: calories_pred
+    run_name: calories_training
+    tracking_uri: ${oc.env:MLFLOW_TRACKING_URI,sqlite:///mlflow.db}
+    log_params: true
+    log_metrics: true
+    register_model: true
