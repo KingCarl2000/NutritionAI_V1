@@ -6,6 +6,7 @@ from typing import Any, Callable, Dict, Optional, Tuple
 import joblib
 from optuna import Trial
 from optuna.exceptions import TrialPruned
+from optuna.trial import BaseTrial
 from sklearn.base import BaseEstimator
 from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
 from sklearn.linear_model import Ridge
@@ -36,9 +37,7 @@ class BaseModelWrapper:
         if (X_val is None) != (y_val is None):
             raise ValueError("X_val and y_val must be provided together.")
         if self._is_xgboost_estimator() and trial is not None and X_val is None:
-            raise ValueError(
-                "X_val and y_val are required to prune an XGBoost trial."
-            )
+            raise ValueError("X_val and y_val are required to prune an XGBoost trial.")
 
         if self._is_xgboost_estimator() and X_val is not None:
             fit_params["eval_set"] = [(X_val, y_val)]
@@ -78,13 +77,16 @@ class BaseModelWrapper:
         loaded = joblib.load(path)
         if not isinstance(loaded, cls):
             raise TypeError(
-                f"Expected a {cls.__name__} at {path}, got "
-                f"{type(loaded).__name__}."
+                f"Expected a {cls.__name__} at {path}, got " f"{type(loaded).__name__}."
             )
         return loaded
 
     def _is_xgboost_estimator(self) -> bool:
         return type(self.estimator).__module__.startswith("xgboost.")
+
+    @property
+    def supports_iterative_pruning(self) -> bool:
+        return self._is_xgboost_estimator()
 
     def _create_xgboost_pruning_callback(self, trial: Trial) -> Any:
         from xgboost.callback import TrainingCallback
@@ -109,9 +111,7 @@ class BaseModelWrapper:
 
                 trial.report(float(validation_metrics[metric_name][-1]), step=epoch)
                 if trial.should_prune():
-                    raise TrialPruned(
-                        f"Trial pruned at boosting iteration {epoch}."
-                    )
+                    raise TrialPruned(f"Trial pruned at boosting iteration {epoch}.")
                 return False
 
         return OptunaPruningCallback()
@@ -145,7 +145,7 @@ class ModelFactory:
 
     @staticmethod
     def suggest_hyperparameters(
-        trial: Trial,
+        trial: BaseTrial,
         model_name: Optional[str] = None,
     ) -> Dict[str, Any]:
         if model_name is None:
@@ -166,9 +166,7 @@ class ModelFactory:
                 "n_estimators": trial.suggest_int(
                     "random_forest.n_estimators", 100, 500, step=50
                 ),
-                "max_depth": trial.suggest_int(
-                    "random_forest.max_depth", 3, 20
-                ),
+                "max_depth": trial.suggest_int("random_forest.max_depth", 3, 20),
                 "min_samples_leaf": trial.suggest_int(
                     "random_forest.min_samples_leaf", 1, 10
                 ),
@@ -184,9 +182,7 @@ class ModelFactory:
                 "learning_rate": trial.suggest_float(
                     "gradient_boosting.learning_rate", 0.01, 0.3, log=True
                 ),
-                "max_depth": trial.suggest_int(
-                    "gradient_boosting.max_depth", 2, 8
-                ),
+                "max_depth": trial.suggest_int("gradient_boosting.max_depth", 2, 8),
                 "subsample": trial.suggest_float(
                     "gradient_boosting.subsample", 0.6, 1.0
                 ),
@@ -235,7 +231,7 @@ class ModelFactory:
 
     @staticmethod
     def create_model_from_trial(
-        trial: Trial,
+        trial: BaseTrial,
         model_name: Optional[str] = None,
     ) -> Tuple[BaseModelWrapper, str]:
         if model_name is None:

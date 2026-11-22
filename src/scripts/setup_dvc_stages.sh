@@ -77,6 +77,7 @@ dvc stage add --force -n calories_train \
   -d src/utils/ml_utils/metric/regression_metric.py \
   -d src/utils/ml_utils/model/estimator.py \
   -d src/utils/ml_utils/model/model_factory.py \
+  -d src/utils/ml_utils/model/model_trainer.py \
   -p config/pipelines/ml_calories/hydra_config.yaml: \
   -p config/pipelines/ml_calories/train_params.yaml: \
   -o Artifacts/data/ml_calories/training \
