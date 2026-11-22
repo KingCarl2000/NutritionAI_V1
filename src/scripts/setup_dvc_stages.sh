@@ -62,3 +62,23 @@ dvc stage add --force -n calories_transform \
   -o Artifacts/data/ml_calories/transformed \
   -M Artifacts/reports/ml_calories/transformation/transformation_report.json \
   python src/pipelines/ml_pipelines/calories_pred/data_trans.py
+
+# 4. Stage: Model Training
+dvc stage add --force -n calories_train \
+  -d src/pipelines/ml_pipelines/calories_pred/model_train.py \
+  -d Artifacts/data/ml_calories/transformed/preprocessing.pkl \
+  -d Artifacts/data/ml_calories/transformed/train.npy \
+  -d Artifacts/data/ml_calories/transformed/val.npy \
+  -d Artifacts/reports/ml_calories/transformation/transformation_report.json \
+  -d src/data_io/dvc_handler.py \
+  -d src/nutrition_core/logging/logger.py \
+  -d src/nutrition_core/logging/mlflow_tracker.py \
+  -d src/nutrition_core/exception/exception.py \
+  -d src/utils/ml_utils/metric/regression_metric.py \
+  -d src/utils/ml_utils/model/estimator.py \
+  -d src/utils/ml_utils/model/model_factory.py \
+  -p config/pipelines/ml_calories/hydra_config.yaml: \
+  -p config/pipelines/ml_calories/train_params.yaml: \
+  -o Artifacts/data/ml_calories/training \
+  -M Artifacts/reports/ml_calories/training/training_report.json \
+  python src/pipelines/ml_pipelines/calories_pred/model_train.py
