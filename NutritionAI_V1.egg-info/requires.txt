@@ -32,6 +32,8 @@ datasets
 pandera
 black
 evidently
+optuna
+hydra-core
 langchain
 langchain-community
 tiktoken
@@ -62,3 +64,5 @@ datasets
 pandera
 black
 evidently
+optuna
+hydra-core

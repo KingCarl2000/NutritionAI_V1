@@ -29,6 +29,8 @@ pandera
 black
 evidently
 
-
+# Hyperparameter tuning
+optuna
+hydra-core
 
 

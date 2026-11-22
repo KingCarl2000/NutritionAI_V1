@@ -61,6 +61,8 @@ src/pipelines/ml_pipelines/calories_pred/data_ingest.py
 src/pipelines/ml_pipelines/calories_pred/data_trans.py
 src/pipelines/ml_pipelines/calories_pred/data_val.py
 src/pipelines/ml_pipelines/calories_pred/eval_drift.py
+src/pipelines/ml_pipelines/calories_pred/model_train.py
+src/pipelines/ml_pipelines/calories_pred/preprocessing.py
 src/pipelines/ml_pipelines/calories_pred/trigger_retrain.py
 src/pipelines/ml_pipelines/clustering_customer/__init__.py
 src/pipelines/ml_pipelines/clustering_customer/data_evaluate.py
@@ -84,6 +86,10 @@ src/scripts/create_tables.py
 src/scripts/eda_report.py
 src/scripts/generate_data_schema.py
 src/scripts/run_db_bulk_load.py
+tests/__init__.py
+tests/ml/__init__.py
+tests/ml/calories_pred/__init__.py
+tests/ml/calories_pred/test_calories_data_transformation.py
 utils/__init__.py
 utils/cloud/__init__.py
 utils/cloud/s3_syncer.py
