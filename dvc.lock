@@ -427,3 +427,57 @@ stages:
       hash: md5
       md5: 699b7b66365c62efb49d2bf5a4ba8393
       size: 2208
+  calories_train:
+    cmd: python src/pipelines/ml_pipelines/calories_pred/model_train.py
+    deps:
+    - path: Artifacts/data/ml_calories/transformed/preprocessing.pkl
+      hash: md5
+      md5: 1b3b828b42e693c26efe9b4747ec4c01
+      size: 570705
+    - path: Artifacts/data/ml_calories/transformed/train.npy
+      hash: md5
+      md5: 5f4eb05326d700ca5fad604ea4ce9b63
+      size: 756128
+    - path: Artifacts/data/ml_calories/transformed/val.npy
+      hash: md5
+      md5: e8324f5962c75d3e36cd71752b4f9956
+      size: 162128
+    - path: 
+        Artifacts/reports/ml_calories/transformation/transformation_report.json
+      hash: md5
+      md5: 699b7b66365c62efb49d2bf5a4ba8393
+      size: 2208
+    - path: config/pipelines/ml_calories/hydra_config.yaml
+      hash: md5
+      md5: 081be6823b686d6ebf415aa7db2684bf
+      size: 2888
+    - path: config/pipelines/ml_calories/train_params.yaml
+      hash: md5
+      md5: 8521a56aa064b9fa247eca0e2c670b25
+      size: 953
+    - path: src/nutrition_core/logging/logger.py
+      hash: md5
+      md5: 7bb1f8a296dc794ddfb4443ea3ff49fb
+      size: 9361
+    - path: src/pipelines/ml_pipelines/calories_pred/model_train.py
+      hash: md5
+      md5: 3584e9c701053cfcef49545fc4ee6fee
+      size: 7599
+    - path: utils/ml_utils/model/model_factory.py
+      hash: md5
+      md5: 62287880cac95c035f587f94dac507ee
+      size: 9391
+    - path: utils/ml_utils/model/model_trainer.py
+      hash: md5
+      md5: de7a2252c1f8bbb99b13b5b8e61fd5ee
+      size: 10690
+    outs:
+    - path: Artifacts/data/ml_calories/models
+      hash: md5
+      md5: 35fe2753b7ff2b8cc48e709fa08b877b.dir
+      size: 7709535
+      nfiles: 3
+    - path: Artifacts/reports/ml_calories/training/training_report.json
+      hash: md5
+      md5: c70f36f32974090085131e5287b4abda
+      size: 2878
