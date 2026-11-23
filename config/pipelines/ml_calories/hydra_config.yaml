@@ -56,7 +56,7 @@ hydra:
       train_params.learning_rate: interval(0.0001, 0.1)
       train_params.n_estimators: range(50, 501, 50)
       train_params.max_depth: choice(4, 6, 8, 10)
-      train_params.model_type: choice(ridge, random_forest, xgboost)
+      train_params.model_type: choice(ridge, random_forest, xgboost, ada_boosst, gradient_boosting)
 
   launcher:
     _target_: hydra_plugins.hydra_joblib_launcher.joblib_launcher.JoblibLauncher
