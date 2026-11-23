@@ -1,0 +1,185 @@
+hydra:
+  run:
+    dir: Artifacts/runs/ml_calories/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  sweep:
+    dir: Artifacts/runs/ml_calories/multirun/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    subdir: trial_${hydra.job.num}
+  launcher:
+    _target_: hydra_plugins.hydra_joblib_launcher.joblib_launcher.JoblibLauncher
+    n_jobs: 1
+    backend: null
+    prefer: processes
+    require: null
+    verbose: 0
+    timeout: null
+    pre_dispatch: 2*n_jobs
+    batch_size: auto
+    temp_folder: null
+    max_nbytes: null
+    mmap_mode: r
+  sweeper:
+    sampler:
+      _target_: optuna.samplers.TPESampler
+      seed: 42
+      consider_prior: true
+      prior_weight: 1.0
+      consider_magic_clip: true
+      consider_endpoints: false
+      n_startup_trials: 5
+      n_ei_candidates: 24
+      multivariate: true
+      warn_independent_sampling: true
+    _target_: hydra_plugins.hydra_optuna_sweeper.optuna_sweeper.OptunaSweeper
+    direction: minimize
+    storage: sqlite:///Artifacts/optuna/calories.db
+    study_name: calories_regression
+    n_trials: 20
+    n_jobs: 1
+    max_failure_rate: 0.0
+    search_space: null
+    params:
+      train_params.batch_size: choice(16, 32, 64)
+      train_params.learning_rate: interval(0.0001, 0.1)
+      train_params.n_estimators: range(50, 501, 50)
+      train_params.max_depth: choice(4, 6, 8, 10)
+      train_params.model_type: choice(ridge, random_forest, xgboost, ada_boost, gradient_boosting)
+    custom_search_space: src.pipelines.ml_pipelines.calories_pred.search_space.get_search_space
+  help:
+    app_name: NutritionAI Calories Training
+    header: == Calories Prediction Training Configuration ==
+    footer: Set train_params.metric_name=auto to evaluate every configured metric.
+    template: '${hydra.help.header}
+
+      == Configuration groups ==
+
+      Compose your configuration from those groups (group=option)
+
+
+      $APP_CONFIG_GROUPS
+
+
+      == Config ==
+
+      Override anything in the config (foo.bar=value)
+
+
+      $CONFIG
+
+
+      ${hydra.help.footer}
+
+      '
+  hydra_help:
+    template: 'Hydra (${hydra.runtime.version})
+
+      See https://hydra.cc for more info.
+
+
+      == Flags ==
+
+      $FLAGS_HELP
+
+
+      == Configuration groups ==
+
+      Compose your configuration from those groups (For example, append hydra/job_logging=disabled
+      to command line)
+
+
+      $HYDRA_CONFIG_GROUPS
+
+
+      Use ''--cfg hydra'' to Show the Hydra config.
+
+      '
+    hydra_help: ???
+  hydra_logging:
+    version: 1
+    formatters:
+      simple:
+        format: '[HYDRA][%(levelname)s] - %(message)s'
+    handlers:
+      console:
+        class: logging.StreamHandler
+        formatter: simple
+        stream: ext://sys.stdout
+    root:
+      level: INFO
+      handlers:
+      - console
+    loggers:
+      logging_example:
+        level: DEBUG
+    disable_existing_loggers: false
+  job_logging:
+    version: 1
+    formatters:
+      simple:
+        format: '[%(asctime)s][%(name)s][%(levelname)s] - %(message)s'
+    handlers:
+      console:
+        class: logging.StreamHandler
+        formatter: simple
+        stream: ext://sys.stdout
+      file:
+        class: logging.FileHandler
+        formatter: simple
+        filename: ${hydra.runtime.output_dir}/${hydra.job.name}.log
+        mode: w
+        encoding: utf-8
+    root:
+      level: INFO
+      handlers:
+      - console
+      - file
+    disable_existing_loggers: false
+  env: {}
+  mode: RUN
+  searchpath: []
+  callbacks: {}
+  output_subdir: .hydra
+  overrides:
+    hydra: []
+    task: []
+  job:
+    name: calories_training
+    chdir: false
+    override_dirname: ''
+    id: ???
+    num: ???
+    config_name: hydra_config
+    env_set:
+      MLFLOW_EXPERIMENT_NAME: calories_pred
+    env_copy: []
+    config:
+      override_dirname:
+        kv_sep: '='
+        item_sep: ','
+        exclude_keys: []
+  runtime:
+    version: 1.3.7
+    version_base: '1.3'
+    cwd: D:\NutritionAI_V1
+    config_sources:
+    - path: hydra.conf
+      schema: pkg
+      provider: hydra
+    - path: D:\NutritionAI_V1\config\pipelines\ml_calories
+      schema: file
+      provider: main
+    - path: ''
+      schema: structured
+      provider: schema
+    output_dir: D:\NutritionAI_V1\Artifacts\runs\ml_calories\2026-11-23\15-32-07
+    choices:
+      hydra/env: default
+      hydra/callbacks: null
+      hydra/job_logging: default
+      hydra/hydra_logging: default
+      hydra/hydra_help: default
+      hydra/help: default
+      hydra/sweeper: optuna
+      hydra/sweeper/sampler: tpe
+      hydra/launcher: joblib
+      hydra/output: default
+  verbose: false

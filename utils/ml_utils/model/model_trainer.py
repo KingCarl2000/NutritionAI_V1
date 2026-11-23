@@ -27,6 +27,7 @@ class ModelTrainer:
         tracking_uri: Optional[str] = "sqlite:///mlflow.db",
         seed: int = 42,
         metric_name: Optional[str] = None,
+        storage: Optional[Any] = None,
     ) -> None:
         normalized_direction = direction.strip().lower()
         if normalized_direction not in {"maximize", "minimize"}:
@@ -45,6 +46,7 @@ class ModelTrainer:
             n_warmup_steps=0,
         )
         self.tracking_uri = tracking_uri
+        self.storage = storage
         self.seed = seed
         self.study: Optional[optuna.study.Study] = None
         self.best_wrapper: Optional[BaseModelWrapper] = None
@@ -197,7 +199,9 @@ class ModelTrainer:
                 direction=self.direction,
                 pruner=self.pruner,
                 sampler=optuna.samplers.TPESampler(seed=self.seed),
+                storage=self.storage,
                 load_if_exists=study_name is not None,
+
             )
             self.study.optimize(
                 lambda trial: self._objective(

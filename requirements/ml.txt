@@ -2,39 +2,34 @@
 -r base.txt
 
 # Xử lý dữ liệu cốt lõi
-pandas
-numpy
+pandas>=2.1.0
+numpy>=1.26.0,<2.0.0
 
 # Học máy truyền thống
-scikit-learn
-xgboost
+scikit-learn>=1.4.0
+xgboost>=2.0.0
 
 # MLOps, Tracking & Cloud Infrastructure
-mlflow
+mlflow>=2.12.0
 dagshub
 skops
 awscli
 dvc
 torch
 
-# ÉP PHIÊN BẢN MỚI ĐỂ TRÁNH LỖI TRÊN PYTHON 3.12
+# Serving (Tách Airflow ra container/venv riêng để tránh vỡ dependency)
 bentoml>=1.2.0
-apache-airflow>=2.9.0
 
-# hugging face
+# Hugging Face
 datasets
 
-# Validation
-pandera
+# Validation & Formatting
+pandera>=0.18.0
+evidently>=0.4.20
 black
-evidently
 
-# Hyperparameter tuning
-optuna
-optuna-dashboard
-hydra-core
-hydra-optuna-sweeper
-hydra-joblib-launcher
-
-
-
+# Hyperparameter tuning (Đồng bộ Optuna 3.x với SQLAlchemy 2.0 & MLflow)
+optuna>=3.6.0,<4.0.0
+optuna-dashboard>=0.15.0
+hydra-core>=1.3.2
+hydra-joblib-launcher>=1.2.0

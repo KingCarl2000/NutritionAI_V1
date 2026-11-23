@@ -3,44 +3,43 @@ Name: NutritionAI_V1
 Version: 0.0.1
 Author: Carl
 Author-email: ngvcuong282@gmail.com
-Requires-Dist: fastapi>=0.109.0
-Requires-Dist: uvicorn
-Requires-Dist: python-multipart
-Requires-Dist: python-dotenv
-Requires-Dist: PyYAML
+Requires-Dist: setuptools<71.0.0,>=69.0.0
+Requires-Dist: python-dotenv>=1.0.0
+Requires-Dist: PyYAML>=6.0.1
 Requires-Dist: certifi
 Requires-Dist: ipykernel
-Requires-Dist: sqlalchemy
-Requires-Dist: pgvector
-Requires-Dist: psycopg
-Requires-Dist: psycopg_pool
-Requires-Dist: psycopg2-binary
-Requires-Dist: seaborn
-Requires-Dist: setuptools
-Requires-Dist: ydata-profiling>=4.6.0
-Requires-Dist: nvidia-ml-py
+Requires-Dist: numpy<2.0.0,>=1.26.0
+Requires-Dist: fastapi>=0.109.0
+Requires-Dist: uvicorn[standard]>=0.27.0
+Requires-Dist: python-multipart>=0.0.9
+Requires-Dist: sqlalchemy>=2.0.0
+Requires-Dist: pgvector>=0.2.5
+Requires-Dist: psycopg[binary]>=3.1.18
+Requires-Dist: psycopg_pool>=3.2.1
+Requires-Dist: psycopg2-binary>=2.9.9
+Requires-Dist: seaborn>=0.13.2
+Requires-Dist: nvidia-ml-py>=12.535.0
+Requires-Dist: ydata-profiling>=4.7.0
 Provides-Extra: ml
-Requires-Dist: pandas; extra == "ml"
-Requires-Dist: numpy; extra == "ml"
-Requires-Dist: scikit-learn; extra == "ml"
-Requires-Dist: xgboost; extra == "ml"
-Requires-Dist: mlflow; extra == "ml"
+Requires-Dist: pandas>=2.1.0; extra == "ml"
+Requires-Dist: numpy<2.0.0,>=1.26.0; extra == "ml"
+Requires-Dist: scikit-learn>=1.4.0; extra == "ml"
+Requires-Dist: xgboost>=2.0.0; extra == "ml"
+Requires-Dist: mlflow>=2.12.0; extra == "ml"
 Requires-Dist: dagshub; extra == "ml"
 Requires-Dist: skops; extra == "ml"
 Requires-Dist: awscli; extra == "ml"
 Requires-Dist: dvc; extra == "ml"
 Requires-Dist: torch; extra == "ml"
 Requires-Dist: bentoml>=1.2.0; extra == "ml"
-Requires-Dist: apache-airflow>=2.9.0; extra == "ml"
 Requires-Dist: datasets; extra == "ml"
-Requires-Dist: pandera; extra == "ml"
+Requires-Dist: pandera>=0.18.0; extra == "ml"
+Requires-Dist: evidently>=0.4.20; extra == "ml"
 Requires-Dist: black; extra == "ml"
-Requires-Dist: evidently; extra == "ml"
-Requires-Dist: optuna; extra == "ml"
-Requires-Dist: optuna-dashboard; extra == "ml"
-Requires-Dist: hydra-core; extra == "ml"
-Requires-Dist: hydra-optuna-sweeper; extra == "ml"
-Requires-Dist: hydra-joblib-launcher; extra == "ml"
+Requires-Dist: optuna<4.0.0,>=3.6.0; extra == "ml"
+Requires-Dist: optuna-dashboard>=0.15.0; extra == "ml"
+Requires-Dist: hydra-core>=1.3.2; extra == "ml"
+Requires-Dist: hydra-joblib-launcher>=1.2.0; extra == "ml"
 Provides-Extra: llm
 Requires-Dist: langchain; extra == "llm"
 Requires-Dist: langchain-community; extra == "llm"
@@ -48,27 +47,25 @@ Requires-Dist: tiktoken; extra == "llm"
 Requires-Dist: pypdf; extra == "llm"
 Requires-Dist: nvidia-ml-py; extra == "llm"
 Provides-Extra: all
-Requires-Dist: pandas; extra == "all"
-Requires-Dist: numpy; extra == "all"
-Requires-Dist: scikit-learn; extra == "all"
-Requires-Dist: xgboost; extra == "all"
-Requires-Dist: mlflow; extra == "all"
+Requires-Dist: pandas>=2.1.0; extra == "all"
+Requires-Dist: numpy<2.0.0,>=1.26.0; extra == "all"
+Requires-Dist: scikit-learn>=1.4.0; extra == "all"
+Requires-Dist: xgboost>=2.0.0; extra == "all"
+Requires-Dist: mlflow>=2.12.0; extra == "all"
 Requires-Dist: dagshub; extra == "all"
 Requires-Dist: skops; extra == "all"
 Requires-Dist: awscli; extra == "all"
 Requires-Dist: dvc; extra == "all"
 Requires-Dist: torch; extra == "all"
 Requires-Dist: bentoml>=1.2.0; extra == "all"
-Requires-Dist: apache-airflow>=2.9.0; extra == "all"
 Requires-Dist: datasets; extra == "all"
-Requires-Dist: pandera; extra == "all"
+Requires-Dist: pandera>=0.18.0; extra == "all"
+Requires-Dist: evidently>=0.4.20; extra == "all"
 Requires-Dist: black; extra == "all"
-Requires-Dist: evidently; extra == "all"
-Requires-Dist: optuna; extra == "all"
-Requires-Dist: optuna-dashboard; extra == "all"
-Requires-Dist: hydra-core; extra == "all"
-Requires-Dist: hydra-optuna-sweeper; extra == "all"
-Requires-Dist: hydra-joblib-launcher; extra == "all"
+Requires-Dist: optuna<4.0.0,>=3.6.0; extra == "all"
+Requires-Dist: optuna-dashboard>=0.15.0; extra == "all"
+Requires-Dist: hydra-core>=1.3.2; extra == "all"
+Requires-Dist: hydra-joblib-launcher>=1.2.0; extra == "all"
 Requires-Dist: langchain; extra == "all"
 Requires-Dist: langchain-community; extra == "all"
 Requires-Dist: tiktoken; extra == "all"

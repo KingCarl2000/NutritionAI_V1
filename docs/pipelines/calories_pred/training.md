@@ -21,16 +21,17 @@ Khởi tạo/cập nhật cấu hình các stage bằng `bash src/scripts/setup_
 - **Metrics:** `Artifacts/reports/ml_calories/training/training_report.json`.
 - **Luồng chạy:** Đọc train/validation arrays (cột cuối là target), kiểm tra dữ liệu hữu hạn và feature count so với preprocessor, chạy Optuna HPO cho từng metric được chọn, lưu model tốt nhất và JSON report. Validation split được dùng để chọn model; test split không được đọc trong stage này. Với cấu hình mặc định có nhiều metric, mỗi model được lưu thành `best_model_<metric_name>.pkl`; tên `best_model.pkl` chỉ được dùng nguyên trạng khi chạy một metric.
 - **Chạy trực tiếp:** `python src/pipelines/ml_pipelines/calories_pred/model_train.py`
+- **Xem trials:** Sau khi chạy training ít nhất một lần, mở dashboard bằng `optuna-dashboard sqlite:///Artifacts/optuna/calories.db --host 127.0.0.1 --port 8080`, rồi truy cập `http://127.0.0.1:8080`. Dashboard và training dùng chung SQLite storage; nhấn `Ctrl+C` để dừng dashboard.
 
 ### Cấu hình YAML
 
 #### `hydra_config.yaml` (`config/pipelines/ml_calories/hydra_config.yaml`)
 
-- **Vai trò:** Khai báo cấu hình Hydra cho entrypoint huấn luyện, defaults, experiment settings, thư mục chạy, logging và cấu hình Optuna sweeper.
+- **Vai trò:** Khai báo cấu hình Hydra cho entrypoint huấn luyện, experiment settings, thư mục chạy, logging và Optuna storage. Optuna được gọi trực tiếp bởi `ModelTrainer`; cấu hình không phụ thuộc `hydra-optuna-sweeper`.
 - **Cách gọi trong code:** `@hydra.main(config_path="../../../../config/pipelines/ml_calories", config_name="hydra_config")`; entrypoint nhận `cfg: DictConfig`.
 - **Cây cấu trúc (Schema rút gọn):**
   ```yaml
-  defaults: [_self_, train_params, override hydra/sweeper: optuna, override hydra/launcher: joblib]
+  defaults: [_self_, train_params, override hydra/launcher: joblib]
   task:
     pipeline_name: calories_prediction
     debug: false
@@ -45,18 +46,17 @@ Khởi tạo/cập nhật cấu hình các stage bằng `bash src/scripts/setup_
     n_jobs: 1
     model_name: ${train_params.model_type}
     seed: ${task.seed}
+  optuna:
+    study_name: calories_regression
+    storage: sqlite:///Artifacts/optuna/calories.db
   hydra:
     mode: RUN
     run.dir: Artifacts/runs/ml_calories/${now:%Y-%m-%d}/${now:%H-%M-%S}
     sweep.dir: Artifacts/runs/ml_calories/multirun/${now:%Y-%m-%d}/${now:%H-%M-%S}
-    sweeper:
-      storage: sqlite:///Artifacts/optuna/calories.db
-      study_name: calories_regression
-      custom_search_space: src.pipelines.ml_pipelines.calories_pred.search_space.get_search_space
     launcher:
       n_jobs: 1
   ```
-- **Lưu ý:** `hydra.mode` mặc định là `RUN`; cấu hình có sweeper/launcher cho Hydra multirun nhưng `model_train.py` gọi `ModelTrainer` để thực hiện Optuna HPO trong một lần chạy thường. `hydra.sweeper.params` có giá trị `ada_boosst`, không nằm trong các model alias của `ModelFactory`; không chọn giá trị này nếu bật cấu hình multirun.
+- **Lưu ý:** `optuna.storage` là SQLite URL mà `ModelTrainer` sử dụng để lưu study, đồng thời là URL đầu vào cho `optuna-dashboard`. Thư mục database được tạo tự động; mỗi metric dùng study riêng với tên `<study_name>_<metric_name>` để không trộn các hướng tối ưu khác nhau. Mỗi lần chạy sẽ thêm `training.n_trials` trials vào study tương ứng.
 
 #### `train_params.yaml` (`config/pipelines/ml_calories/train_params.yaml`)
 
@@ -129,6 +129,7 @@ Khởi tạo/cập nhật cấu hình các stage bằng `bash src/scripts/setup_
           tracking_uri: str | None = "sqlite:///mlflow.db",
           seed: int = 42,
           metric_name: str | None = None,
+          storage: Any | None = None,
       ) -> None: ...
 
       def optimize_and_train(

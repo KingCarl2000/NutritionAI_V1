@@ -24,12 +24,12 @@
     },
     "r2_score": {
       "direction": "maximize",
-      "best_score": 0.9995433644981084,
+      "best_score": 0.9994355273849155,
       "best_params": {
         "model_name": "gradient_boosting",
         "gradient_boosting.n_estimators": 300,
         "gradient_boosting.learning_rate": 0.05651684484945384,
-        "gradient_boosting.max_depth": 6,
+        "gradient_boosting.max_depth": 5,
         "gradient_boosting.subsample": 0.6971817591368986,
         "model_type": "gradient_boosting"
       },
@@ -37,19 +37,19 @@
       "model_path": "D:\\NutritionAI_V1\\Artifacts\\data\\ml_calories\\models\\best_model_r2_score.pkl",
       "trials": {
         "total": 20,
-        "completed": 11,
-        "pruned": 9,
+        "completed": 10,
+        "pruned": 10,
         "failed": 0
       }
     },
     "root_mean_squared_error": {
       "direction": "minimize",
-      "best_score": 1.3353701910011488,
+      "best_score": 1.4846985328281006,
       "best_params": {
         "model_name": "gradient_boosting",
         "gradient_boosting.n_estimators": 300,
         "gradient_boosting.learning_rate": 0.05651684484945384,
-        "gradient_boosting.max_depth": 6,
+        "gradient_boosting.max_depth": 5,
         "gradient_boosting.subsample": 0.6971817591368986,
         "model_type": "gradient_boosting"
       },
@@ -57,8 +57,8 @@
       "model_path": "D:\\NutritionAI_V1\\Artifacts\\data\\ml_calories\\models\\best_model_root_mean_squared_error.pkl",
       "trials": {
         "total": 20,
-        "completed": 14,
-        "pruned": 6,
+        "completed": 13,
+        "pruned": 7,
         "failed": 0
       }
     }

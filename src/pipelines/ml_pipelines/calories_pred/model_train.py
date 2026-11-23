@@ -8,6 +8,7 @@ import hydra
 import joblib
 import numpy as np
 from omegaconf import DictConfig
+from sqlalchemy.engine import make_url
 from sklearn.metrics import mean_squared_error, r2_score
 
 from src.nutrition_core.logging.logger import logger
@@ -45,6 +46,23 @@ METRICS = {
 def _resolve_project_path(configured_path: str) -> Path:
     path = Path(configured_path).expanduser()
     return path if path.is_absolute() else PROJECT_ROOT / path
+
+
+def _resolve_optuna_storage(storage_url: str | None) -> str | None:
+    if not storage_url:
+        return storage_url
+
+    url = make_url(storage_url)
+    if url.get_backend_name() != "sqlite" or not url.database:
+        return storage_url
+    if url.database == ":memory:" or url.database.startswith("file:"):
+        return storage_url
+
+    database_path = _resolve_project_path(url.database)
+    database_path.parent.mkdir(parents=True, exist_ok=True)
+    return url.set(database=database_path.as_posix()).render_as_string(
+        hide_password=False
+    )
 
 
 def _load_transformed_split(path: Path) -> Tuple[np.ndarray, np.ndarray]:
@@ -103,6 +121,9 @@ def run_training(cfg: DictConfig) -> Dict[str, Any]:
         raise ValueError("Configured metric_names must be unique.")
 
     configured_direction = str(cfg.training.direction).strip().lower()
+    optuna_config = cfg.get("optuna", {})
+    storage_url = _resolve_optuna_storage(optuna_config.get("storage"))
+    study_name_prefix = optuna_config.get("study_name")
     metric_results: Dict[str, Any] = {}
     for metric_name in metric_names:
         if metric_name not in METRICS:
@@ -129,6 +150,7 @@ def run_training(cfg: DictConfig) -> Dict[str, Any]:
             tracking_uri=str(cfg.training.tracking_uri),
             seed=int(cfg.training.seed),
             metric_name=metric_name,
+            storage=storage_url,
         )
         best_wrapper, best_params, best_score = trainer.optimize_and_train(
             X_train,
@@ -136,6 +158,9 @@ def run_training(cfg: DictConfig) -> Dict[str, Any]:
             X_val,
             y_val,
             n_trials=int(cfg.training.n_trials),
+            study_name=(
+                f"{study_name_prefix}_{metric_name}" if study_name_prefix else None
+            ),
             n_jobs=int(cfg.training.n_jobs),
             model_name=model_name,
             model_output_path=metric_model_path,

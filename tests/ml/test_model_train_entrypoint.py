@@ -7,6 +7,7 @@ from uuid import uuid4
 import joblib
 import mlflow
 import numpy as np
+import optuna
 from omegaconf import OmegaConf
 from sklearn.preprocessing import StandardScaler
 
@@ -26,6 +27,8 @@ class ModelTrainEntrypointTests(unittest.TestCase):
             preprocessor_path = root / "preprocessor.pkl"
             model_path = root / "models" / "best_model.pkl"
             report_path = root / "reports" / "training_report.json"
+            storage_path = root / "optuna" / "calories.db"
+            storage_url = f"sqlite:///{storage_path.as_posix()}"
 
             train_features = np.arange(20, dtype=float).reshape(-1, 1)
             train_targets = 3 * train_features[:, 0] + 2
@@ -61,6 +64,10 @@ class ModelTrainEntrypointTests(unittest.TestCase):
                         "model_name": "ridge",
                         "seed": 42,
                     },
+                    "optuna": {
+                        "study_name": "calories_regression",
+                        "storage": storage_url,
+                    },
                 }
             )
 
@@ -80,6 +87,13 @@ class ModelTrainEntrypointTests(unittest.TestCase):
                 report["metric_results"]["r2_score"]["model_type"], "ridge"
             )
             self.assertEqual(json.loads(report_path.read_text())["status"], "SUCCESS")
+            self.assertTrue(storage_path.is_file())
+            for metric_name in cfg.training.metric_names:
+                study = optuna.load_study(
+                    study_name=f"calories_regression_{metric_name}",
+                    storage=storage_url,
+                )
+                self.assertEqual(len(study.trials), 1)
 
 
 if __name__ == "__main__":

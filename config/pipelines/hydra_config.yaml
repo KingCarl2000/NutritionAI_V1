@@ -1,7 +1,6 @@
 defaults:
   - _self_
   - ml_calories/train_params@_global_
-  - override hydra/sweeper: optuna
   - override hydra/launcher: joblib
 
 task:
@@ -10,9 +9,36 @@ task:
   seed: 42
 
 training:
+  experiment_name: ${train_params.mlflow.experiment_name}
+  tracking_uri: ${train_params.mlflow.tracking_uri}
+  direction: ${train_params.direction}
   metric_name: ${train_params.metric_name}
   metric_names: ${train_params.metric_names}
-  direction: auto
+  n_trials: 20
+  n_jobs: 1
+  model_name: ${train_params.model_type}
+  seed: ${task.seed}
+
+# Tách cấu hình Optuna ra block riêng để Hydra không báo lỗi struct
+optuna:
+  study_name: calories_regression
+  storage: sqlite:///Artifacts/optuna/calories.db
+  direction: ${training.direction}
+  n_trials: ${training.n_trials}
+  n_jobs: ${training.n_jobs}
+  sampler:
+    _target_: optuna.samplers.TPESampler
+    seed: ${task.seed}
+    n_startup_trials: 5
+    n_ei_candidates: 24
+    multivariate: true
+    warn_independent_sampling: true
+  search_space:
+    model_type: [ridge, random_forest, xgboost, gradient_boosting, ada_boost]
+    batch_size: [16, 32, 64]
+    learning_rate: [0.0001, 0.1]
+    n_estimators: [50, 500, 50] # [low, high, step]
+    max_depth: [4, 6, 8, 10]
 
 hydra:
   mode: RUN
@@ -26,23 +52,3 @@ hydra:
     chdir: false
     env_set:
       MLFLOW_EXPERIMENT_NAME: calories_pred
-  sweeper:
-    direction: minimize
-    n_trials: 20
-    n_jobs: 1
-    storage: sqlite:///Artifacts/optuna/calories.db
-    study_name: calories_regression
-    max_failure_rate: 0.0
-    sampler:
-      _target_: optuna.samplers.TPESampler
-      seed: 42
-      n_startup_trials: 5
-      n_ei_candidates: 24
-      multivariate: true
-      warn_independent_sampling: true
-    params:
-      train_params.batch_size: choice(16, 32, 64)
-      train_params.learning_rate: interval(0.0001, 0.1)
-      train_params.n_estimators: range(50, 501, 50)
-      train_params.max_depth: choice(4, 6, 8, 10)
-      train_params.model_type: choice(ridge, random_forest, xgboost, gradient_boosting, ada_boost)

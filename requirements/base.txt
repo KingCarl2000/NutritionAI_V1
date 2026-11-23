@@ -1,28 +1,31 @@
-# Chế độ cài đặt cho thư mục hiện tại
--e .
-
-# Web Framework & Server 
-fastapi>=0.109.0
-uvicorn
-python-multipart
-
-# Quản lý môi trường & Chứng chỉ
-python-dotenv
-PyYAML 
+# Quản lý môi trường, Build & Chứng chỉ (Ghim setuptools tránh lỗi pkg_resources trên Python 3.12)
+setuptools>=69.0.0,<71.0.0
+python-dotenv>=1.0.0
+PyYAML>=6.0.1
 certifi
 ipykernel
 
+# Nền tảng tính toán (Khóa NumPy 1.x để tương thích ydata-profiling, evidently, torch)
+numpy>=1.26.0,<2.0.0
+
+# Web Framework & Server
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+python-multipart>=0.0.9
+
 # Kết nối Database (PostgreSQL + pgvector)
-sqlalchemy
-pgvector
-psycopg
-psycopg_pool
-psycopg2-binary
+sqlalchemy>=2.0.0
+pgvector>=0.2.5
+psycopg[binary]>=3.1.18
+psycopg_pool>=3.2.1
+psycopg2-binary>=2.9.9
 
-# Visualization
-seaborn
+# Visualization & Monitoring phần cứng
+seaborn>=0.13.2
+nvidia-ml-py>=12.535.0
 
-# Datasets & Profiling
-setuptools
-ydata-profiling>=4.6.0
-nvidia-ml-py
+# Datasets & Profiling (Nên cân nhắc tách sang requirements-eda.txt nếu không dùng lúc deploy)
+ydata-profiling>=4.7.0
+
+# Cài đặt package hiện tại ở chế độ editable (Luôn để cuối cùng)
+-e .
