@@ -100,8 +100,6 @@ utils/cloud/s3_syncer.py
 utils/main_utils/__init__.py
 utils/main_utils/utils.py
 utils/ml_utils/__init__.py
-utils/ml_utils/metric/__init__.py
-utils/ml_utils/metric/regression_metric.py
 utils/ml_utils/model/__init__.py
 utils/ml_utils/model/model_factory.py
 utils/ml_utils/model/model_trainer.py
