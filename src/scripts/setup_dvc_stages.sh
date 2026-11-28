@@ -63,7 +63,7 @@ dvc stage add --force -n calories_transform \
   -M Artifacts/reports/ml_calories/transformation/transformation_report.json \
   python src/pipelines/ml_pipelines/calories_pred/data_trans.py
 
-# 4. Stage: Model Training
+# 4. Stage: Model Training and Evaluation
 dvc stage add --force -n calories_train \
   -d src/pipelines/ml_pipelines/calories_pred/model_train.py \
   -d Artifacts/data/ml_calories/transformed/preprocessing.pkl \
@@ -81,3 +81,18 @@ dvc stage add --force -n calories_train \
   -o Artifacts/data/ml_calories/models \
   -M Artifacts/reports/ml_calories/training/training_report.json \
   python src/pipelines/ml_pipelines/calories_pred/model_train.py
+
+# 5. Stage: Build and package the BentoML prediction service
+dvc stage add --force -n calories_package \
+  -d src/pipelines/ml_pipelines/calories_pred/model_package.py \
+  -d src/pipelines/ml_pipelines/calories_pred/model_register.py \
+  -d config/pipelines/ml_calories/bentofile.yaml \
+  -d service.py \
+  -d Artifacts/data/ml_calories/models/best_model_mean_squared_error_pipeline.pkl \
+  -d Artifacts/data/ml_calories/models/best_model_r2_score_pipeline.pkl \
+  -d Artifacts/data/ml_calories/models/best_model_root_mean_squared_error_pipeline.pkl \
+  -d Artifacts/reports/ml_calories/training/training_report.json \
+  -d requirements/base.txt \
+  -d requirements/ml.txt \
+  -o Artifacts/data/ml_calories/bentoml \
+  python src/pipelines/ml_pipelines/calories_pred/model_package.py

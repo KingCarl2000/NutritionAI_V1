@@ -129,6 +129,11 @@ class ModelTrainEntrypointTests(unittest.TestCase):
                         f"{model_path.stem}_{metric_name}{model_path.suffix}"
                     ).is_file()
                 )
+                self.assertTrue(
+                    model_path.with_name(
+                        f"{model_path.stem}_{metric_name}_pipeline{model_path.suffix}"
+                    ).is_file()
+                )
             self.assertEqual(report["data"]["feature_count"], 3)
             self.assertEqual(report["data"]["train_rows"], 20)
             self.assertEqual(report["data"]["validation_rows"], 3)
@@ -160,6 +165,14 @@ class ModelTrainEntrypointTests(unittest.TestCase):
                 pd.DataFrame({"Age": [0.0], "Gender": ["F"]})
             )
             self.assertEqual(raw_prediction.shape, (1,))
+            inference_pipeline_path = Path(
+                report["metric_results"]["r2_score"]["inference_pipeline_path"]
+            )
+            pipeline = joblib.load(inference_pipeline_path)
+            self.assertEqual(
+                pipeline.predict(pd.DataFrame({"Age": [0.0], "Gender": ["F"]})).shape,
+                (1,),
+            )
             study_storage = None
             try:
                 for metric_name in cfg.training.metric_names:

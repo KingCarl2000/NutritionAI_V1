@@ -12,28 +12,39 @@ from src.pipelines.ml_pipelines.calories_pred.model_register import (
 
 
 class ModelRegisterTests(unittest.TestCase):
-    def test_imports_each_model_using_uri_from_training_report(self):
+    def test_registers_each_saved_pipeline_in_bentoml(self):
         with tempfile.TemporaryDirectory() as temp_dir:
-            report_path = Path(temp_dir) / "training_report.json"
+            root = Path(temp_dir)
+            report_path = root / "training_report.json"
+            mse_pipeline = root / "mse_pipeline.pkl"
+            r2_pipeline = root / "r2_pipeline.pkl"
+            mse_pipeline.touch()
+            r2_pipeline.touch()
             report_path.write_text(
                 json.dumps(
                     {
                         "run_id": "run-123",
                         "metric_results": {
                             "mean_squared_error": {
-                                "mlflow_model_uri": "models:/mse-model"
+                                "inference_pipeline_path": str(mse_pipeline)
                             },
-                            "r2_score": {"mlflow_model_uri": "models:/r2-model"},
+                            "r2_score": {"inference_pipeline_path": str(r2_pipeline)},
                         },
                     }
                 ),
                 encoding="utf-8",
             )
-            import_model = Mock(side_effect=["bento-mse", "bento-r2"])
+            save_model = Mock(side_effect=["bento-mse", "bento-r2"])
             bentoml = ModuleType("bentoml")
-            bentoml.mlflow = SimpleNamespace(import_model=import_model)
+            bentoml.sklearn = SimpleNamespace(save_model=save_model)
 
-            with patch.dict(sys.modules, {"bentoml": bentoml}):
+            with (
+                patch.dict(sys.modules, {"bentoml": bentoml}),
+                patch(
+                    "src.pipelines.ml_pipelines.calories_pred.model_register.joblib.load",
+                    side_effect=["mse-pipeline", "r2-pipeline"],
+                ) as load_model,
+            ):
                 result = register_models_from_report(report_path)
 
             self.assertEqual(
@@ -44,18 +55,18 @@ class ModelRegisterTests(unittest.TestCase):
                 },
             )
             self.assertEqual(
-                [call.kwargs["model_uri"] for call in import_model.call_args_list],
-                ["models:/mse-model", "models:/r2-model"],
+                [call.args[0] for call in load_model.call_args_list],
+                [mse_pipeline, r2_pipeline],
             )
             self.assertEqual(
-                [call.kwargs["name"] for call in import_model.call_args_list],
+                [call.kwargs["name"] for call in save_model.call_args_list],
                 [
                     "calories_predictor_mean_squared_error",
                     "calories_predictor_r2_score",
                 ],
             )
 
-    def test_requires_logged_model_uri_for_each_metric(self):
+    def test_requires_saved_pipeline_for_each_metric(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             report_path = Path(temp_dir) / "training_report.json"
             report_path.write_text(
@@ -68,11 +79,11 @@ class ModelRegisterTests(unittest.TestCase):
                 encoding="utf-8",
             )
             bentoml = ModuleType("bentoml")
-            bentoml.mlflow = SimpleNamespace(import_model=Mock())
+            bentoml.sklearn = SimpleNamespace(save_model=Mock())
 
             with (
                 patch.dict(sys.modules, {"bentoml": bentoml}),
-                self.assertRaisesRegex(ValueError, "model URI"),
+                self.assertRaisesRegex(ValueError, "inference pipeline path"),
             ):
                 register_models_from_report(report_path)
 

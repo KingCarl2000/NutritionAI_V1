@@ -9,9 +9,10 @@
 | `calories_ingest` | `src/pipelines/ml_pipelines/calories_pred/data_ingest.py` | Tạo dữ liệu raw | `Artifacts/reports/ml_calories/ingestion/ingestion_report.json` |
 | `calories_validate` | `src/pipelines/ml_pipelines/calories_pred/data_val.py` | Raw data → validated data | `Artifacts/reports/ml_calories/validation/validation_report.json` |
 | `calories_transform` | `src/pipelines/ml_pipelines/calories_pred/data_trans.py` | Validated splits → `.npy` và preprocessor | `Artifacts/reports/ml_calories/transformation/transformation_report.json` |
-| `calories_train` | `src/pipelines/ml_pipelines/calories_pred/model_train.py` | Train/validation `.npy` → model | `Artifacts/reports/ml_calories/training/training_report.json` |
+| `calories_train` | `src/pipelines/ml_pipelines/calories_pred/model_train.py` | Train/validation `.npy` → model và inference pipeline | `Artifacts/reports/ml_calories/training/training_report.json` |
+| `calories_package` | `src/pipelines/ml_pipelines/calories_pred/model_package.py` | Inference pipelines → BentoML service bundle | `Artifacts/data/ml_calories/bentoml` |
 
-Khởi tạo/cập nhật cấu hình các stage bằng `bash src/scripts/setup_dvc_stages.sh`, sau đó chạy riêng stage huấn luyện bằng `dvc repro calories_train`. Script dùng `dvc stage add --force` và tự chuyển về thư mục gốc repo.
+Khởi tạo/cập nhật cấu hình các stage bằng `bash src/scripts/setup_dvc_stages.sh`, sau đó chạy pipeline bằng `dvc repro calories_package`. Script dùng `dvc stage add --force` và tự chuyển về thư mục gốc repo.
 
 ## Stage `calories_train`
 
@@ -112,6 +113,19 @@ Khởi tạo/cập nhật cấu hình các stage bằng `bash src/scripts/setup_
       ...
   ```
 - **Lưu ý:** Mỗi `.npy` phải là mảng 2D hữu hạn có ít nhất hai cột; cột cuối là target. Số feature phải khớp với `preprocessing.pkl`. Metric hỗ trợ gồm MSE, RMSE, RMSLE (minimize) và R² (maximize); `direction: auto` lấy hướng tối ưu từ metric.
+
+## Stage `calories_package`
+
+- **Dependencies DVC:** training report, inference pipelines trong `Artifacts/data/ml_calories/models`, `service.py`, BentoML build config và dependency manifests.
+- **Luồng chạy:** `model_train.py` lưu một sklearn `Pipeline` cho từng metric, gồm cả preprocessing và estimator. `model_package.py` đăng ký các pipeline đó vào BentoML Model Store, sau đó chạy `bentoml build` với `config/pipelines/ml_calories/bentofile.yaml`.
+- **Output:** `Artifacts/data/ml_calories/bentoml` chứa BentoML Model Store và bundle; DVC quản lý toàn bộ thư mục này. Không cần truy cập MLflow trong bước packaging.
+- **Chạy local:** sau `dvc repro calories_package`, dùng cùng BentoML store:
+  ```bash
+  export BENTOML_HOME=Artifacts/data/ml_calories/bentoml
+  bentoml serve calories-prediction:latest --port 3000
+  ```
+  Trong PowerShell, đặt `$env:BENTOML_HOME = (Resolve-Path "Artifacts/data/ml_calories/bentoml").Path` trước khi chạy lệnh `bentoml serve`.
+- **Container:** với cùng `BENTOML_HOME`, chạy `bentoml containerize calories-prediction:latest` để tạo image triển khai bằng Docker; cần Docker daemon hoạt động.
 
 #### `model_trainer.py` (`utils/ml_utils/model/model_trainer.py`)
 

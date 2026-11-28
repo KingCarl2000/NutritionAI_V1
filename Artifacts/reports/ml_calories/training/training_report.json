@@ -1,6 +1,7 @@
 {
   "pipeline_name": "calories_model_training",
   "status": "SUCCESS",
+  "run_id": "0727d24905cf4f41865f240653b7db0c",
   "metric_results": {
     "mean_squared_error": {
       "direction": "minimize",
@@ -15,50 +16,56 @@
       },
       "model_type": "gradient_boosting",
       "model_path": "D:\\NutritionAI_V1\\Artifacts\\data\\ml_calories\\models\\best_model_mean_squared_error.pkl",
+      "inference_pipeline_path": "Artifacts\\data\\ml_calories\\models\\best_model_mean_squared_error_pipeline.pkl",
+      "mlflow_model_uri": "models:/m-3096288246194d789d10e8224a243089",
       "trials": {
-        "total": 20,
-        "completed": 14,
-        "pruned": 6,
+        "total": 80,
+        "completed": 50,
+        "pruned": 30,
         "failed": 0
       }
     },
     "r2_score": {
       "direction": "maximize",
-      "best_score": 0.9994355273849155,
+      "best_score": 0.9995674589814993,
       "best_params": {
         "model_name": "gradient_boosting",
         "gradient_boosting.n_estimators": 300,
-        "gradient_boosting.learning_rate": 0.05651684484945384,
-        "gradient_boosting.max_depth": 5,
-        "gradient_boosting.subsample": 0.6971817591368986,
+        "gradient_boosting.learning_rate": 0.0530107587053026,
+        "gradient_boosting.max_depth": 6,
+        "gradient_boosting.subsample": 0.6188721293894442,
         "model_type": "gradient_boosting"
       },
       "model_type": "gradient_boosting",
       "model_path": "D:\\NutritionAI_V1\\Artifacts\\data\\ml_calories\\models\\best_model_r2_score.pkl",
+      "inference_pipeline_path": "Artifacts\\data\\ml_calories\\models\\best_model_r2_score_pipeline.pkl",
+      "mlflow_model_uri": "models:/m-5e9fbb2a9aed41b2b81d161332c2ea08",
       "trials": {
-        "total": 20,
-        "completed": 10,
-        "pruned": 10,
+        "total": 80,
+        "completed": 47,
+        "pruned": 33,
         "failed": 0
       }
     },
     "root_mean_squared_error": {
       "direction": "minimize",
-      "best_score": 1.4846985328281006,
+      "best_score": 1.2996622061969316,
       "best_params": {
         "model_name": "gradient_boosting",
         "gradient_boosting.n_estimators": 300,
-        "gradient_boosting.learning_rate": 0.05651684484945384,
-        "gradient_boosting.max_depth": 5,
-        "gradient_boosting.subsample": 0.6971817591368986,
+        "gradient_boosting.learning_rate": 0.0530107587053026,
+        "gradient_boosting.max_depth": 6,
+        "gradient_boosting.subsample": 0.6188721293894442,
         "model_type": "gradient_boosting"
       },
       "model_type": "gradient_boosting",
       "model_path": "D:\\NutritionAI_V1\\Artifacts\\data\\ml_calories\\models\\best_model_root_mean_squared_error.pkl",
+      "inference_pipeline_path": "Artifacts\\data\\ml_calories\\models\\best_model_root_mean_squared_error_pipeline.pkl",
+      "mlflow_model_uri": "models:/m-3152f8306deb4d90aecff37314df23e0",
       "trials": {
-        "total": 20,
-        "completed": 13,
-        "pruned": 7,
+        "total": 80,
+        "completed": 53,
+        "pruned": 27,
         "failed": 0
       }
     }

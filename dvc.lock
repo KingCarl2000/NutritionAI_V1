@@ -17,8 +17,8 @@ stages:
       size: 9361
     - path: src/nutrition_core/logging/mlflow_tracker.py
       hash: md5
-      md5: a2b36c24c259342f027b603f530cd72f
-      size: 9243
+      md5: b6a9adee21ea4b0a26621a2ccfe6f0f5
+      size: 10600
     - path: src/pipelines/ml_pipelines/calories_pred/data_ingest.py
       hash: md5
       md5: f9652bcceea79d260995ba40389e8153
@@ -102,7 +102,7 @@ stages:
       nfiles: 4
     - path: Artifacts/reports/ml_calories/ingestion/ingestion_report.json
       hash: md5
-      md5: 0662716e2ecd85d51e0a085c58756588
+      md5: 48ffa0d9c5219b1e0c0619929ca1c446
       size: 449
   calories_validate:
     cmd: python src/pipelines/ml_pipelines/calories_pred/data_val.py
@@ -137,8 +137,8 @@ stages:
       size: 9361
     - path: src/nutrition_core/logging/mlflow_tracker.py
       hash: md5
-      md5: a2b36c24c259342f027b603f530cd72f
-      size: 9243
+      md5: b6a9adee21ea4b0a26621a2ccfe6f0f5
+      size: 10600
     - path: src/nutrition_core/pandera/api/base.py
       hash: md5
       md5: a5294f06fe8f05dc02889c5664e18520
@@ -346,8 +346,8 @@ stages:
       size: 9361
     - path: src/nutrition_core/logging/mlflow_tracker.py
       hash: md5
-      md5: a2b36c24c259342f027b603f530cd72f
-      size: 9243
+      md5: b6a9adee21ea4b0a26621a2ccfe6f0f5
+      size: 10600
     - path: src/pipelines/ml_pipelines/calories_pred/data_trans.py
       hash: md5
       md5: 71bbb472a3b8f36cf6d4563d5533070e
@@ -419,8 +419,8 @@ stages:
     outs:
     - path: Artifacts/data/ml_calories/transformed
       hash: md5
-      md5: 7c04f47cf21459d5260a68a1ddfb8cb2.dir
-      size: 1651089
+      md5: 8458fba0271182fdc1cf0cc61a955b3c.dir
+      size: 1651086
       nfiles: 4
     - path: 
         Artifacts/reports/ml_calories/transformation/transformation_report.json
@@ -432,8 +432,8 @@ stages:
     deps:
     - path: Artifacts/data/ml_calories/transformed/preprocessing.pkl
       hash: md5
-      md5: 1b3b828b42e693c26efe9b4747ec4c01
-      size: 570705
+      md5: d348980919c5ba31cad1c9ea973d7670
+      size: 570702
     - path: Artifacts/data/ml_calories/transformed/train.npy
       hash: md5
       md5: 5f4eb05326d700ca5fad604ea4ce9b63
@@ -461,8 +461,8 @@ stages:
       size: 9361
     - path: src/pipelines/ml_pipelines/calories_pred/model_train.py
       hash: md5
-      md5: 0cbe59ae691c1f4b2c108c6f344e93b1
-      size: 8555
+      md5: 30ac6c6b37035d56a9890af642f2b298
+      size: 12821
     - path: utils/ml_utils/model/model_factory.py
       hash: md5
       md5: 62287880cac95c035f587f94dac507ee
@@ -474,10 +474,61 @@ stages:
     outs:
     - path: Artifacts/data/ml_calories/models
       hash: md5
-      md5: d1bf05a2507d0316c560b30a047e239e.dir
-      size: 5321355
-      nfiles: 3
+      md5: 994ba50d84a3f74c9c7d207a48a862b9.dir
+      size: 16977067
+      nfiles: 6
     - path: Artifacts/reports/ml_calories/training/training_report.json
       hash: md5
-      md5: 2b0feff3782313ddd5a2be9ef5d51c4c
-      size: 2879
+      md5: d7bd5ca3627f8ec2136642ce0dfedd73
+      size: 3496
+  calories_package:
+    cmd: python src/pipelines/ml_pipelines/calories_pred/model_package.py
+    deps:
+    - path: 
+        Artifacts/data/ml_calories/models/best_model_mean_squared_error_pipeline.pkl
+      hash: md5
+      md5: d93fe81870b1427886c378e6ac989748
+      size: 3140960
+    - path: Artifacts/data/ml_calories/models/best_model_r2_score_pipeline.pkl
+      hash: md5
+      md5: 70fbf48463ce7cae5f03cf57e4389318
+      size: 3101776
+    - path: 
+        Artifacts/data/ml_calories/models/best_model_root_mean_squared_error_pipeline.pkl
+      hash: md5
+      md5: 70fbf48463ce7cae5f03cf57e4389318
+      size: 3101776
+    - path: Artifacts/reports/ml_calories/training/training_report.json
+      hash: md5
+      md5: d7bd5ca3627f8ec2136642ce0dfedd73
+      size: 3496
+    - path: config/pipelines/ml_calories/bentofile.yaml
+      hash: md5
+      md5: e67befe354c5cef2f2336f106750a984
+      size: 74
+    - path: requirements/base.txt
+      hash: md5
+      md5: 424f1633e634d4371b4242d0ec70015f
+      size: 892
+    - path: requirements/ml.txt
+      hash: md5
+      md5: 9e2a6f088781e924be2c6608f87a1069
+      size: 702
+    - path: service.py
+      hash: md5
+      md5: 5a39c107f44925ff1f99d88e502c77af
+      size: 2943
+    - path: src/pipelines/ml_pipelines/calories_pred/model_package.py
+      hash: md5
+      md5: 4fa955ceb5050b330b98f212f271f6f8
+      size: 2217
+    - path: src/pipelines/ml_pipelines/calories_pred/model_register.py
+      hash: md5
+      md5: a351dfd43efb052e722ed978b9b0edbd
+      size: 3311
+    outs:
+    - path: Artifacts/data/ml_calories/bentoml
+      hash: md5
+      md5: 534a1e1a8a35fe0c57b5b918f38b611f.dir
+      size: 9372708
+      nfiles: 21

@@ -229,6 +229,15 @@ def run_training(cfg: DictConfig) -> Dict[str, Any]:
                     ("model", best_wrapper.estimator),
                 ]
             )
+            inference_pipeline_path = metric_model_path.with_name(
+                f"{metric_model_path.stem}_pipeline{metric_model_path.suffix}"
+            )
+            inference_pipeline_path.parent.mkdir(parents=True, exist_ok=True)
+            joblib.dump(model_pipeline, inference_pipeline_path)
+            try:
+                report_pipeline_path = inference_pipeline_path.relative_to(PROJECT_ROOT)
+            except ValueError:
+                report_pipeline_path = inference_pipeline_path
             input_example = _build_raw_input_example(preprocessor)
             signature = infer_signature(
                 input_example,
@@ -248,6 +257,7 @@ def run_training(cfg: DictConfig) -> Dict[str, Any]:
                 "best_params": best_params,
                 "model_type": best_wrapper.model_name,
                 "model_path": str(metric_model_path),
+                "inference_pipeline_path": str(report_pipeline_path),
                 "mlflow_model_uri": model_info.model_uri,
                 "trials": {
                     "total": len(study.trials),

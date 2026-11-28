@@ -1,6 +1,6 @@
 {
     "pipeline_name": "calories_ingestion",
-    "timestamp": "2026-11-21T16:25:06.295109",
+    "timestamp": "2026-11-24T14:25:29.621677",
     "parameters": {
         "train_ratio": 0.7,
         "test_ratio": 0.15,

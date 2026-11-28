@@ -1,0 +1,92 @@
+# ==============================================================================
+
+# .bentoignore - Exclude non-runtime files from BentoML build context
+
+# ==============================================================================
+
+# 1. Virtual Environments (Primary cause of multi-GB Bento bloat)
+
+venv/
+.venv/
+env/
+ENV/
+.conda/
+
+# 2. Experiment Tracking & MLOps Metadata (Model is fetched from BentoML Store)
+
+mlruns/
+mlartifacts/
+mlflow.db
+.dvc/
+*.dvc
+
+# 3. Datasets & Local Databases
+
+data/
+datasets/
+*.csv
+*.parquet
+*.feather
+*.xlsx
+*.db
+*.sqlite
+*.sqlite3
+
+# 4. Local Model Checkpoints & Weights (Managed separately via BentoModel)
+
+models/
+checkpoints/
+weights/
+*.pt
+*.pth
+*.bin
+*.safetensors
+*.gguf
+*.onnx
+*.pkl
+*.joblib
+*.h5
+
+# 5. Jupyter Notebooks, Logs & Documentation
+
+notebooks/
+*.ipynb
+logs/
+*.log
+docs/
+*.md
+
+# 6. Python Bytecode, Caches & Test Artifacts
+
+pycache/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
+dist/
+build/
+
+# 7. Version Control, IDEs & OS Files
+
+.git/
+.github/
+.gitignore
+.gitattributes
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# 8. Local Infrastructure & Environment Secrets
+
+.env
+.env.*
+docker-compose*.yml
+Dockerfile*
+.dockerignore

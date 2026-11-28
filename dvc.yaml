@@ -82,3 +82,18 @@ stages:
     metrics:
     - Artifacts/reports/ml_calories/training/training_report.json:
         cache: false
+  calories_package:
+    cmd: python src/pipelines/ml_pipelines/calories_pred/model_package.py
+    deps:
+    - Artifacts/data/ml_calories/models/best_model_mean_squared_error_pipeline.pkl
+    - Artifacts/data/ml_calories/models/best_model_r2_score_pipeline.pkl
+    - Artifacts/data/ml_calories/models/best_model_root_mean_squared_error_pipeline.pkl
+    - Artifacts/reports/ml_calories/training/training_report.json
+    - config/pipelines/ml_calories/bentofile.yaml
+    - requirements/base.txt
+    - requirements/ml.txt
+    - service.py
+    - src/pipelines/ml_pipelines/calories_pred/model_package.py
+    - src/pipelines/ml_pipelines/calories_pred/model_register.py
+    outs:
+    - Artifacts/data/ml_calories/bentoml
